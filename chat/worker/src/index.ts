@@ -9,13 +9,15 @@ const MAX_GOSSIP_ROOMS = 200;
 
 const GENESIS_WORKERS = [
     'https://lionsun-node1.lionsun.workers.dev/',
-    'https://node1.dnscloak.net'
+    'https://node1.dnscloak.net',
+    'https://app.dnscloak.net'
 ];
 
 interface Env {
   SOS_ROOM: DurableObjectNamespace;
   SOS_RATE: DurableObjectNamespace;
   SOS_DIRECTORY: DurableObjectNamespace;
+  ASSETS: Fetcher;
 }
 
 type RoomMode = 'fixed';
@@ -206,7 +208,7 @@ export default {
     }
 
     if (url.pathname === '/') {
-      return textResponse('SOS Chat relay is running.');
+      return env.ASSETS.fetch(request);
     }
 
     if (url.pathname === '/workers' && request.method === 'GET') {
@@ -333,7 +335,8 @@ export default {
       });
     }
 
-    return jsonResponse({ error: 'not_found' }, 404);
+    // Fall through to static assets (React SPA)
+    return env.ASSETS.fetch(request);
   }
 };
 

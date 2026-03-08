@@ -2,6 +2,15 @@ name = "dnscloak-sos-chat"
 main = "src/index.ts"
 compatibility_date = "2026-02-02"
 
+routes = [
+  { pattern = "app.dnscloak.net", custom_domain = true }
+]
+
+[assets]
+directory = "../app/dist"
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+
 [durable_objects]
 bindings = [
   { name = "SOS_ROOM", class_name = "SOSRoom" },

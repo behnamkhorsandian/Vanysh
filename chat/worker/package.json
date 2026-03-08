@@ -1,0 +1,15 @@
+{
+  "name": "dnscloak-sos-worker",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:app": "cd ../app && npm install && npm run build",
+    "deploy": "npm run build:app && wrangler deploy",
+    "dev": "npm run build:app && wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.109.0"
+  }
+}

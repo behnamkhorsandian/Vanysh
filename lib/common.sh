@@ -269,12 +269,28 @@ user_exists() {
     fi
 }
 
+# Validate username
+# Returns 1 if username contains dangerous characters or is too long
+validate_username() {
+    local username="$1"
+    [[ -z "$username" ]] && return 1
+    [[ ${#username} -gt 128 ]] && return 1
+    # Reject newlines, null bytes, control characters
+    [[ "$username" == *$'\n'* ]] && return 1
+    [[ "$username" == *$'\r'* ]] && return 1
+    [[ "$username" == *$'\0'* ]] && return 1
+    return 0
+}
+
 # Add user with protocol credentials
 # Usage: user_add "username" "protocol" '{"key":"value"}'
 user_add() {
     local username="$1"
-    local protocol="$2"
-    local creds="$3"
+    local protocol="${2:-}"
+    local creds="${3:-}"
+    
+    validate_username "$username" || return 1
+    
     local now
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
@@ -288,12 +304,35 @@ user_add() {
             "$DNSCLOAK_USERS" > "$tmp" && mv "$tmp" "$DNSCLOAK_USERS"
     fi
     
-    # Add protocol credentials
+    # Add protocol credentials if provided
+    if [[ -n "$protocol" && -n "$creds" ]]; then
+        local tmp
+        tmp=$(mktemp)
+        jq ".users[\"$username\"].protocols[\"$protocol\"] = $creds" \
+            "$DNSCLOAK_USERS" > "$tmp" && mv "$tmp" "$DNSCLOAK_USERS"
+    fi
+    
+    chmod 600 "$DNSCLOAK_USERS"
+}
+
+# Set/update protocol credentials for existing user
+# Usage: user_set "username" "protocol" '{"key":"value"}'
+user_set() {
+    local username="$1"
+    local protocol="$2"
+    local creds="$3"
+    
+    users_init
+    
+    # Create user if needed
+    if ! user_exists "$username"; then
+        user_add "$username"
+    fi
+    
     local tmp
     tmp=$(mktemp)
     jq ".users[\"$username\"].protocols[\"$protocol\"] = $creds" \
         "$DNSCLOAK_USERS" > "$tmp" && mv "$tmp" "$DNSCLOAK_USERS"
-    
     chmod 600 "$DNSCLOAK_USERS"
 }
 
@@ -304,6 +343,11 @@ user_remove() {
     local protocol="${2:-}"
     
     if [[ ! -f "$DNSCLOAK_USERS" ]]; then
+        return 1
+    fi
+    
+    # Check user exists before removing
+    if ! user_exists "$username"; then
         return 1
     fi
     

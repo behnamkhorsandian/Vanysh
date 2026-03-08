@@ -3,7 +3,7 @@ export const SOS_CONFIG = {
       'https://lionsun-node1.lionsun.workers.dev',
       'https://node1.dnscloak.net'
   ],
-  RELAY_URL: 'https://node1.dnscloak.net',
+  RELAY_URL: 'https://app.dnscloak.net',
   POLL_INTERVAL: 1500,
   PIN_WINDOW: 15,
   ROOM_TTL: 3600,

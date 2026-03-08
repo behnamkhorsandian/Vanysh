@@ -64,3 +64,4 @@ workers/.env
 
 # Private configuration files
 VPNS.txt
+sample
