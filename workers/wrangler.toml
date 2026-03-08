@@ -21,6 +21,11 @@ routes = [
 name = "STATS_RELAY"
 class_name = "StatsRelay"
 
+# SosRelay - being deleted, binding kept until migration applies
+[[durable_objects.bindings]]
+name = "SOS_RELAY"
+class_name = "SosRelay"
+
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["StatsRelay"]

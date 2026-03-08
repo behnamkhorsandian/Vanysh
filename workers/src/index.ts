@@ -9,11 +9,19 @@
 // Re-export Durable Object class for stats relay
 export { StatsRelay } from './stats-relay';
 
+// Stub for SosRelay - being deleted via migration v3
+// Remove this export after the delete_classes migration has been applied
+export class SosRelay implements DurableObject {
+  constructor(private state: DurableObjectState, private env: Env) {}
+  async fetch() { return new Response('gone', { status: 410 }); }
+}
+
 const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main';
 
 // Environment bindings
 interface Env {
   STATS_RELAY: DurableObjectNamespace;
+  SOS_RELAY: DurableObjectNamespace;
 }
 
 // Service configurations
