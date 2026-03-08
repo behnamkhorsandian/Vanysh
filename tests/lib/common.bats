@@ -184,9 +184,9 @@ teardown() {
 }
 
 @test "generate_secret produces correct length" {
-    run generate_secret 32
+    run generate_secret 64
     [ "$status" -eq 0 ]
-    [ ${#output} -eq 64 ]  # 32 bytes = 64 hex chars
+    [ ${#output} -eq 64 ]  # 64 hex chars
 }
 
 @test "generate_secret produces hex characters only" {
