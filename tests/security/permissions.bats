@@ -117,10 +117,8 @@ get_permissions() {
 # =============================================================================
 
 @test "SECURITY: generated secrets use /dev/urandom" {
-    # Verify generate_secret uses secure random source
-    # This is a code audit test - checking the implementation
-    
-    local impl=$(grep -A5 "generate_secret" "$BATS_TEST_DIRNAME/../../lib/common.sh" | head -10)
+    # Verify generate_secret (or its underlying random_hex) uses secure random source
+    local impl=$(grep -A5 "random_hex\|generate_secret" "$BATS_TEST_DIRNAME/../../lib/common.sh" | head -20)
     
     # Should contain /dev/urandom, not /dev/random (blocking) or $RANDOM (insecure)
     [[ "$impl" == *"/dev/urandom"* ]] || [[ "$impl" == *"openssl rand"* ]]

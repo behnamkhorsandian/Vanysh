@@ -7,10 +7,10 @@
 # Version
 DNSCLOAK_VERSION="2.0.0"
 
-# Paths
-DNSCLOAK_DIR="/opt/dnscloak"
-DNSCLOAK_USERS="$DNSCLOAK_DIR/users.json"
-DNSCLOAK_BIN="/usr/local/bin/dnscloak"
+# Paths (respect environment overrides for testing)
+DNSCLOAK_DIR="${DNSCLOAK_DIR:-/opt/dnscloak}"
+DNSCLOAK_USERS="${DNSCLOAK_USERS:-$DNSCLOAK_DIR/users.json}"
+DNSCLOAK_BIN="${DNSCLOAK_BIN:-/usr/local/bin/dnscloak}"
 GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main"
 
 #-------------------------------------------------------------------------------

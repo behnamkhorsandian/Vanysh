@@ -13,7 +13,7 @@ if [[ -z "$DNSCLOAK_DIR" ]]; then
     source "$SCRIPT_DIR/common.sh"
 fi
 
-XRAY_CONFIG="$DNSCLOAK_DIR/xray/config.json"
+XRAY_CONFIG="${XRAY_CONFIG:-$DNSCLOAK_DIR/xray/config.json}"
 XRAY_BIN="/usr/local/bin/xray"
 
 #-------------------------------------------------------------------------------
