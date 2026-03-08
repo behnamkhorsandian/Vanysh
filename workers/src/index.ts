@@ -1,8 +1,9 @@
 /**
- * DNSCloak - Multi-Service Cloudflare Worker
- * 
- * Serves installation scripts for all DNSCloak services
- * Routes based on subdomain: reality.dnscloak.net, wg.dnscloak.net, etc.
+ * DNSCloak - Unified Cloudflare Worker
+ *
+ * Main entry point: start.dnscloak.net -> serves start.sh (unified installer)
+ * Per-protocol shortcuts: reality.dnscloak.net -> start.sh with DNSCLOAK_PROTOCOL="reality"
+ * Stats relay: stats.dnscloak.net -> Durable Object
  */
 
 // Re-export Durable Object class for stats relay
@@ -19,7 +20,6 @@ interface Env {
 interface ServiceConfig {
   name: string;
   description: string;
-  script: string;
   clientApps: Record<string, string>;
 }
 
@@ -27,7 +27,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   mtp: {
     name: 'MTProto Proxy',
     description: 'Telegram proxy with Fake-TLS support',
-    script: 'setup.sh', // Legacy path for MTP
     clientApps: {
       note: 'Built into Telegram - just click the link!',
     },
@@ -35,7 +34,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   reality: {
     name: 'VLESS + REALITY',
     description: 'Advanced proxy with TLS camouflage. No domain needed.',
-    script: 'services/reality/install.sh',
     clientApps: {
       ios: 'https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532',
       android: 'https://play.google.com/store/apps/details?id=app.hiddify.com',
@@ -46,7 +44,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   wg: {
     name: 'WireGuard',
     description: 'Fast VPN tunnel with native app support.',
-    script: 'services/wg/install.sh',
     clientApps: {
       ios: 'https://apps.apple.com/app/wireguard/id1441195209',
       android: 'https://play.google.com/store/apps/details?id=com.wireguard.android',
@@ -57,7 +54,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   vray: {
     name: 'VLESS + TLS',
     description: 'Classic V2Ray setup. Requires domain with certificate.',
-    script: 'services/vray/install.sh',
     clientApps: {
       ios: 'https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532',
       android: 'https://play.google.com/store/apps/details?id=app.hiddify.com',
@@ -68,7 +64,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   ws: {
     name: 'VLESS + WebSocket + CDN',
     description: 'Route through Cloudflare CDN. Hides server IP.',
-    script: 'services/ws/install.sh',
     clientApps: {
       ios: 'https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532',
       android: 'https://play.google.com/store/apps/details?id=app.hiddify.com',
@@ -79,7 +74,6 @@ const SERVICES: Record<string, ServiceConfig> = {
   dnstt: {
     name: 'DNS Tunnel',
     description: 'Emergency backup for total blackouts. Very slow.',
-    script: 'services/dnstt/install.sh',
     clientApps: {
       note: 'Requires native client binary.',
       setup: 'https://dnstt.dnscloak.net/client',
@@ -88,21 +82,49 @@ const SERVICES: Record<string, ServiceConfig> = {
   conduit: {
     name: 'Conduit (Psiphon Relay)',
     description: 'Volunteer relay node for Psiphon network. Help users in censored regions.',
-    script: 'services/conduit/install.sh',
     clientApps: {
       note: 'No client needed. Users connect via Psiphon apps.',
       psiphon: 'https://psiphon.ca/download.html',
     },
   },
-  sos: {
-    name: 'SOS Emergency Chat',
-    description: 'Encrypted chat rooms over DNS tunnel. Auto-wipes after 1 hour. For emergencies.',
-    script: 'services/sos/install.sh',
-    clientApps: {
-      note: 'TUI client launches automatically after install.',
-    },
-  },
 };
+
+/**
+ * Fetch start.sh from GitHub and optionally prepend DNSCLOAK_PROTOCOL env var.
+ */
+async function serveStartScript(protocol?: string): Promise<Response> {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  try {
+    const scriptUrl = `${GITHUB_RAW}/start.sh`;
+    const response = await fetch(scriptUrl);
+
+    if (!response.ok) {
+      return new Response('Script not found', { status: 404 });
+    }
+
+    let script = await response.text();
+
+    // For per-protocol shortcuts, prepend export so start.sh auto-selects the protocol
+    if (protocol) {
+      script = `export DNSCLOAK_PROTOCOL="${protocol}"\n${script}`;
+    }
+
+    return new Response(script, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
+  } catch {
+    return new Response('Error fetching script', { status: 502 });
+  }
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -113,17 +135,17 @@ export default {
     if (hostname === 'dnscloak.net') {
       return Response.redirect('https://www.dnscloak.net/', 301);
     }
-    
-    // Extract service from subdomain (e.g., "reality" from "reality.dnscloak.net")
-    const service = hostname.split('.')[0];
+
+    // Extract subdomain (e.g., "reality" from "reality.dnscloak.net")
+    const subdomain = hostname.split('.')[0];
 
     // Route stats subdomain to Durable Object
-    if (service === 'stats') {
+    if (subdomain === 'stats') {
       const id = env.STATS_RELAY.idFromName('singleton');
       const stub = env.STATS_RELAY.get(id);
       return stub.fetch(request);
     }
-    
+
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
@@ -136,24 +158,25 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Health check
+    // Health check (any subdomain)
     if (url.pathname === '/health') {
       return Response.json({
         status: 'ok',
-        service: service,
+        subdomain,
         timestamp: Date.now(),
       }, { headers: corsHeaders });
     }
 
-    // Get service config
-    const config = SERVICES[service];
-    if (!config) {
-      return new Response(`Unknown service: ${service}`, { status: 404 });
+    // Main entry point: start.dnscloak.net -> serves start.sh (no protocol preset)
+    if (subdomain === 'start') {
+      return serveStartScript();
     }
 
-    // Info page (for browsers)
-    if (url.pathname === '/info') {
-      return new Response(getInfoPage(service, config), {
+    // Per-protocol info page
+    const config = SERVICES[subdomain];
+
+    if (config && url.pathname === '/info') {
+      return new Response(getInfoPage(subdomain, config), {
         headers: {
           ...corsHeaders,
           'Content-Type': 'text/html; charset=utf-8',
@@ -162,16 +185,16 @@ export default {
     }
 
     // Version endpoint
-    if (url.pathname === '/version') {
+    if (config && url.pathname === '/version') {
       return Response.json({
-        service: service,
+        service: subdomain,
         name: config.name,
         repo: 'https://github.com/behnamkhorsandian/DNSCloak',
       }, { headers: corsHeaders });
     }
 
     // DNSTT client setup page
-    if (service === 'dnstt' && url.pathname === '/client') {
+    if (subdomain === 'dnstt' && url.pathname === '/client') {
       const pubkey = url.searchParams.get('key') || '';
       const domain = url.searchParams.get('domain') || 't.example.com';
       return new Response(getDnsttClientPage(pubkey, domain), {
@@ -183,20 +206,20 @@ export default {
     }
 
     // DNSTT one-liner scripts for different platforms
-    if (service === 'dnstt' && url.pathname.startsWith('/setup/')) {
-      const platform = url.pathname.split('/')[2]; // /setup/linux, /setup/macos, /setup/windows
+    if (subdomain === 'dnstt' && url.pathname.startsWith('/setup/')) {
+      const platform = url.pathname.split('/')[2];
       const pubkey = url.searchParams.get('key') || '';
       const domain = url.searchParams.get('domain') || '';
-      
+
       if (!pubkey || !domain) {
         return new Response('Missing key or domain parameter', { status: 400 });
       }
-      
+
       const script = getDnsttSetupScript(platform, pubkey, domain);
       if (!script) {
         return new Response('Unknown platform', { status: 404 });
       }
-      
+
       return new Response(script, {
         headers: {
           ...corsHeaders,
@@ -205,25 +228,13 @@ export default {
       });
     }
 
-    // Default: serve installation script
-    try {
-      const scriptUrl = `${GITHUB_RAW}/${config.script}`;
-      const response = await fetch(scriptUrl);
-      
-      if (!response.ok) {
-        return new Response(`Script not found: ${config.script}`, { status: 404 });
-      }
-      
-      return new Response(await response.text(), {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        },
-      });
-    } catch (error) {
-      return new Response('Error fetching script', { status: 502 });
+    // Per-protocol shortcut: curl -sSL reality.dnscloak.net | sudo bash
+    // Serves start.sh with DNSCLOAK_PROTOCOL pre-set
+    if (config) {
+      return serveStartScript(subdomain);
     }
+
+    return new Response(`Unknown service: ${subdomain}`, { status: 404 });
   },
 };
 
@@ -348,17 +359,22 @@ function getInfoPage(service: string, config: ServiceConfig): string {
     <p class="description">${config.description}</p>
     
     <div class="services">
+      <a href="https://start.dnscloak.net/info">All Protocols</a>
       <a href="https://reality.dnscloak.net/info" ${service === 'reality' ? 'class="active"' : ''}>Reality</a>
       <a href="https://wg.dnscloak.net/info" ${service === 'wg' ? 'class="active"' : ''}>WireGuard</a>
       <a href="https://mtp.dnscloak.net/info" ${service === 'mtp' ? 'class="active"' : ''}>MTProto</a>
       <a href="https://vray.dnscloak.net/info" ${service === 'vray' ? 'class="active"' : ''}>V2Ray</a>
       <a href="https://ws.dnscloak.net/info" ${service === 'ws' ? 'class="active"' : ''}>WS+CDN</a>
       <a href="https://dnstt.dnscloak.net/info" ${service === 'dnstt' ? 'class="active"' : ''}>DNStt</a>
+      <a href="https://conduit.dnscloak.net/info" ${service === 'conduit' ? 'class="active"' : ''}>Conduit</a>
     </div>
     
     <div class="install-box">
       <h2>Install on your VPS</h2>
+      <p style="color:#8b949e;margin-bottom:10px;">Install this protocol directly:</p>
       <code>curl -sSL ${service}.dnscloak.net | sudo bash</code>
+      <p style="color:#8b949e;margin-top:15px;">Or install the full menu:</p>
+      <code>curl -sSL start.dnscloak.net | sudo bash</code>
     </div>
     
     <div class="apps">

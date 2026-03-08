@@ -466,13 +466,44 @@ service_installed() {
             grep -q "\"tag\": \"${service}-in\"" "$DNSCLOAK_DIR/xray/config.json" 2>/dev/null
             ;;
         mtp)
-            [[ -f "$DNSCLOAK_DIR/mtp/config.py" ]]
+            [[ -f "$DNSCLOAK_DIR/mtp/config.py" ]] || \
+            systemctl is-active --quiet mtprotoproxy 2>/dev/null || \
+            systemctl is-active --quiet telegram-proxy 2>/dev/null
             ;;
         wg)
             [[ -f "$DNSCLOAK_DIR/wg/wg0.conf" ]]
             ;;
         dnstt)
             [[ -f "$DNSCLOAK_DIR/dnstt/server.key" ]]
+            ;;
+        conduit)
+            docker ps -a 2>/dev/null | grep -q conduit
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Check if service is running
+service_running() {
+    local service="$1"
+    case "$service" in
+        reality|vray|ws)
+            systemctl is-active --quiet xray 2>/dev/null
+            ;;
+        mtp)
+            systemctl is-active --quiet mtprotoproxy 2>/dev/null || \
+            systemctl is-active --quiet telegram-proxy 2>/dev/null
+            ;;
+        wg)
+            systemctl is-active --quiet wg-quick@wg0 2>/dev/null
+            ;;
+        dnstt)
+            systemctl is-active --quiet dnstt 2>/dev/null
+            ;;
+        conduit)
+            docker ps 2>/dev/null | grep -q conduit
             ;;
         *)
             return 1
@@ -483,10 +514,351 @@ service_installed() {
 # List installed services
 services_list() {
     local services=""
-    for svc in reality vray ws mtp wg dnstt; do
+    for svc in reality vray ws mtp wg dnstt conduit; do
         if service_installed "$svc"; then
             services="$services $svc"
         fi
     done
     echo "$services" | xargs
+}
+
+#-------------------------------------------------------------------------------
+# TUI Functions (Interactive Terminal UI)
+# Uses /dev/tty for keyboard input (works when piped from curl)
+#-------------------------------------------------------------------------------
+
+# Terminal state variables
+_TUI_ACTIVE=0
+_TUI_OLD_STTY=""
+
+# Initialize TUI mode - save terminal state, enter raw mode
+tui_init() {
+    if [[ $_TUI_ACTIVE -eq 1 ]]; then
+        return 0
+    fi
+    
+    # Open /dev/tty for keyboard input (fd 3)
+    exec 3</dev/tty 2>/dev/null || {
+        # Fallback: can't open tty, use basic input
+        return 1
+    }
+    
+    # Save terminal settings
+    _TUI_OLD_STTY=$(stty -g <&3 2>/dev/null)
+    
+    # Hide cursor
+    printf '\033[?25l'
+    
+    _TUI_ACTIVE=1
+}
+
+# Restore terminal state
+tui_cleanup() {
+    if [[ $_TUI_ACTIVE -eq 0 ]]; then
+        return 0
+    fi
+    
+    # Restore terminal settings
+    if [[ -n "$_TUI_OLD_STTY" ]]; then
+        stty "$_TUI_OLD_STTY" <&3 2>/dev/null
+    fi
+    
+    # Show cursor
+    printf '\033[?25h'
+    
+    # Close fd 3
+    exec 3<&- 2>/dev/null
+    
+    _TUI_ACTIVE=0
+}
+
+# Read a single keypress (supports arrow keys)
+# Outputs: UP, DOWN, LEFT, RIGHT, ENTER, or the character pressed
+tui_read_key() {
+    local c1 c2 c3
+    
+    # Set raw mode for single char reads
+    stty -echo -icanon min 1 time 0 <&3 2>/dev/null
+    
+    # Read first character
+    IFS= read -rsn1 c1 <&3
+    
+    # Restore cooked mode
+    stty echo icanon <&3 2>/dev/null
+    
+    # Handle special keys
+    if [[ "$c1" == $'\033' ]]; then
+        # Escape sequence - read more
+        stty -echo -icanon min 1 time 0 <&3 2>/dev/null
+        IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
+        if [[ "$c2" == "[" ]]; then
+            IFS= read -rsn1 -t 0.1 c3 <&3 2>/dev/null || true
+            stty echo icanon <&3 2>/dev/null
+            case "$c3" in
+                A) echo "UP";    return ;;
+                B) echo "DOWN";  return ;;
+                C) echo "RIGHT"; return ;;
+                D) echo "LEFT";  return ;;
+            esac
+        fi
+        stty echo icanon <&3 2>/dev/null
+        echo "ESC"
+        return
+    fi
+    
+    # Enter key
+    if [[ "$c1" == "" ]]; then
+        echo "ENTER"
+        return
+    fi
+    
+    echo "$c1"
+}
+
+# Draw a box with title
+# Usage: tui_box "Title" width
+tui_box_top() {
+    local title="$1"
+    local width="${2:-50}"
+    local inner=$((width - 2))
+    
+    printf "  ${CYAN}\u2554"
+    if [[ -n "$title" ]]; then
+        local tlen=${#title}
+        local pad=$(( (inner - tlen - 2) / 2 ))
+        local pad2=$(( inner - tlen - 2 - pad ))
+        printf '%0.s\u2550' $(seq 1 "$pad")
+        printf " %s " "$title"
+        printf '%0.s\u2550' $(seq 1 "$pad2")
+    else
+        printf '%0.s\u2550' $(seq 1 "$inner")
+    fi
+    printf "\u2557${RESET}\n"
+}
+
+tui_box_row() {
+    local text="$1"
+    local width="${2:-50}"
+    local inner=$((width - 2))
+    
+    # Strip ANSI codes for length calculation
+    local stripped
+    stripped=$(echo -e "$text" | sed 's/\x1b\[[0-9;]*m//g')
+    local tlen=${#stripped}
+    local pad=$((inner - tlen))
+    
+    printf "  ${CYAN}\u2551${RESET} %b" "$text"
+    printf '%*s' "$pad" ""
+    printf "${CYAN}\u2551${RESET}\n"
+}
+
+tui_box_sep() {
+    local width="${1:-50}"
+    local inner=$((width - 2))
+    
+    printf "  ${CYAN}\u2560"
+    printf '%0.s\u2550' $(seq 1 "$inner")
+    printf "\u2563${RESET}\n"
+}
+
+tui_box_bottom() {
+    local width="${1:-50}"
+    local inner=$((width - 2))
+    
+    printf "  ${CYAN}\u255A"
+    printf '%0.s\u2550' $(seq 1 "$inner")
+    printf "\u255D${RESET}\n"
+}
+
+tui_box_empty() {
+    local width="${1:-50}"
+    local inner=$((width - 2))
+    
+    printf "  ${CYAN}\u2551${RESET}%*s${CYAN}\u2551${RESET}\n" "$inner" ""
+}
+
+# Draw an interactive menu and return the selected index
+# Usage: tui_menu "Title" selected_var item1 item2 item3 ...
+# Items can contain | separator: "label|tag|status"
+# Returns: sets the variable named by selected_var to the chosen index (0-based)
+tui_menu() {
+    local title="$1"
+    local result_var="$2"
+    shift 2
+    local items=("$@")
+    local count=${#items[@]}
+    local selected=0
+    local width=52
+    
+    if [[ $count -eq 0 ]]; then
+        return 1
+    fi
+    
+    # Initialize TUI if not already active
+    local tui_was_active=$_TUI_ACTIVE
+    tui_init || {
+        # Fallback to number-based selection
+        echo ""
+        echo -e "  ${BOLD}${WHITE}$title${RESET}"
+        print_line
+        local i=1
+        for item in "${items[@]}"; do
+            local label="${item%%|*}"
+            echo "  $i) $label"
+            ((i++))
+        done
+        echo ""
+        get_input "Select [1-$count]" "1" _tui_choice
+        eval "$result_var=$((_tui_choice - 1))"
+        return 0
+    }
+    
+    # Trap to cleanup on exit
+    trap 'tui_cleanup' EXIT INT TERM
+    
+    while true; do
+        # Move cursor to draw position (use relative positioning)
+        printf '\033[2J\033[H'  # Clear screen, move to top
+        
+        # Print banner
+        echo -e "${CYAN}"
+        load_banner "logo" 2>/dev/null || echo "  DNSCloak v${DNSCLOAK_VERSION}"
+        echo -e "${RESET}"
+        echo ""
+        
+        # Draw menu box
+        tui_box_top "$title" "$width"
+        tui_box_empty "$width"
+        
+        local i=0
+        for item in "${items[@]}"; do
+            # Parse item: "label|tag|status"
+            local label="${item%%|*}"
+            local rest="${item#*|}"
+            local tag="${rest%%|*}"
+            local status=""
+            if [[ "$rest" == *"|"* ]]; then
+                status="${rest##*|}"
+            fi
+            
+            # Build display line
+            local prefix="   "
+            local line_color="${RESET}"
+            
+            if [[ $i -eq $selected ]]; then
+                prefix=" ${GREEN}>${RESET}"
+                line_color="${GREEN}${BOLD}"
+            fi
+            
+            local display="${prefix} ${line_color}${label}${RESET}"
+            
+            # Add status badge
+            if [[ -n "$status" ]]; then
+                case "$status" in
+                    installed)  display="${display}  ${GREEN}[installed]${RESET}" ;;
+                    running)    display="${display}  ${GREEN}[running]${RESET}" ;;
+                    stopped)    display="${display}  ${YELLOW}[stopped]${RESET}" ;;
+                    required)   display="${display}  ${YELLOW}(needs domain)${RESET}" ;;
+                    recommended) display="${display}  ${CYAN}(recommended)${RESET}" ;;
+                    emergency)  display="${display}  ${RED}(emergency)${RESET}" ;;
+                    relay)      display="${display}  ${MAGENTA}(relay)${RESET}" ;;
+                esac
+            fi
+            
+            tui_box_row "$display" "$width"
+            ((i++))
+        done
+        
+        tui_box_empty "$width"
+        tui_box_sep "$width"
+        tui_box_row " ${GRAY}Up/Down: Navigate  Enter: Select  q: Quit${RESET}" "$width"
+        tui_box_bottom "$width"
+        
+        # Read key
+        local key
+        key=$(tui_read_key)
+        
+        case "$key" in
+            UP)
+                ((selected--))
+                [[ $selected -lt 0 ]] && selected=$((count - 1))
+                ;;
+            DOWN)
+                ((selected++))
+                [[ $selected -ge $count ]] && selected=0
+                ;;
+            ENTER)
+                # Cleanup TUI if we started it
+                if [[ $tui_was_active -eq 0 ]]; then
+                    tui_cleanup
+                fi
+                eval "$result_var=$selected"
+                return 0
+                ;;
+            q|Q)
+                if [[ $tui_was_active -eq 0 ]]; then
+                    tui_cleanup
+                fi
+                eval "$result_var=-1"
+                return 0
+                ;;
+            [1-9])
+                # Number key quick select
+                local num=$((key - 1))
+                if [[ $num -lt $count ]]; then
+                    if [[ $tui_was_active -eq 0 ]]; then
+                        tui_cleanup
+                    fi
+                    eval "$result_var=$num"
+                    return 0
+                fi
+                ;;
+        esac
+    done
+}
+
+# Show a sub-menu for managing a specific service
+# Usage: tui_service_menu "service_name"
+tui_service_submenu() {
+    local title="$1"
+    shift
+    local items=("$@")
+    local result
+    
+    tui_menu "$title" result "${items[@]}"
+    echo "$result"
+}
+
+# Get protocol display name
+protocol_display_name() {
+    case "$1" in
+        reality)  echo "VLESS + REALITY" ;;
+        ws)       echo "VLESS + WS + CDN" ;;
+        wg)       echo "WireGuard" ;;
+        vray)     echo "VLESS + TLS" ;;
+        dnstt)    echo "DNS Tunnel" ;;
+        mtp)      echo "MTProto" ;;
+        conduit)  echo "Conduit (Psiphon)" ;;
+        *)        echo "$1" ;;
+    esac
+}
+
+# Get protocol status for menu display
+protocol_status() {
+    local proto="$1"
+    if service_installed "$proto"; then
+        if service_running "$proto"; then
+            echo "running"
+        else
+            echo "stopped"
+        fi
+    else
+        case "$proto" in
+            reality)  echo "recommended" ;;
+            ws|vray)  echo "required" ;;
+            dnstt)    echo "emergency" ;;
+            conduit)  echo "relay" ;;
+            *)        echo "" ;;
+        esac
+    fi
 }

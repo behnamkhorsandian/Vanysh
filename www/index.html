@@ -1609,7 +1609,7 @@
         <!-- Static Logo removed in favor of morph -->
         
         <div class="header-info">
-          v2.0.0 | <a href="https://github.com/behnamkhorsandian/DNSCloak">github</a> | <a href="#docs" onclick="showDocs(); return false;">docs</a>
+          v2.1.0 | <a href="https://github.com/behnamkhorsandian/DNSCloak">github</a> | <a href="#docs" onclick="showDocs(); return false;">docs</a>
         </div>
       </div>
     </header>
@@ -1653,16 +1653,16 @@
           
           <div class="tui-window">
             <div class="tui-window-header">
-              <span>Quick Install (Conduit - recommended)</span>
+              <span>Quick Install (All Protocols)</span>
               <div class="tui-controls"><span>[</span><span>-</span><span>]</span> <span>[</span><span>□</span><span>]</span> <span>[</span><span>x</span><span>]</span></div>
             </div>
             <div class="tui-body">
               <div class="install-cmd">
-                <code><span class="prompt">$ </span>curl -sSL conduit.dnscloak.net | sudo bash</code>
-                <button class="copy-btn" onclick="copyCommand('curl -sSL conduit.dnscloak.net | sudo bash')">[ COPY ]</button>
+                <code><span class="prompt">$ </span>curl -sSL start.dnscloak.net | sudo bash</code>
+                <button class="copy-btn" onclick="copyCommand('curl -sSL start.dnscloak.net | sudo bash')">[ COPY ]</button>
               </div>
-              <p class="install-note">Turns your machine into a volunteer relay node for Psiphon network.
-                <br>Read more on their <a href="https://conduit.psiphon.ca/" target="_blank" rel="noopener noreferrer">website</a>.</p>
+              <p class="install-note">Launches an interactive menu to install and manage all protocols.
+                <br>Or install a specific protocol: <code style="background:none;padding:0;display:inline;">curl -sSL reality.dnscloak.net | sudo bash</code></p>
             </div>
           </div>
         </div>
@@ -1911,56 +1911,7 @@
               <div class="protocol-cmd"><span class="prompt">$ </span>curl -sSL conduit.dnscloak.net | sudo bash</div>
             </div>
 
-            <div class="protocol-item theme-sos-subtle">
-              <div class="protocol-header">
-                <span class="protocol-icon"><span class="material-symbols-outlined">emergency</span></span>
-                <span class="protocol-name">SOS Emergency Chat</span>
-                <span class="protocol-status status-ready">READY</span>
-              </div>
-              <p class="protocol-desc">Encrypted chat rooms over DNS tunnel. Works during total blackouts. Auto-wipes after 1 hour.</p>
-              <div class="protocol-tags">
-                <span class="tag">emergency</span>
-                <span class="tag">encrypted</span>
-                <span class="tag">dns-tunnel</span>
-              </div>
-              <div class="sos-download-dropdown" id="sos-dropdown">
-                <button class="sos-dropdown-btn" onclick="toggleSosDropdown()">
-                  <span>Download Client...</span>
-                  <span class="material-symbols-outlined">expand_more</span>
-                </button>
-                <div class="sos-dropdown-menu">
-                  <a href="https://github.com/behnamkhorsandian/DNSCloak/releases/latest/download/sos-windows-amd64.exe" class="sos-dropdown-item">
-                    <span class="material-symbols-outlined">desktop_windows</span>
-                    <span>Windows</span>
-                    <span class="dl-info">10/11 (64-bit)</span>
-                  </a>
-                  <a href="https://github.com/behnamkhorsandian/DNSCloak/releases/latest/download/sos-darwin-arm64" class="sos-dropdown-item" onclick="showMacosPopup(event, 'sos-darwin-arm64')">
-                    <span class="material-symbols-outlined">laptop_mac</span>
-                    <span>macOS</span>
-                    <span class="dl-info">Apple Silicon (M-series)</span>
-                  </a>
-                  <a href="https://github.com/behnamkhorsandian/DNSCloak/releases/latest/download/sos-darwin-amd64" class="sos-dropdown-item" onclick="showMacosPopup(event, 'sos-darwin-amd64')">
-                    <span class="material-symbols-outlined">laptop_mac</span>
-                    <span>macOS</span>
-                    <span class="dl-info">Intel (10.13+)</span>
-                  </a>
-                  <a href="https://github.com/behnamkhorsandian/DNSCloak/releases/latest/download/sos-linux-amd64" class="sos-dropdown-item">
-                    <span class="material-symbols-outlined">terminal</span>
-                    <span>Linux</span>
-                    <span class="dl-info">x64 (Ubuntu, Debian, etc.)</span>
-                  </a>
-                  <a href="https://github.com/behnamkhorsandian/DNSCloak/releases/latest/download/sos-linux-arm64" class="sos-dropdown-item">
-                    <span class="material-symbols-outlined">terminal</span>
-                    <span>Linux</span>
-                    <span class="dl-info">ARM64 (Raspberry Pi, etc.)</span>
-                  </a>
-                </div>
-              </div>
-              <a href="http://relay.dnscloak.net:8899/" target="_blank" class="sos-web-link" title="Opens chat relay in new tab">
-                <span class="material-symbols-outlined">open_in_new</span>
-                Open Web Chat
-              </a>
-            </div>
+
 
             <div class="protocol-item">
               <div class="protocol-header">
@@ -2027,7 +1978,7 @@
               <div class="protocol-header">
                 <span class="protocol-icon"><span class="material-symbols-outlined">lock</span></span>
                 <span class="protocol-name">VLESS + TLS</span>
-                <span class="protocol-status status-coming">COMING</span>
+                <span class="protocol-status status-ready">READY</span>
               </div>
               <p class="protocol-desc">Classic V2Ray with real TLS certificate. Requires domain but excellent compatibility.</p>
               <div class="protocol-tags">
@@ -2035,7 +1986,7 @@
                 <span class="tag">lets-encrypt</span>
                 <span class="tag">compatible</span>
               </div>
-              <div class="protocol-cmd disabled"><span class="prompt">$ </span>curl -sSL vray.dnscloak.net | sudo bash</div>
+              <div class="protocol-cmd"><span class="prompt">$ </span>curl -sSL vray.dnscloak.net | sudo bash</div>
             </div>
             
           </div>

@@ -3,7 +3,9 @@
 # DNSCloak - Unified Management CLI
 # https://github.com/behnamkhorsandian/DNSCloak
 #
-# Usage: dnscloak <command> [service] [options]
+# Usage:
+#   dnscloak                         - Interactive TUI menu
+#   dnscloak <command> [service] [options]
 #
 # Commands:
 #   add <service> <username>     - Add user to service
@@ -12,12 +14,13 @@
 #   links <username> [service]   - Show connection links for user
 #   status [service]             - Show service status
 #   restart <service>            - Restart a service
+#   install <service>            - Install a service
+#   manage <service>             - Open service management menu
 #   uninstall <service>          - Uninstall a service
 #   services                     - List installed services
-#   install <service>            - Install a new service
 #   help                         - Show this help
 #
-# Services: reality, ws, wg, dnstt, mtp, vray
+# Services: reality, ws, wg, dnstt, mtp, vray, conduit
 #===============================================================================
 
 set -e
@@ -26,10 +29,15 @@ set -e
 DNSCLOAK_DIR="/opt/dnscloak"
 DNSCLOAK_USERS="$DNSCLOAK_DIR/users.json"
 LIB_DIR="$DNSCLOAK_DIR/lib"
+SERVICES_DIR="$DNSCLOAK_DIR/services"
+BANNERS_DIR="$DNSCLOAK_DIR/banners"
 GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main"
 
 # Version
-VERSION="2.0.0"
+VERSION="2.1.0"
+
+# All protocols
+ALL_PROTOCOLS="reality ws wg dnstt mtp vray conduit"
 
 #-------------------------------------------------------------------------------
 # Source Libraries
@@ -50,6 +58,25 @@ source_libs() {
         source "$LIB_DIR/cloud.sh"
         source "$LIB_DIR/xray.sh" 2>/dev/null || true
     fi
+}
+
+source_service_functions() {
+    local service="$1"
+    local func_file="$SERVICES_DIR/$service/functions.sh"
+
+    if [[ -f "$func_file" ]]; then
+        source "$func_file"
+        return 0
+    fi
+
+    # Download if not on disk
+    mkdir -p "$SERVICES_DIR/$service"
+    if curl -sL "$GITHUB_RAW/services/$service/functions.sh" -o "$func_file" 2>/dev/null; then
+        source "$func_file"
+        return 0
+    fi
+
+    return 1
 }
 
 #-------------------------------------------------------------------------------
@@ -101,10 +128,8 @@ require_root() {
 
 validate_service() {
     local service="$1"
-    local valid_services="reality ws wg dnstt mtp vray conduit"
-    
-    if [[ ! " $valid_services " =~ " $service " ]]; then
-        error "Unknown service: $service. Valid services: $valid_services"
+    if [[ ! " $ALL_PROTOCOLS " =~ " $service " ]]; then
+        error "Unknown service: $service. Valid services: $ALL_PROTOCOLS"
     fi
 }
 
@@ -164,11 +189,8 @@ add_user() {
     local service="$1"
     local username="$2"
     
-    # Conduit doesn't support per-user management
     if [[ "$service" == "conduit" ]]; then
-        error "Conduit is a relay node and doesn't support per-user management.
-       Users connect through Psiphon apps, not directly to your server.
-       Use 'dnscloak status conduit' to check relay status."
+        error "Conduit is a relay node and doesn't support per-user management."
     fi
     
     if [[ -z "$username" ]]; then
@@ -179,23 +201,15 @@ add_user() {
         error "Service '$service' is not installed. Install it first: dnscloak install $service"
     fi
     
-    case "$service" in
-        reality)
-            add_reality_user "$username"
-            ;;
-        ws)
-            add_ws_user "$username"
-            ;;
-        wg)
-            add_wg_user "$username"
-            ;;
-        dnstt)
-            add_dnstt_user "$username"
-            ;;
-        *)
-            error "Add user not implemented for service: $service"
-            ;;
-    esac
+    source_libs
+    source_service_functions "$service" || error "Functions not available for $service"
+
+    local func_name="add_${service}_user"
+    if declare -f "$func_name" >/dev/null 2>&1; then
+        "$func_name" "$username"
+    else
+        error "Add user not implemented for service: $service"
+    fi
 }
 
 # Generic remove user function
@@ -203,10 +217,8 @@ remove_user() {
     local service="$1"
     local username="$2"
     
-    # Conduit doesn't support per-user management
     if [[ "$service" == "conduit" ]]; then
-        error "Conduit is a relay node and doesn't support per-user management.
-       Use 'dnscloak status conduit' to check relay status."
+        error "Conduit is a relay node and doesn't support per-user management."
     fi
     
     if [[ -z "$username" ]]; then
@@ -217,437 +229,47 @@ remove_user() {
         error "Service '$service' is not installed"
     fi
     
-    case "$service" in
-        reality)
-            remove_reality_user "$username"
-            ;;
-        ws)
-            remove_ws_user "$username"
-            ;;
-        wg)
-            remove_wg_user "$username"
-            ;;
-        dnstt)
-            remove_dnstt_user "$username"
-            ;;
-        *)
-            error "Remove user not implemented for service: $service"
-            ;;
-    esac
-}
-
-#-------------------------------------------------------------------------------
-# Service-Specific User Functions
-#-------------------------------------------------------------------------------
-
-# Reality
-add_reality_user() {
-    local username="$1"
     source_libs
-    
-    if user_exists "$username" "reality"; then
-        error "User '$username' already exists in Reality"
-    fi
-    
-    local uuid
-    uuid=$(random_uuid)
-    
-    xray_add_client "reality-in" "$uuid" "${username}@dnscloak" "xtls-rprx-vision"
-    user_add "$username" "reality" "{\"uuid\": \"$uuid\", \"flow\": \"xtls-rprx-vision\"}"
-    xray_reload
-    
-    success "User '$username' added to Reality"
-    echo ""
-    show_reality_links "$username"
-}
+    source_service_functions "$service" || error "Functions not available for $service"
 
-remove_reality_user() {
-    local username="$1"
-    source_libs
-    
-    if ! user_exists "$username" "reality"; then
-        error "User '$username' not found in Reality"
-    fi
-    
-    xray_remove_client "reality-in" "${username}@dnscloak"
-    user_remove "$username" "reality"
-    xray_reload
-    
-    success "User '$username' removed from Reality"
-}
-
-show_reality_links() {
-    local username="$1"
-    source_libs
-    
-    local uuid server_address pubkey target sid
-    uuid=$(user_get "$username" "reality" "uuid")
-    server_address=$(server_get "reality_address")
-    [[ -z "$server_address" || "$server_address" == "null" ]] && server_address=$(server_get "ip")
-    pubkey=$(server_get "reality_public_key")
-    target=$(server_get "reality_target")
-    sid=$(server_get "reality_short_id")
-    
-    local link
-    link="vless://${uuid}@${server_address}:443?type=tcp&security=reality&pbk=${pubkey}&fp=chrome&sni=${target}&sid=${sid}&flow=xtls-rprx-vision#${username}"
-    
-    echo -e "${BOLD}Reality Link for '$username'${RESET}"
-    echo "================================================"
-    echo ""
-    echo -e "${CYAN}$link${RESET}"
-    echo ""
-    
-    if command -v qrencode &>/dev/null; then
-        qrencode -t ANSIUTF8 "$link"
-    fi
-}
-
-# WebSocket
-add_ws_user() {
-    local username="$1"
-    source_libs
-    
-    if user_exists "$username" "ws"; then
-        error "User '$username' already exists in WS"
-    fi
-    
-    local uuid
-    uuid=$(random_uuid)
-    
-    xray_add_client "ws-in" "$uuid" "${username}@dnscloak"
-    user_add "$username" "ws" "{\"uuid\": \"$uuid\"}"
-    xray_reload
-    
-    success "User '$username' added to WS+CDN"
-    echo ""
-    show_ws_links "$username"
-}
-
-remove_ws_user() {
-    local username="$1"
-    source_libs
-    
-    if ! user_exists "$username" "ws"; then
-        error "User '$username' not found in WS"
-    fi
-    
-    xray_remove_client "ws-in" "${username}@dnscloak"
-    user_remove "$username" "ws"
-    xray_reload
-    
-    success "User '$username' removed from WS+CDN"
-}
-
-show_ws_links() {
-    local username="$1"
-    source_libs
-    
-    local uuid domain path
-    uuid=$(user_get "$username" "ws" "uuid")
-    domain=$(server_get "ws_domain")
-    path=$(server_get "ws_path")
-    
-    local link
-    link="vless://${uuid}@${domain}:443?type=ws&security=tls&path=${path}&host=${domain}&sni=${domain}#${username}"
-    
-    echo -e "${BOLD}WS+CDN Link for '$username'${RESET}"
-    echo "================================================"
-    echo ""
-    echo -e "${CYAN}$link${RESET}"
-    echo ""
-    
-    if command -v qrencode &>/dev/null; then
-        qrencode -t ANSIUTF8 "$link"
-    fi
-}
-
-# WireGuard
-add_wg_user() {
-    local username="$1"
-    source_libs
-    
-    if user_exists "$username" "wg"; then
-        error "User '$username' already exists in WireGuard"
-    fi
-    
-    # WireGuard needs full installer for keygen
-    if [[ -f "$DNSCLOAK_DIR/wg/server.pub" ]]; then
-        local server_pub
-        server_pub=$(cat "$DNSCLOAK_DIR/wg/server.pub")
+    local func_name="remove_${service}_user"
+    if declare -f "$func_name" >/dev/null 2>&1; then
+        "$func_name" "$username"
     else
-        error "WireGuard server keys not found. Reinstall WireGuard."
+        error "Remove user not implemented for service: $service"
     fi
-    
-    local client_priv client_pub psk client_ip
-    client_priv=$(wg genkey)
-    client_pub=$(echo "$client_priv" | wg pubkey)
-    psk=$(wg genpsk)
-    
-    # Get next IP
-    local last_octet=1
-    local ips
-    ips=$(jq -r '.users[].protocols.wg.ip // empty' "$DNSCLOAK_USERS" 2>/dev/null | sort -t. -k4 -n | tail -1)
-    if [[ -n "$ips" ]]; then
-        last_octet=$(echo "$ips" | cut -d. -f4)
-    fi
-    ((last_octet++))
-    client_ip="10.66.66.${last_octet}"
-    
-    # Create client config
-    local server_ip wg_port
-    server_ip=$(server_get "ip")
-    wg_port=$(server_get "wg_port")
-    [[ -z "$wg_port" ]] && wg_port=51820
-    
-    mkdir -p "$DNSCLOAK_DIR/wg/peers"
-    cat > "$DNSCLOAK_DIR/wg/peers/${username}.conf" <<EOF
-[Interface]
-PrivateKey = ${client_priv}
-Address = ${client_ip}/32
-DNS = 1.1.1.1, 8.8.8.8
-
-[Peer]
-PublicKey = ${server_pub}
-PresharedKey = ${psk}
-Endpoint = ${server_ip}:${wg_port}
-AllowedIPs = 0.0.0.0/0, ::/0
-PersistentKeepalive = 25
-EOF
-    chmod 600 "$DNSCLOAK_DIR/wg/peers/${username}.conf"
-    
-    # Add peer to server
-    cat >> "$DNSCLOAK_DIR/wg/wg0.conf" <<EOF
-
-# ${username}
-[Peer]
-PublicKey = ${client_pub}
-PresharedKey = ${psk}
-AllowedIPs = ${client_ip}/32
-EOF
-
-    # Save to users.json
-    user_add "$username" "wg" "{\"public_key\": \"$client_pub\", \"psk\": \"$psk\", \"ip\": \"$client_ip\", \"private_key\": \"$client_priv\"}"
-    
-    # Reload WireGuard
-    wg syncconf wg0 <(wg-quick strip "$DNSCLOAK_DIR/wg/wg0.conf") 2>/dev/null || \
-    systemctl restart wg-quick@wg0
-    
-    success "User '$username' added to WireGuard"
-    echo ""
-    show_wg_links "$username"
-}
-
-remove_wg_user() {
-    local username="$1"
-    source_libs
-    
-    if ! user_exists "$username" "wg"; then
-        error "User '$username' not found in WireGuard"
-    fi
-    
-    local pub_key
-    pub_key=$(user_get "$username" "wg" "public_key")
-    
-    # Remove peer from running config
-    wg set wg0 peer "$pub_key" remove 2>/dev/null || true
-    
-    # Regenerate config file
-    regenerate_wg_config "$username"
-    
-    # Remove client config
-    rm -f "$DNSCLOAK_DIR/wg/peers/${username}.conf"
-    
-    # Remove from users.json
-    user_remove "$username" "wg"
-    
-    success "User '$username' removed from WireGuard"
-}
-
-regenerate_wg_config() {
-    local exclude_user="$1"
-    local server_priv
-    server_priv=$(cat "$DNSCLOAK_DIR/wg/server.key" 2>/dev/null)
-    local main_iface
-    main_iface=$(ip route | grep default | awk '{print $5}' | head -1)
-    
-    cat > "$DNSCLOAK_DIR/wg/wg0.conf" <<EOF
-# DNSCloak WireGuard Configuration
-# Regenerated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-[Interface]
-Address = 10.66.66.1/24
-ListenPort = 51820
-PrivateKey = ${server_priv}
-
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ${main_iface} -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ${main_iface} -j MASQUERADE
-EOF
-
-    local users
-    users=$(user_list "wg")
-    
-    while IFS= read -r uname; do
-        [[ -z "$uname" ]] && continue
-        [[ "$uname" == "$exclude_user" ]] && continue
-        
-        local pub_key psk client_ip
-        pub_key=$(user_get "$uname" "wg" "public_key")
-        psk=$(user_get "$uname" "wg" "psk")
-        client_ip=$(user_get "$uname" "wg" "ip")
-        
-        cat >> "$DNSCLOAK_DIR/wg/wg0.conf" <<EOF
-
-# ${uname}
-[Peer]
-PublicKey = ${pub_key}
-PresharedKey = ${psk}
-AllowedIPs = ${client_ip}/32
-EOF
-    done <<< "$users"
-    
-    chmod 600 "$DNSCLOAK_DIR/wg/wg0.conf"
-}
-
-show_wg_links() {
-    local username="$1"
-    source_libs
-    
-    local conf_file="$DNSCLOAK_DIR/wg/peers/${username}.conf"
-    
-    if [[ ! -f "$conf_file" ]]; then
-        error "Config file not found for '$username'"
-    fi
-    
-    echo -e "${BOLD}WireGuard Config for '$username'${RESET}"
-    echo "================================================"
-    echo ""
-    cat "$conf_file"
-    echo ""
-    
-    if command -v qrencode &>/dev/null; then
-        echo "QR Code:"
-        qrencode -t ANSIUTF8 < "$conf_file"
-    fi
-}
-
-# DNSTT
-add_dnstt_user() {
-    local username="$1"
-    source_libs
-    
-    if user_exists "$username" "dnstt"; then
-        error "User '$username' already exists in DNSTT"
-    fi
-    
-    local token
-    token=$(head -c 16 /dev/urandom | xxd -p)
-    
-    user_add "$username" "dnstt" "{\"token\": \"$token\"}"
-    
-    success "User '$username' added to DNSTT"
-    echo ""
-    show_dnstt_links "$username"
-}
-
-remove_dnstt_user() {
-    local username="$1"
-    source_libs
-    
-    if ! user_exists "$username" "dnstt"; then
-        error "User '$username' not found in DNSTT"
-    fi
-    
-    user_remove "$username" "dnstt"
-    success "User '$username' removed from DNSTT"
-}
-
-show_dnstt_links() {
-    local username="$1"
-    source_libs
-    
-    local pubkey ns_domain
-    pubkey=$(cat "$DNSCLOAK_DIR/dnstt/server.pub" 2>/dev/null)
-    ns_domain=$(server_get "dnstt_domain")
-    
-    echo -e "${BOLD}DNSTT Setup for '$username'${RESET}"
-    echo "================================================"
-    echo ""
-    echo "Public Key: $pubkey"
-    echo "NS Domain: $ns_domain"
-    echo ""
-    echo "Client setup: https://dnstt.dnscloak.net/client?key=${pubkey}&domain=${ns_domain}"
 }
 
 #-------------------------------------------------------------------------------
-# List Functions
-#-------------------------------------------------------------------------------
-
-list_users() {
-    local service="$1"
-    source_libs
-    
-    echo ""
-    if [[ -n "$service" ]]; then
-        echo -e "${BOLD}Users for $service${RESET}"
-        echo "================================================"
-        local users
-        users=$(user_list "$service")
-        if [[ -z "$users" ]]; then
-            echo "  No users"
-        else
-            echo "$users" | while read -r u; do
-                echo "  - $u"
-            done
-        fi
-    else
-        echo -e "${BOLD}All Users${RESET}"
-        echo "================================================"
-        
-        if [[ ! -f "$DNSCLOAK_USERS" ]]; then
-            echo "  No users configured"
-            return
-        fi
-        
-        jq -r '.users | to_entries[] | "\(.key): \(.value.protocols | keys | join(", "))"' \
-            "$DNSCLOAK_USERS" 2>/dev/null | while read -r line; do
-            echo "  $line"
-        done
-    fi
-    echo ""
-}
-
-#-------------------------------------------------------------------------------
-# Show Links
+# Show Links (dispatches to service functions.sh)
 #-------------------------------------------------------------------------------
 
 show_links() {
     local username="$1"
     local service="$2"
     source_libs
-    
+
     if [[ -z "$username" ]]; then
         error "Username required. Usage: dnscloak links <username> [service]"
     fi
-    
+
     if [[ -n "$service" ]]; then
-        case "$service" in
-            reality) show_reality_links "$username" ;;
-            ws) show_ws_links "$username" ;;
-            wg) show_wg_links "$username" ;;
-            dnstt) show_dnstt_links "$username" ;;
-            *) error "Links not implemented for service: $service" ;;
-        esac
+        source_service_functions "$service" || error "Functions not available for $service"
+        local func_name="show_${service}_links"
+        if declare -f "$func_name" >/dev/null 2>&1; then
+            "$func_name" "$username"
+        else
+            error "Links not implemented for service: $service"
+        fi
     else
         # Show links for all services user is in
-        for svc in reality ws wg dnstt; do
-            if user_exists "$username" "$svc"; then
-                echo ""
-                case "$svc" in
-                    reality) show_reality_links "$username" ;;
-                    ws) show_ws_links "$username" ;;
-                    wg) show_wg_links "$username" ;;
-                    dnstt) show_dnstt_links "$username" ;;
-                esac
+        for svc in $ALL_PROTOCOLS; do
+            if user_exists "$username" "$svc" 2>/dev/null; then
+                source_service_functions "$svc" 2>/dev/null || continue
+                local func_name="show_${svc}_links"
+                if declare -f "$func_name" >/dev/null 2>&1; then
+                    "$func_name" "$username"
+                fi
             fi
         done
     fi
@@ -813,14 +435,34 @@ install_service() {
     local service="$1"
     
     validate_service "$service"
-    
-    if is_service_installed "$service"; then
-        warn "Service '$service' is already installed"
-        return
+    source_libs
+    source_service_functions "$service" || error "Functions not available for $service"
+
+    local func_name="install_${service}"
+    if declare -f "$func_name" >/dev/null 2>&1; then
+        "$func_name"
+    else
+        error "Install not implemented for service: $service"
     fi
-    
-    info "Installing $service..."
-    echo "Run: curl -sSL ${service}.dnscloak.net | sudo bash"
+}
+
+#-------------------------------------------------------------------------------
+# Manage Service (interactive menu)
+#-------------------------------------------------------------------------------
+
+manage_service() {
+    local service="$1"
+
+    validate_service "$service"
+    source_libs
+    source_service_functions "$service" || error "Functions not available for $service"
+
+    local func_name="manage_${service}"
+    if declare -f "$func_name" >/dev/null 2>&1; then
+        "$func_name"
+    else
+        error "Manage not implemented for service: $service"
+    fi
 }
 
 #-------------------------------------------------------------------------------
@@ -836,8 +478,15 @@ uninstall_service() {
         error "Service '$service' is not installed"
     fi
     
-    info "To uninstall $service, run the installer again and select uninstall:"
-    echo "  curl -sSL ${service}.dnscloak.net | sudo bash"
+    source_libs
+    source_service_functions "$service" || error "Functions not available for $service"
+
+    local func_name="uninstall_${service}"
+    if declare -f "$func_name" >/dev/null 2>&1; then
+        "$func_name"
+    else
+        error "Uninstall not implemented for service: $service"
+    fi
 }
 
 #-------------------------------------------------------------------------------
@@ -847,11 +496,12 @@ uninstall_service() {
 show_help() {
     cat <<'EOF'
 
-  ╔═══════════════════════════════════════════════════════════╗
-  ║                    DNSCloak CLI v2.0.0                    ║
-  ╚═══════════════════════════════════════════════════════════╝
+  +-----------------------------------------------------------+
+  |                    DNSCloak CLI v2.1.0                     |
+  +-----------------------------------------------------------+
 
   USAGE:
+    dnscloak                         Interactive TUI menu
     dnscloak <command> [service] [options]
 
   COMMANDS:
@@ -861,7 +511,9 @@ show_help() {
     links <username> [service]   Show connection links/configs
     status [service]             Show service status
     restart <service>            Restart a service
-    install <service>            Install new service (prints URL)
+    install <service>            Install a service
+    manage <service>             Open service management menu
+    uninstall <service>          Uninstall a service
     services                     List installed services
     help                         Show this help
 
@@ -875,16 +527,114 @@ show_help() {
     conduit   Psiphon relay node (volunteer proxy)
 
   EXAMPLES:
+    dnscloak                          # Interactive menu
     dnscloak add reality alice        # Add Alice to Reality
+    dnscloak manage wg                # Manage WireGuard
     dnscloak links alice              # Show all links for Alice
     dnscloak links alice wg           # Show WireGuard config
     dnscloak list                     # List all users
-    dnscloak list wg                  # List WireGuard users
     dnscloak status                   # All services status
-    dnscloak restart wg               # Restart WireGuard
-    dnscloak status conduit           # Check Conduit relay status
+    dnscloak install reality          # Install Reality protocol
 
 EOF
+}
+
+#-------------------------------------------------------------------------------
+# Interactive TUI
+#-------------------------------------------------------------------------------
+
+interactive_menu() {
+    source_libs
+
+    while true; do
+        clear
+
+        load_banner "menu" 2>/dev/null || {
+            echo ""
+            echo -e "  ${BOLD}${WHITE}DNSCloak v${VERSION}${RESET}"
+        }
+        echo ""
+        echo -e "  ${BOLD}${WHITE}Protocol Manager${RESET}"
+        echo "  -------------------------------------------"
+        echo ""
+
+        local idx=1
+        for proto in $ALL_PROTOCOLS; do
+            local name status_text=""
+            case "$proto" in
+                reality) name="VLESS + REALITY" ;;
+                ws)      name="VLESS + WS + CDN" ;;
+                wg)      name="WireGuard" ;;
+                dnstt)   name="DNS Tunnel" ;;
+                mtp)     name="MTProto Proxy" ;;
+                vray)    name="VLESS + TLS" ;;
+                conduit) name="Conduit (Psiphon)" ;;
+                *)       name="$proto" ;;
+            esac
+
+            if is_service_installed "$proto"; then
+                status_text="${GREEN}[installed]${RESET}"
+            else
+                status_text="${GRAY}[not installed]${RESET}"
+            fi
+
+            printf "  %d) %-24s %b\n" "$idx" "$name" "$status_text"
+            ((idx++))
+        done
+
+        echo ""
+        echo "  s) Status overview"
+        echo "  u) List all users"
+        echo "  0) Exit"
+        echo ""
+        echo -n "  Select: "
+        read -r choice
+
+        case "$choice" in
+            [1-7])
+                local proto_arr=($ALL_PROTOCOLS)
+                local selected="${proto_arr[$((choice - 1))]}"
+
+                source_service_functions "$selected" 2>/dev/null || {
+                    echo ""
+                    warn "Functions not available for $selected"
+                    echo "  Press Enter to continue..."
+                    read -r
+                    continue
+                }
+
+                if is_service_installed "$selected"; then
+                    local func_name="manage_${selected}"
+                    if declare -f "$func_name" >/dev/null 2>&1; then
+                        "$func_name"
+                    fi
+                else
+                    local func_name="install_${selected}"
+                    if declare -f "$func_name" >/dev/null 2>&1; then
+                        "$func_name"
+                    fi
+                fi
+                ;;
+            s|S)
+                show_status
+                echo "  Press Enter to continue..."
+                read -r
+                ;;
+            u|U)
+                list_users
+                echo "  Press Enter to continue..."
+                read -r
+                ;;
+            0|q|Q|"")
+                echo ""
+                exit 0
+                ;;
+            *)
+                warn "Invalid option"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 #-------------------------------------------------------------------------------
@@ -892,8 +642,15 @@ EOF
 #-------------------------------------------------------------------------------
 
 main() {
-    local command="${1:-help}"
-    shift || true
+    # No arguments -> interactive TUI menu
+    if [[ $# -eq 0 ]]; then
+        require_root
+        interactive_menu
+        exit 0
+    fi
+
+    local command="$1"
+    shift
     
     case "$command" in
         add)
@@ -931,10 +688,17 @@ main() {
             restart_service "$service"
             ;;
         install)
+            require_root
             local service="$1"
             install_service "$service"
             ;;
+        manage)
+            require_root
+            local service="$1"
+            manage_service "$service"
+            ;;
         uninstall)
+            require_root
             local service="$1"
             uninstall_service "$service"
             ;;
@@ -953,10 +717,14 @@ main() {
             fi
             echo ""
             ;;
+        menu)
+            require_root
+            interactive_menu
+            ;;
         version|-v|--version)
             echo "DNSCloak CLI v${VERSION}"
             ;;
-        help|-h|--help|"")
+        help|-h|--help)
             show_help
             ;;
         *)
