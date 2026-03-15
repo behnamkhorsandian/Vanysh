@@ -1048,6 +1048,19 @@
     .terminal-output { color: var(--text-secondary); }
     .terminal-output .success { color: var(--accent-green); }
     .terminal-output .info { color: var(--accent-blue); }
+
+    /* TUI Table (fake terminal menu) */
+    .tui-table { border: 1px solid var(--accent-green); margin-top: 10px; font-size: 13px; }
+    .tui-table-header { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--accent-green); }
+    .tui-table-header span { padding: 4px 10px; color: var(--accent-orange); font-weight: 600; }
+    .tui-table-header span:first-child { border-right: 1px solid var(--accent-green); }
+    .tui-table-body { display: grid; grid-template-columns: 1fr 1fr; }
+    .tui-table-body .tui-col { padding: 2px 10px; line-height: 1.6; }
+    .tui-table-body .tui-col:nth-child(odd) { border-right: 1px solid var(--accent-green); }
+    .tui-table-body .tui-col.selected { color: var(--accent-green); font-weight: bold; }
+    .tui-table-body .tui-col.detail-highlight { color: var(--accent-orange); font-weight: bold; }
+    .tui-table-footer { border-top: 1px solid var(--accent-green); padding: 4px 10px; color: var(--text-dim); font-size: 12px; }
+    .tui-table-footer kbd { color: var(--text-secondary); }
     
     footer { padding: 30px 0; border-top: 1px solid var(--border); text-align: center; color: var(--text-dim); font-size: 12px; }
     .footer-links { margin-bottom: 15px; }
@@ -1690,20 +1703,34 @@
                 <span class="info">[*]</span> Detecting cloud provider... GCP<br>
                 <span class="success">[+]</span> Loading interactive TUI...<br>
               </div>
-              <div class="terminal-output" style="margin-top: 10px; line-height: 1.4;">
-                <span style="color: var(--accent-green);">┌─</span> <span style="color: var(--accent-orange);">Protocols</span> <span style="color: var(--accent-green);">──────────────────────┬─</span> <span style="color: var(--accent-orange);">Details</span> <span style="color: var(--accent-green);">──────────────┐</span><br>
-                <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-green);font-weight:bold;">&gt; VLESS + REALITY  [recommended]</span> <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-orange);font-weight:bold;">VLESS + REALITY</span>       <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   WireGuard                      <span style="color: var(--accent-green);">│</span>                          <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   VLESS + WS + CDN  <span style="color: var(--accent-orange);">[needs domain]</span> <span style="color: var(--accent-green);">│</span> Advanced TLS camouflage. <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   MTProto Proxy                   <span style="color: var(--accent-green);">│</span> No domain needed.       <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   DNS Tunnel  <span style="color: var(--accent-red);">[emergency]</span>          <span style="color: var(--accent-green);">│</span> Very fast, low overhead. <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   Conduit (Psiphon) <span style="color: var(--accent-purple);">[relay]</span>       <span style="color: var(--accent-green);">│</span>                          <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   VLESS + TLS  <span style="color: var(--accent-orange);">[needs domain]</span>      <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-light-green);">Requirements:</span>          <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>   SOS Emergency Chat <span style="color: var(--accent-red);">[emergency]</span>  <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-secondary);">- Server with public IP</span> <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">│</span>                                    <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-secondary);">- Port 443 open</span>        <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">├────────────────────────────────────┴──────────────────────────┤</span><br>
-                <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-dim);">Up/Down</span> navigate  <span style="color: var(--text-dim);">Enter</span> select  <span style="color: var(--text-dim);">s</span> status  <span style="color: var(--text-dim);">u</span> users  <span style="color: var(--text-dim);">q</span> quit <span style="color: var(--accent-green);">│</span><br>
-                <span style="color: var(--accent-green);">└──────────────────────────────────────────────────────────────┘</span>
+              <div class="tui-table">
+                <div class="tui-table-header">
+                  <span>Protocols</span>
+                  <span>Details</span>
+                </div>
+                <div class="tui-table-body">
+                  <div class="tui-col selected">&gt; VLESS + REALITY <span style="color:var(--accent-orange);font-weight:normal;">[recommended]</span></div>
+                  <div class="tui-col detail-highlight">VLESS + REALITY</div>
+                  <div class="tui-col">&nbsp;&nbsp;WireGuard</div>
+                  <div class="tui-col"></div>
+                  <div class="tui-col">&nbsp;&nbsp;VLESS + WS + CDN <span style="color:var(--accent-orange);">[needs domain]</span></div>
+                  <div class="tui-col">Advanced TLS camouflage.</div>
+                  <div class="tui-col">&nbsp;&nbsp;MTProto Proxy</div>
+                  <div class="tui-col">No domain needed.</div>
+                  <div class="tui-col">&nbsp;&nbsp;DNS Tunnel <span style="color:var(--accent-red);">[emergency]</span></div>
+                  <div class="tui-col">Very fast, low overhead.</div>
+                  <div class="tui-col">&nbsp;&nbsp;Conduit (Psiphon) <span style="color:var(--accent-purple);">[relay]</span></div>
+                  <div class="tui-col"></div>
+                  <div class="tui-col">&nbsp;&nbsp;VLESS + TLS <span style="color:var(--accent-orange);">[needs domain]</span></div>
+                  <div class="tui-col"><span style="color:var(--accent-light-green);">Requirements:</span></div>
+                  <div class="tui-col">&nbsp;&nbsp;SOS Emergency Chat <span style="color:var(--accent-red);">[emergency]</span></div>
+                  <div class="tui-col" style="color:var(--text-secondary);">- Server with public IP</div>
+                  <div class="tui-col"></div>
+                  <div class="tui-col" style="color:var(--text-secondary);">- Port 443 open</div>
+                </div>
+                <div class="tui-table-footer">
+                  <kbd>Up/Down</kbd> navigate &nbsp;<kbd>Enter</kbd> select &nbsp;<kbd>s</kbd> status &nbsp;<kbd>u</kbd> users &nbsp;<kbd>q</kbd> quit
+                </div>
               </div>
               <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd">dnscloak status</span></div>
               <div class="terminal-output">
