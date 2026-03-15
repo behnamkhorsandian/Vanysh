@@ -286,11 +286,16 @@ _show_user_links_page() {
             draw_box_row " ${C_LGRAY}No protocols configured for this user.${C_RST}"
         else
             while IFS= read -r proto; do
+                # Load protocol functions if not already available
+                local show_fn="show_${proto}_links"
+                if ! type "$show_fn" &>/dev/null; then
+                    _source_protocol "$proto" 2>/dev/null
+                fi
+
                 draw_box_row " ${C_ORANGE}${PROTOCOL_NAMES[$proto]:-$proto}${C_RST}"
                 draw_box_sep
 
                 # Call protocol-specific link display
-                local show_fn="show_${proto}_links"
                 if type "$show_fn" &>/dev/null; then
                     "$show_fn" "$username" 2>/dev/null | while IFS= read -r line; do
                         draw_box_row " $line"
