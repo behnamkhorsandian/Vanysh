@@ -181,7 +181,7 @@ service_installed() {
             [[ -f /etc/wireguard/wg0.conf ]] || [[ -f /opt/dnscloak/wg/wg0.conf ]]
             ;;
         mtp)
-            [[ -f /opt/dnscloak/mtp/config.py ]] || systemctl is-enabled mtproto-proxy &>/dev/null
+            [[ -f /opt/dnscloak/mtp/config.py ]] || systemctl is-enabled telegram-proxy &>/dev/null
             ;;
         dnstt)
             [[ -f /opt/dnscloak/dnstt/server.key ]] || systemctl is-enabled dnstt &>/dev/null
@@ -208,7 +208,7 @@ service_running() {
             ip link show wg0 &>/dev/null 2>&1
             ;;
         mtp)
-            systemctl is-active mtproto-proxy &>/dev/null 2>&1
+            systemctl is-active telegram-proxy &>/dev/null 2>&1
             ;;
         dnstt)
             systemctl is-active dnstt &>/dev/null 2>&1
@@ -230,7 +230,7 @@ service_restart() {
     case "$proto" in
         reality|vray|ws) systemctl restart xray 2>/dev/null ;;
         wg) wg-quick down wg0 2>/dev/null; wg-quick up wg0 2>/dev/null ;;
-        mtp) systemctl restart mtproto-proxy 2>/dev/null ;;
+        mtp) systemctl restart telegram-proxy 2>/dev/null ;;
         dnstt) systemctl restart dnstt 2>/dev/null ;;
         conduit) docker restart conduit 2>/dev/null ;;
         sos) systemctl restart sos-relay 2>/dev/null ;;
