@@ -152,6 +152,9 @@ main() {
     # Download libraries
     download_libs
 
+    # lib/bootstrap.sh enables set -e which kills TUI's (( )) && patterns
+    set +e
+
     # Handle --update flag
     if [[ $DO_UPDATE -eq 1 ]]; then
         do_update

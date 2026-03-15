@@ -66,6 +66,7 @@ tui_init() {
     printf '\033[2J'       # clear screen
     _TUI_ACTIVE=1
     tui_get_size
+    return 0
 }
 
 # Restore terminal state

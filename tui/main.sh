@@ -430,9 +430,6 @@ _show_exit_banner() {
     printf '\n'
     printf '  %b*%b DNSCloak v%s\n' "$C_GREEN" "$C_RST" "$DNSCLOAK_VERSION"
     printf '  %bThe beacon remains lit.%b\n' "$C_DGRAY" "$C_RST"
-    if [[ -f /tmp/dnscloak-debug.log ]]; then
-        printf '  %bDebug log: /tmp/dnscloak-debug.log%b\n' "$C_DGRAY" "$C_RST"
-    fi
     printf '\n'
 }
 
