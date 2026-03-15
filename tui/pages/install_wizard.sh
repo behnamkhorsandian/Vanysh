@@ -505,10 +505,9 @@ _source_protocol() {
     local functions_sourced=0
     local install_sourced=0
 
-    # Directories to check for already-present files
+    # Directories to check for already-installed files (permanent locations only)
     local search_dirs=(
         "/opt/dnscloak/services/$proto"
-        "/tmp/dnscloak-services/$proto"
     )
 
     # Also check relative to the repo root (works when running from git checkout)
@@ -521,14 +520,13 @@ _source_protocol() {
     [[ -n "$repo_dir" && -d "$repo_dir/services/$proto" ]] && \
         search_dirs+=("$repo_dir/services/$proto")
 
-    # Pass 1: source from local paths
+    # Pass 1: source from local permanent paths
     for dir in "${search_dirs[@]}"; do
         if [[ $functions_sourced -eq 0 && -f "$dir/functions.sh" ]]; then
             source "$dir/functions.sh"
             functions_sourced=1
         fi
         if [[ $install_sourced -eq 0 && -f "$dir/install.sh" ]]; then
-            # Source install.sh without running main()
             main() { :; }
             source "$dir/install.sh" 2>/dev/null
             unset -f main 2>/dev/null
@@ -536,17 +534,16 @@ _source_protocol() {
         fi
     done
 
-    # If functions.sh was found locally, we're done
     if [[ $functions_sourced -eq 1 ]]; then
         return 0
     fi
-    # install.sh alone is also acceptable (e.g. sos)
     if [[ $install_sourced -eq 1 ]]; then
         return 0
     fi
 
-    # Pass 2: download from GitHub
+    # Pass 2: download fresh from GitHub (clear stale cache first)
     local dl_dir="/tmp/dnscloak-services/$proto"
+    rm -rf "$dl_dir"
     mkdir -p "$dl_dir"
     local base_url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/services/$proto"
 
