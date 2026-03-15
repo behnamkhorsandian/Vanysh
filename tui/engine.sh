@@ -245,12 +245,18 @@ draw_box_row() {
 
     local vlen
     vlen=$(visible_len "$text")
-    local pad=$(( inner - vlen ))
-    (( pad < 1 )) && pad=1
+    local max_content=$(( inner - 1 ))  # 1 char leading space
+    # Truncate if text exceeds available width
+    if (( vlen > max_content )); then
+        text=$(truncate_str "$text" "$max_content")
+        vlen=$(visible_len "$text")
+    fi
+    local pad=$(( inner - vlen - 1 ))  # -1 for leading space
+    (( pad < 0 )) && pad=0
 
-    _m; printf '%b%s%b %b%*s%b%s%b\n' \
+    _m; printf '%b%s%b %s%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
-        "$text" "$((pad - 1))" "" \
+        "$text" "$pad" "" \
         "$bc" "$BOX_V" "$C_RST"
 }
 
@@ -328,16 +334,29 @@ draw_split_row() {
     local left_vlen right_vlen left_pad right_pad
     left_vlen=$(visible_len "$left_text")
     right_vlen=$(visible_len "$right_text")
-    left_pad=$(( SPLIT_LEFT_W - left_vlen ))
-    right_pad=$(( SPLIT_RIGHT_W - right_vlen ))
-    (( left_pad < 1 )) && left_pad=1
-    (( right_pad < 1 )) && right_pad=1
 
-    _m; printf '%b%s%b %b%*s%b%s%b %b%*s%b%s%b\n' \
+    # Truncate if text exceeds column width (with 1 char leading space)
+    local left_max=$(( SPLIT_LEFT_W - 1 ))
+    local right_max=$(( SPLIT_RIGHT_W - 1 ))
+    if (( left_vlen > left_max )); then
+        left_text=$(truncate_str "$left_text" "$left_max")
+        left_vlen=$(visible_len "$left_text")
+    fi
+    if (( right_vlen > right_max )); then
+        right_text=$(truncate_str "$right_text" "$right_max")
+        right_vlen=$(visible_len "$right_text")
+    fi
+
+    left_pad=$(( SPLIT_LEFT_W - left_vlen - 1 ))  # -1 for leading space
+    right_pad=$(( SPLIT_RIGHT_W - right_vlen - 1 ))
+    (( left_pad < 0 )) && left_pad=0
+    (( right_pad < 0 )) && right_pad=0
+
+    _m; printf '%b%s%b %s%*s%b%s%b %s%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
-        "$left_text" "$((left_pad - 1))" "" \
+        "$left_text" "$left_pad" "" \
         "$bc" "$BOX_V" "$C_RST" \
-        "$right_text" "$((right_pad - 1))" "" \
+        "$right_text" "$right_pad" "" \
         "$bc" "$BOX_V" "$C_RST"
 }
 
@@ -379,6 +398,34 @@ draw_split_bottom() {
     printf '%s' "$BOX_BJ"
     repeat_str "$BOX_H" "$SPLIT_RIGHT_W"
     printf '%s%b\n' "$BOX_BR" "$C_RST"
+}
+
+# Transition: split -> full-width (merge columns)
+#   ├──────────────┴──────────────┤
+draw_split_to_box_sep() {
+    local width="${1:-$_FRAME_W}"
+    local bc="${2:-$C_DGRAY}"
+    compute_split "$width"
+
+    _m; printf '%b%s' "$bc" "$BOX_ML"
+    repeat_str "$BOX_H" "$SPLIT_LEFT_W"
+    printf '%s' "$BOX_BJ"
+    repeat_str "$BOX_H" "$SPLIT_RIGHT_W"
+    printf '%s%b\n' "$BOX_MR" "$C_RST"
+}
+
+# Transition: full-width -> split (introduce columns)
+#   ├──────────────┬──────────────┤
+draw_box_to_split_sep() {
+    local width="${1:-$_FRAME_W}"
+    local bc="${2:-$C_DGRAY}"
+    compute_split "$width"
+
+    _m; printf '%b%s' "$bc" "$BOX_ML"
+    repeat_str "$BOX_H" "$SPLIT_LEFT_W"
+    printf '%s' "$BOX_TJ"
+    repeat_str "$BOX_H" "$SPLIT_RIGHT_W"
+    printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
 
 #-------------------------------------------------------------------------------
@@ -709,7 +756,12 @@ tui_select_menu() {
             (( i++ ))
         done
 
-        draw_box_empty
+        # Vertical fill
+        # Chrome: newline(1) + top(1) + empty(1) + empty(1) + sep(1) + hints(1) + bottom(1) = 7
+        local chrome_rows=$(( _BANNER_HEIGHT + 1 + 6 + count ))
+        local avail=$(( _TERM_ROWS - chrome_rows ))
+        while (( avail-- > 0 )); do draw_box_empty; done
+
         draw_box_sep
         local hints=" ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  "
         hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "

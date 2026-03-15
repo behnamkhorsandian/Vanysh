@@ -189,6 +189,7 @@ page_protocol() {
             draw_box_empty
 
             # Status line
+            local status_rows=0
             if [[ $is_installed -eq 1 ]]; then
                 local status_text=""
                 if type service_running &>/dev/null && service_running "$proto"; then
@@ -198,6 +199,7 @@ page_protocol() {
                 fi
                 draw_box_row " $status_text"
                 draw_box_empty
+                status_rows=2
             fi
 
             # Guide text (first 5 lines only in compact)
@@ -226,7 +228,8 @@ page_protocol() {
             done
 
             # Vertical fill
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 ))  # banner + newline + box chrome
+            # Chrome: newline(1) + top(1) + empty(1) + status(0|2) + empty(1) + sep(1) + empty(1) + sep(1) + hints(1) + bottom(1) = 9 + status
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 + status_rows ))
             local avail=$(( _TERM_ROWS - chrome_rows - line_count - action_count ))
             while (( avail-- > 0 )); do draw_box_empty; done
 
@@ -240,6 +243,7 @@ page_protocol() {
             draw_split_top "" "$proto_name" "Actions"
 
             # Status line
+            local status_rows=0
             if [[ $is_installed -eq 1 ]]; then
                 local status_text=""
                 if type service_running &>/dev/null && service_running "$proto"; then
@@ -248,6 +252,7 @@ page_protocol() {
                     status_text="Status: $badge_stopped"
                 fi
                 draw_split_row " $status_text" ""
+                status_rows=1
             fi
             draw_split_empty
 
@@ -257,12 +262,13 @@ page_protocol() {
                 guide_lines+=("$line")
             done <<< "$guide"
 
-            # Draw rows — fill to terminal height
+            # Draw rows -- fill to terminal height
+            # Chrome: newline(1) + split_top(1) + status(0|1) + split_empty(1) +
+            #   split_empty(1) + merge_sep(1) + client_row(1) + box_sep(1) + hints(1) + bottom(1) = 8 + status
             local guide_count=${#guide_lines[@]}
             local max_rows=$guide_count
             (( action_count + 2 > max_rows )) && max_rows=$(( action_count + 2 ))
-            # Use actual banner height for accurate fill
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 7 ))  # banner + newline + split chrome
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 + status_rows ))
             local avail_rows=$(( _TERM_ROWS - chrome_rows ))
             (( avail_rows < 1 )) && avail_rows=1
             (( avail_rows > max_rows )) && max_rows=$avail_rows
@@ -288,7 +294,7 @@ page_protocol() {
             done
 
             draw_split_empty
-            draw_split_sep
+            draw_split_to_box_sep
 
             # Client apps info
             local clients="${PROTOCOL_CLIENTS[$proto]}"

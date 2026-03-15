@@ -46,15 +46,18 @@ page_users() {
         draw_box_top "" "User Management"
         draw_box_empty
 
+        local user_section_rows=0
         if [[ $user_count -eq 0 ]]; then
             draw_box_row " ${C_LGRAY}No users configured yet.${C_RST}"
             draw_box_row " ${C_LGRAY}Install a protocol first, then add users.${C_RST}"
+            user_section_rows=2
         else
             # Table header
             local hdr
             hdr=$(printf ' %-20s %s' "${C_ORANGE}Username${C_RST}" "${C_ORANGE}Protocols${C_RST}")
             draw_box_row "$hdr"
             draw_box_sep
+            user_section_rows=$(( 2 + user_count ))
 
             local i=0
             for uname in "${users[@]}"; do
@@ -96,8 +99,10 @@ page_users() {
         done
 
         # Vertical fill
-        local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 ))  # banner + newline + box chrome
-        local avail=$(( _TERM_ROWS - chrome_rows - user_count - action_count ))
+        # Chrome: newline(1) + top(1) + empty(1) + user_section + empty(1) + sep(1) + empty(1) +
+        #   actions + sep(1) + hints(1) + bottom(1) = 8 + user_section + actions
+        local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 + user_section_rows + action_count ))
+        local avail=$(( _TERM_ROWS - chrome_rows ))
         while (( avail-- > 0 )); do draw_box_empty; done
 
         draw_box_sep

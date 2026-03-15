@@ -75,14 +75,16 @@ page_status() {
             draw_box_top "" "System Status"
             draw_box_empty
 
-            # Server info
-            draw_box_row " ${C_ORANGE}Server${C_RST}"
-            draw_box_row "   ${C_LGRAY}IP:${C_RST}       ${C_TEXT}${server_ip}${C_RST}"
-            [[ -n "$server_domain" && "$server_domain" != "null" ]] && \
-                draw_box_row "   ${C_LGRAY}Domain:${C_RST}   ${C_TEXT}${server_domain}${C_RST}"
-            draw_box_row "   ${C_LGRAY}Provider:${C_RST} ${C_TEXT}${server_provider}${C_RST}"
-            draw_box_row "   ${C_LGRAY}Users:${C_RST}    ${C_TEXT}${user_count}${C_RST}"
-            draw_box_row "   ${C_LGRAY}Uptime:${C_RST}   ${C_TEXT}${uptime_str}${C_RST}"
+            # Server info — count rows for accurate fill
+            local info_rows=0
+            draw_box_row " ${C_ORANGE}Server${C_RST}"; (( info_rows++ ))
+            draw_box_row "   ${C_LGRAY}IP:${C_RST}       ${C_TEXT}${server_ip}${C_RST}"; (( info_rows++ ))
+            if [[ -n "$server_domain" && "$server_domain" != "null" ]]; then
+                draw_box_row "   ${C_LGRAY}Domain:${C_RST}   ${C_TEXT}${server_domain}${C_RST}"; (( info_rows++ ))
+            fi
+            draw_box_row "   ${C_LGRAY}Provider:${C_RST} ${C_TEXT}${server_provider}${C_RST}"; (( info_rows++ ))
+            draw_box_row "   ${C_LGRAY}Users:${C_RST}    ${C_TEXT}${user_count}${C_RST}"; (( info_rows++ ))
+            draw_box_row "   ${C_LGRAY}Uptime:${C_RST}   ${C_TEXT}${uptime_str}${C_RST}"; (( info_rows++ ))
 
             draw_box_empty
             draw_box_sep
@@ -96,7 +98,9 @@ page_status() {
             done
 
             # Vertical fill
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 10 + ${#service_lines[@]} + 5 ))
+            # Chrome: newline(1) + top(1) + empty(1) + info_rows + empty(1) + sep(1) + empty(1) +
+            #   services_header(1) + service_lines + sep(1) + hints(1) + bottom(1) = 9 + info + services
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 9 + info_rows + ${#service_lines[@]} ))
             local avail=$(( _TERM_ROWS - chrome_rows ))
             while (( avail-- > 0 )); do draw_box_empty; done
 
@@ -130,12 +134,16 @@ page_status() {
                 right_lines+=("  ${C_LGRAY}Memory:${C_RST}   ${C_TEXT}${mem_used} / ${mem_total}${C_RST}")
             fi
 
-            # Draw rows — fill to terminal height
+            # Draw rows -- fill to terminal height
             local left_count=${#service_lines[@]}
             local right_count=${#right_lines[@]}
             local max_rows=$left_count
             (( right_count > max_rows )) && max_rows=$right_count
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 12 ))  # banner + newline + split chrome + port section
+
+            # Bottom section: sep(1) + empty(1) + port_header(1) + port_rows(4) + empty(1) + bottom(1) = 8
+            # Top chrome: newline(1) + split_top(1) + split_empty(1) + split_empty(1) = 4
+            local bottom_section=8
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 3 + bottom_section ))
             local avail_rows=$(( _TERM_ROWS - chrome_rows ))
             (( avail_rows < 1 )) && avail_rows=1
             (( avail_rows > max_rows )) && max_rows=$avail_rows

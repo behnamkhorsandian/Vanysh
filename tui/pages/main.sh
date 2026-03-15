@@ -142,9 +142,9 @@ page_main_menu() {
             done
 
             # Compute available content rows using actual banner height
-            # Chrome: banner + newline(1) + split_top(1) + split_empty_top(1) +
-            #         split_empty_bottom(1) + split_sep(1) + hints(1) + bottom(1) = 7
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 7 ))
+            # Chrome: newline(1) + split_top(1) + split_empty_top(1) +
+            #         split_empty_bottom(1) + merge_sep(1) + hints(1) + bottom(1) = 6
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 6 ))
             local avail_rows=$(( _TERM_ROWS - chrome_rows ))
             (( avail_rows < 1 )) && avail_rows=1
 
@@ -194,7 +194,7 @@ page_main_menu() {
             done
 
             draw_split_empty
-            draw_split_sep
+            draw_split_to_box_sep
             local hints=" ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  "
             hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
             hints+="${C_DGRAY}s${C_RST}${C_DIM} status${C_RST}  "
