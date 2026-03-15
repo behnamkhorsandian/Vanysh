@@ -13,4 +13,4 @@
      ▒▒        ▒▒▒▒             ▒▒║▒▒▒▒▒▒▒║    ▒▒▒▒▒▒▒╗▒▒║   ▒▒║             
        ▒▒    ▒▒▒▒               ╚═╝╚══════╝    ╚══════╝╚═╝   ╚═╝             
                                                                                              
-        DNSCloak v2.0.0 | Your beacon in the darkness by @83hn4m
+        DNSCloak v2.0.0 | Multi Protocol Proxy Onboarding by @83hn4m
