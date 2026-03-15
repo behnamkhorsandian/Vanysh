@@ -255,19 +255,32 @@ _remove_user_page() {
 
 _show_user_links_page() {
     local username="$1"
+    local filter_proto="${2:-}"
 
     tui_get_size
     tui_compute_layout
 
     clear_screen
     printf '\n'
-    draw_box_top "" "Links for: $username"
+    local title="Links for: $username"
+    [[ -n "$filter_proto" ]] && title="${PROTOCOL_NAMES[$filter_proto]:-$filter_proto} Links for: $username"
+    draw_box_top "" "$title"
     draw_box_empty
 
     if [[ -f "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" ]] && type jq &>/dev/null; then
         local protos
-        protos=$(jq -r ".users[\"$username\"].protocols // {} | keys[]" \
-            "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+        if [[ -n "$filter_proto" ]]; then
+            # Show only the requested protocol
+            if jq -e ".users[\"$username\"].protocols[\"$filter_proto\"]" \
+                    "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" &>/dev/null; then
+                protos="$filter_proto"
+            else
+                protos=""
+            fi
+        else
+            protos=$(jq -r ".users[\"$username\"].protocols // {} | keys[]" \
+                "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+        fi
 
         if [[ -z "$protos" ]]; then
             draw_box_row " ${C_LGRAY}No protocols configured for this user.${C_RST}"
@@ -278,7 +291,6 @@ _show_user_links_page() {
 
                 # Call protocol-specific link display
                 local show_fn="show_${proto}_links"
-                [[ "$proto" == "reality" ]] && show_fn="show_user_links"
                 if type "$show_fn" &>/dev/null; then
                     "$show_fn" "$username" 2>/dev/null | while IFS= read -r line; do
                         draw_box_row " $line"

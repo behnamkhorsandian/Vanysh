@@ -287,27 +287,29 @@ render_wizard_step() {
             draw_box_bottom
             printf '\n'
 
-            # Leave TUI mode temporarily to show install output
-            printf '\033[?25h'  # show cursor
-
-            # Call the installation function
+            # Call the installation function with output captured to log
+            local install_log="/tmp/dnscloak-install-$$.log"
             if type "$step_options" &>/dev/null; then
-                "$step_options"
+                "$step_options" > "$install_log" 2>&1
                 local rc=$?
                 if [[ $rc -ne 0 ]]; then
-                    printf '\n  %b[-]%b Installation failed (exit code: %d)\n' "$C_RED" "$C_RST" "$rc"
+                    printf '\n  %b[-]%b Installation failed (exit code: %d)\n\n' "$C_RED" "$C_RST" "$rc"
+                    # Show last 15 lines of log for debugging
+                    tail -15 "$install_log" 2>/dev/null | while IFS= read -r line; do
+                        printf '  %b|%b %s\n' "$C_DGRAY" "$C_RST" "$line"
+                    done
+                    rm -f "$install_log"
+                    printf '\n'
                     press_any_key "Press any key to go back..."
-                    printf '\033[?25l'
                     return 1
                 fi
+                rm -f "$install_log"
             else
                 printf '  %b[-]%b Install function "%s" not found\n' "$C_RED" "$C_RST" "$step_options"
                 press_any_key "Press any key to go back..."
-                printf '\033[?25l'
                 return 1
             fi
 
-            printf '\033[?25l'  # hide cursor again
             printf '\n'
             press_any_key "Installation complete! Press any key..."
             return 0
@@ -442,7 +444,6 @@ install_reality_automated() {
 
     # Add first user
     add_reality_user "${FIRST_USERNAME:-user1}"
-    show_user_links "${FIRST_USERNAME:-user1}"
 }
 
 install_wg_automated() {

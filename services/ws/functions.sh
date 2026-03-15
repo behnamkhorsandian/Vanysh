@@ -434,6 +434,9 @@ show_ws_user_links() {
     echo ""
 }
 
+# Alias for consistent naming with other protocols
+show_ws_links() { show_ws_user_links "$@"; }
+
 list_ws_users() {
     echo ""
     echo -e "  ${BOLD}${WHITE}WS+CDN Users${RESET}"
