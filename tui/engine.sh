@@ -47,10 +47,17 @@ tui_init() {
         return 0
     fi
 
-    # Open /dev/tty for keyboard (stdin may be a pipe from curl)
-    exec 3</dev/tty 2>/dev/null || {
+    # Check /dev/tty is accessible
+    if [[ ! -r /dev/tty ]]; then
+        echo "tui_init: /dev/tty not readable" >&2
         return 1
-    }
+    fi
+
+    # Open /dev/tty for keyboard (stdin may be a pipe from curl)
+    if ! exec 3</dev/tty; then
+        echo "tui_init: failed to open /dev/tty on fd 3" >&2
+        return 1
+    fi
 
     _TUI_OLD_STTY=$(stty -g <&3 2>/dev/null)
     printf '\033[?1049h'   # alternate screen buffer

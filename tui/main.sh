@@ -448,11 +448,14 @@ _show_exit_banner() {
 dnscloak_tui_main() {
     # Debug log for troubleshooting
     local _dbg="/tmp/dnscloak-debug.log"
-    echo "[$(date)] dnscloak_tui_main starting" > "$_dbg"
+    echo "[$(date)] dnscloak_tui_main starting" >> "$_dbg"
     echo "[$(date)] BASH_VERSION=$BASH_VERSION" >> "$_dbg"
     echo "[$(date)] TERM=$TERM EUID=$EUID" >> "$_dbg"
     echo "[$(date)] SCRIPT_DIR=$SCRIPT_DIR" >> "$_dbg"
     echo "[$(date)] START_PAGE=${START_PAGE:-} START_PROTOCOL=${START_PROTOCOL:-}" >> "$_dbg"
+    echo "[$(date)] /dev/tty: $(ls -la /dev/tty 2>&1)" >> "$_dbg"
+    echo "[$(date)] tui_init is: $(type tui_init 2>&1 | head -3)" >> "$_dbg"
+    echo "[$(date)] fd3 status: $(ls -la /proc/self/fd/3 2>&1 || echo 'no /proc/self/fd')" >> "$_dbg"
 
     _preflight
     echo "[$(date)] _preflight done" >> "$_dbg"
@@ -462,11 +465,14 @@ dnscloak_tui_main() {
     trap 'tui_cleanup 2>/dev/null; exit 130' INT TERM
 
     echo "[$(date)] calling tui_init" >> "$_dbg"
-    tui_init || {
-        printf '\033[31mError:\033[0m Failed to initialize TUI. Check terminal capabilities.\n'
-        echo "[$(date)] tui_init FAILED" >> "$_dbg"
-        exit 1
-    }
+    tui_init 2>>"$_dbg"
+    local init_rc=$?
+    echo "[$(date)] tui_init returned $init_rc" >> "$_dbg"
+    if [[ $init_rc -ne 0 ]]; then
+        printf '\033[31mError:\033[0m Failed to initialize TUI (rc=%d). Check terminal capabilities.\n' "$init_rc"
+        echo "[$(date)] tui_init FAILED with rc=$init_rc" >> "$_dbg"
+        return 1
+    fi
     echo "[$(date)] tui_init succeeded, _TUI_ACTIVE=$_TUI_ACTIVE _TERM_COLS=$_TERM_COLS _TERM_ROWS=$_TERM_ROWS" >> "$_dbg"
 
     echo "[$(date)] calling _run_navigation" >> "$_dbg"
