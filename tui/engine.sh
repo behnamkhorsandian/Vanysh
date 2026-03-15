@@ -25,6 +25,7 @@ _TUI_OLD_STTY=""
 _MAX_FRAME_W=120         # Max frame width
 _COMPACT_COLS=100        # Below this: single-column stacked layout
 _CHROME_ROWS=6           # Banner + nav bar + borders overhead
+_BANNER_HEIGHT=0         # Set by render_banner()
 
 # Detect terminal size
 tui_get_size() {
@@ -245,7 +246,7 @@ draw_box_row() {
     local vlen
     vlen=$(visible_len "$text")
     local pad=$(( inner - vlen ))
-    (( pad < 0 )) && pad=0
+    (( pad < 1 )) && pad=1
 
     _m; printf '%b%s%b %b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
@@ -329,8 +330,8 @@ draw_split_row() {
     right_vlen=$(visible_len "$right_text")
     left_pad=$(( SPLIT_LEFT_W - left_vlen ))
     right_pad=$(( SPLIT_RIGHT_W - right_vlen ))
-    (( left_pad < 0 )) && left_pad=0
-    (( right_pad < 0 )) && right_pad=0
+    (( left_pad < 1 )) && left_pad=1
+    (( right_pad < 1 )) && right_pad=1
 
     _m; printf '%b%s%b %b%*s%b%s%b %b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
@@ -601,10 +602,34 @@ render_banner() {
         fi
     fi
 
+    _BANNER_HEIGHT=0
     if [[ -n "$banner_text" ]]; then
-        while IFS= read -r line; do
-            _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
+        # On short terminals, skip large banners
+        local banner_lines=0
+        while IFS= read -r _; do
+            (( banner_lines++ ))
         done <<< "$banner_text"
+
+        if (( _TERM_ROWS < 30 && banner_lines > 5 )); then
+            # Very short terminal: show just the version line
+            _m; printf '%b  DNSCloak v%s%b\n' "$C_GREEN" "${DNSCLOAK_VERSION:-2.0.0}" "$C_RST"
+            _BANNER_HEIGHT=1
+        elif (( _TERM_ROWS < 40 && banner_lines > 10 )); then
+            # Medium terminal: show last 6 lines of banner
+            local skip=$(( banner_lines - 6 ))
+            local count=0
+            while IFS= read -r line; do
+                (( count++ ))
+                (( count <= skip )) && continue
+                _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
+                (( _BANNER_HEIGHT++ ))
+            done <<< "$banner_text"
+        else
+            while IFS= read -r line; do
+                _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
+                (( _BANNER_HEIGHT++ ))
+            done <<< "$banner_text"
+        fi
     fi
 }
 

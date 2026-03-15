@@ -226,8 +226,8 @@ page_protocol() {
             done
 
             # Vertical fill
-            local used_rows=$(( line_count + action_count + 8 ))
-            local avail=$(( _TERM_ROWS - used_rows - 18 ))
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 ))  # banner + newline + box chrome
+            local avail=$(( _TERM_ROWS - chrome_rows - line_count - action_count ))
             while (( avail-- > 0 )); do draw_box_empty; done
 
             draw_box_sep
@@ -261,7 +261,10 @@ page_protocol() {
             local guide_count=${#guide_lines[@]}
             local max_rows=$guide_count
             (( action_count + 2 > max_rows )) && max_rows=$(( action_count + 2 ))
-            local avail_rows=$(( _TERM_ROWS - 22 ))
+            # Use actual banner height for accurate fill
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 7 ))  # banner + newline + split chrome
+            local avail_rows=$(( _TERM_ROWS - chrome_rows ))
+            (( avail_rows < 1 )) && avail_rows=1
             (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do

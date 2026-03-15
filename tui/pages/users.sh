@@ -96,8 +96,8 @@ page_users() {
         done
 
         # Vertical fill
-        local used_rows=$(( user_count + action_count + 8 ))
-        local avail=$(( _TERM_ROWS - used_rows - 18 ))
+        local chrome_rows=$(( _BANNER_HEIGHT + 1 + 8 ))  # banner + newline + box chrome
+        local avail=$(( _TERM_ROWS - chrome_rows - user_count - action_count ))
         while (( avail-- > 0 )); do draw_box_empty; done
 
         draw_box_sep

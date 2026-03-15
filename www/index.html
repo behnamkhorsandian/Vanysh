@@ -1673,32 +1673,35 @@
           <!-- <h2 class="section-title">CLI Preview</h2> -->
           <div class="tui-window">
             <div class="tui-window-header">
-              <span>conduit — ssh <span id="live-indicator" style="color: #666; font-size: 0.85em;">(connecting...)</span></span>
+              <span>dnscloak — ssh <span id="live-indicator" style="color: #666; font-size: 0.85em;">(connecting...)</span></span>
               <div class="tui-controls"><span>[</span><span>-</span><span>]</span> <span>[</span><span>□</span><span>]</span> <span>[</span><span>x</span><span>]</span></div>
             </div>
             <div class="terminal-body">
-              <div class="terminal-line"><span class="prompt">root@vps:~# </span><span class="cmd">curl -sSL conduit.dnscloak.net | sudo bash</span></div>
+              <div class="terminal-line"><span class="prompt">root@vps:~# </span><span class="cmd">curl -sSL dnscloak.net | sudo bash</span></div>
               <div class="terminal-output">
-                <span class="success">[+]</span> Installing Docker...<br>
-                <span class="success">[+]</span> Pulling ghcr.io/ssmirr/conduit...<br>
-                <span class="success">[+]</span> Starting Conduit relay...<br><br>
-                <span class="info">[*]</span> Conduit is now running!<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Max Clients: 1000<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Bandwidth: Unlimited
+                <span class="info">[*]</span> Detecting cloud provider... GCP<br>
+                <span class="success">[+]</span> Loading interactive TUI...<br>
               </div>
-              <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd">conduit status</span></div>
-              <div class="terminal-output">
-                <span class="success">●</span> Running (<span id="live-uptime">63h 29m</span> uptime)<br>
-                [STATS] Connecting: <span id="live-connecting">12</span> | Connected: <span id="live-connected">312</span> | Up: <span id="live-up">145.1 GB</span> | Down: <span id="live-down">1.5 TB</span>
+              <div class="terminal-output" style="margin-top: 10px; line-height: 1.4;">
+                <span style="color: var(--accent-green);">┌─</span> <span style="color: var(--accent-orange);">Protocols</span> <span style="color: var(--accent-green);">──────────────────────┬─</span> <span style="color: var(--accent-orange);">Details</span> <span style="color: var(--accent-green);">──────────────┐</span><br>
+                <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-green);font-weight:bold;">&gt; VLESS + REALITY  [recommended]</span> <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-orange);font-weight:bold;">VLESS + REALITY</span>       <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   WireGuard                      <span style="color: var(--accent-green);">│</span>                          <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   VLESS + WS + CDN  <span style="color: var(--accent-orange);">[needs domain]</span> <span style="color: var(--accent-green);">│</span> Advanced TLS camouflage. <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   MTProto Proxy                   <span style="color: var(--accent-green);">│</span> No domain needed.       <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   DNS Tunnel  <span style="color: var(--accent-red);">[emergency]</span>          <span style="color: var(--accent-green);">│</span> Very fast, low overhead. <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   Conduit (Psiphon) <span style="color: var(--accent-purple);">[relay]</span>       <span style="color: var(--accent-green);">│</span>                          <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   VLESS + TLS  <span style="color: var(--accent-orange);">[needs domain]</span>      <span style="color: var(--accent-green);">│</span> <span style="color: var(--accent-light-green);">Requirements:</span>          <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>   SOS Emergency Chat <span style="color: var(--accent-red);">[emergency]</span>  <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-secondary);">- Server with public IP</span> <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">│</span>                                    <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-secondary);">- Port 443 open</span>        <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">├────────────────────────────────────┴──────────────────────────┤</span><br>
+                <span style="color: var(--accent-green);">│</span> <span style="color: var(--text-dim);">Up/Down</span> navigate  <span style="color: var(--text-dim);">Enter</span> select  <span style="color: var(--text-dim);">s</span> status  <span style="color: var(--text-dim);">u</span> users  <span style="color: var(--text-dim);">q</span> quit <span style="color: var(--accent-green);">│</span><br>
+                <span style="color: var(--accent-green);">└──────────────────────────────────────────────────────────────┘</span>
               </div>
-              <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd">conduit peers</span></div>
+              <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd">dnscloak status</span></div>
               <div class="terminal-output">
-                <span class="info">[*]</span> Connected peers by country:<br>
-                &nbsp;&nbsp;<span id="live-peers">IR: 187 &nbsp;RU: 52 &nbsp;CN: 41 &nbsp;...</span>
-              </div>
-              <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd">neofetch --off</span></div>
-              <div class="terminal-output">
-                <span style="color: #888;" id="live-system">n2d-highcpu-8 | 8 vCPUs | 8GB RAM | 16 Gbps</span>
+                <span class="success">●</span> Xray (Reality/WS): <span style="color:var(--accent-green);">running</span> (<span id="live-uptime">63h 29m</span> uptime)<br>
+                <span class="success">●</span> Conduit: <span style="color:var(--accent-green);">running</span> | Connected: <span id="live-connected">312</span> | Up: <span id="live-up">145.1 GB</span> | Down: <span id="live-down">1.5 TB</span><br>
+                <span class="success">●</span> DNSTT: <span style="color:var(--accent-green);">running</span> | WireGuard: <span style="color:var(--accent-green);">running</span>
               </div>
               <div class="terminal-line" style="margin-top: 15px;"><span class="prompt">root@vps:~# </span><span class="cmd cursor">█</span></div>
             </div>

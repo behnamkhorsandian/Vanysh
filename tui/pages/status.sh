@@ -96,8 +96,8 @@ page_status() {
             done
 
             # Vertical fill
-            local used_rows=$(( 10 + ${#service_lines[@]} ))
-            local avail=$(( _TERM_ROWS - used_rows - 18 ))
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 10 + ${#service_lines[@]} + 5 ))
+            local avail=$(( _TERM_ROWS - chrome_rows ))
             while (( avail-- > 0 )); do draw_box_empty; done
 
             draw_box_sep
@@ -135,7 +135,9 @@ page_status() {
             local right_count=${#right_lines[@]}
             local max_rows=$left_count
             (( right_count > max_rows )) && max_rows=$right_count
-            local avail_rows=$(( _TERM_ROWS - 28 ))
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 12 ))  # banner + newline + split chrome + port section
+            local avail_rows=$(( _TERM_ROWS - chrome_rows ))
+            (( avail_rows < 1 )) && avail_rows=1
             (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do

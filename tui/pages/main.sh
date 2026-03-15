@@ -92,9 +92,10 @@ page_main_menu() {
                 (( i++ ))
             done
 
-            # Vertical fill: pad remaining rows
-            local content_rows=$(( ${#items[@]} + 5 ))  # items + top/empty/sep/hints/bottom
-            local avail=$(( _TERM_ROWS - content_rows - 18 ))  # ~18 for banner
+            # Vertical fill using actual banner height
+            # Chrome: top border(1) + empty(1) + sep(1) + hints(1) + bottom(1) = 5
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 5 ))
+            local avail=$(( _TERM_ROWS - chrome_rows - ${#items[@]} ))
             while (( avail-- > 0 )); do draw_box_empty; done
 
             draw_box_sep
@@ -123,8 +124,8 @@ page_main_menu() {
             IFS=$'\n' read -r -d '' -a req_lines <<< "$(printf '%b' "$sel_reqs")" || true
             IFS=$'\n' read -r -d '' -a client_lines <<< "$(printf '%b' "$sel_clients")" || true
 
-            # Build right panel line array
-            right_lines+=("${C_ORANGE}${PROTOCOL_NAMES[$sel_proto]}${C_RST}")
+            # Build right panel line array with clear sections
+            right_lines+=("${C_ORANGE}${C_BOLD}${PROTOCOL_NAMES[$sel_proto]}${C_RST}")
             right_lines+=("")
             for dl in "${desc_lines[@]}"; do
                 right_lines+=("${C_TEXT}${dl}${C_RST}")
@@ -140,12 +141,18 @@ page_main_menu() {
                 right_lines+=("${C_LGRAY}${cl}${C_RST}")
             done
 
-            # Draw rows — fill to terminal height
+            # Compute available content rows using actual banner height
+            # Chrome: banner + newline(1) + split_top(1) + split_empty_top(1) +
+            #         split_empty_bottom(1) + split_sep(1) + hints(1) + bottom(1) = 7
+            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 7 ))
+            local avail_rows=$(( _TERM_ROWS - chrome_rows ))
+            (( avail_rows < 1 )) && avail_rows=1
+
+            # Content height = max of left and right
             local max_rows=${#items[@]}
             local right_count=${#right_lines[@]}
             (( right_count > max_rows )) && max_rows=$right_count
-            # Compute available content rows (terminal - banner - chrome)
-            local avail_rows=$(( _TERM_ROWS - 22 ))  # ~18 banner + 4 chrome
+            # Fill to available rows (stretch to terminal)
             (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do
