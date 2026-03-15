@@ -1,0 +1,140 @@
+# DNSCloak - Auto Deploy
+#
+# Deploys Workers, Pages, and purges caches on push to main.
+# Uses path filters to only deploy what changed.
+#
+# Required Secrets:
+#   CLOUDFLARE_API_TOKEN - CF API token with Workers/Pages/Cache Purge/Zone Read permissions
+#   CF_ACCOUNT_ID        - Cloudflare account ID (59c1b66d875ff34924700a8539597845)
+#   CF_ZONE_ID           - Cloudflare zone ID for dnscloak.net (b77748f1e24d18d80541aad32cb06b3a)
+#
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # ============================================
+  # Detect what changed
+  # ============================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      workers: ${{ steps.filter.outputs.workers }}
+      www: ${{ steps.filter.outputs.www }}
+      tui: ${{ steps.filter.outputs.tui }}
+      services: ${{ steps.filter.outputs.services }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            workers:
+              - 'workers/**'
+            www:
+              - 'www/**'
+            tui:
+              - 'tui/**'
+              - 'banners/**'
+              - 'start.sh'
+              - 'setup.sh'
+            services:
+              - 'services/**'
+              - 'lib/**'
+              - 'cli/**'
+
+  # ============================================
+  # Deploy Cloudflare Workers
+  # ============================================
+  deploy-workers:
+    name: Deploy Workers
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.workers == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: workers
+        run: npm install
+
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: workers
+
+  # ============================================
+  # Deploy Cloudflare Pages (www)
+  # ============================================
+  deploy-pages:
+    name: Deploy Pages
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.www == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy www --project-name=dnscloak --branch=main --commit-dirty=true
+
+  # ============================================
+  # Purge Cloudflare Cache
+  # ============================================
+  purge-cache:
+    name: Purge Cache
+    runs-on: ubuntu-latest
+    needs: [changes, deploy-workers, deploy-pages]
+    if: |
+      always() &&
+      (needs.deploy-workers.result == 'success' || needs.deploy-pages.result == 'success' || needs.changes.outputs.tui == 'true' || needs.changes.outputs.services == 'true')
+    steps:
+      - name: Purge Cloudflare CDN cache
+        run: |
+          echo "Purging Cloudflare CDN cache..."
+          RESPONSE=$(curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CF_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          
+          SUCCESS=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success',False))")
+          if [ "$SUCCESS" = "True" ]; then
+            echo "* Cloudflare cache purged"
+          else
+            echo "Warning: Cache purge failed (non-critical)"
+            echo "$RESPONSE"
+          fi
+
+      - name: Purge jsDelivr CDN cache
+        if: needs.changes.outputs.tui == 'true' || needs.changes.outputs.services == 'true'
+        run: |
+          echo "Purging jsDelivr CDN cache..."
+          FILES=(
+            "start.sh"
+            "setup.sh"
+            "tui/engine.sh"
+            "tui/main.sh"
+            "tui/theme.sh"
+          )
+          for f in "${FILES[@]}"; do
+            curl -s "https://purge.jsdelivr.net/gh/behnamkhorsandian/DNSCloak@main/$f" || true
+          done
+          echo "* jsDelivr cache purged"
