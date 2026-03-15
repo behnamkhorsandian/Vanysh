@@ -139,8 +139,13 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname;
 
-    // Redirect root domain to www
+    // Root domain: serve script for curl, redirect browsers to www
     if (hostname === 'dnscloak.net') {
+      const ua = (request.headers.get('User-Agent') || '').toLowerCase();
+      const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
+      if (isCli) {
+        return serveStartScript();
+      }
       return Response.redirect('https://www.dnscloak.net/', 301);
     }
 
@@ -237,9 +242,21 @@ export default {
     }
 
     // Per-protocol shortcut: curl -sSL reality.dnscloak.net | sudo bash
-    // Serves start.sh with DNSCLOAK_PROTOCOL pre-set
+    // Serves start.sh with DNSCLOAK_PROTOCOL pre-set for CLI tools
+    // Browsers get the info page instead
     if (config) {
-      return serveStartScript(subdomain);
+      const ua = (request.headers.get('User-Agent') || '').toLowerCase();
+      const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
+      if (isCli) {
+        return serveStartScript(subdomain);
+      }
+      // Browsers: show info page
+      return new Response(getInfoPage(subdomain, config), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      });
     }
 
     return new Response(`Unknown service: ${subdomain}`, { status: 404 });
@@ -381,8 +398,8 @@ function getInfoPage(service: string, config: ServiceConfig): string {
       <h2>Install on your VPS</h2>
       <p style="color:#8b949e;margin-bottom:10px;">Install this protocol directly:</p>
       <code>curl -sSL ${service}.dnscloak.net | sudo bash</code>
-      <p style="color:#8b949e;margin-top:15px;">Or install the full menu:</p>
-      <code>curl -sSL start.dnscloak.net | sudo bash</code>
+      <p style="color:#8b949e;margin-top:15px;">Or install the full interactive menu:</p>
+      <code>curl -sSL dnscloak.net | sudo bash</code>
     </div>
     
     <div class="apps">
