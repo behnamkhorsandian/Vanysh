@@ -17,8 +17,7 @@ page_users() {
 
     while true; do
         tui_get_size
-        local width=$(( _TERM_COLS > 110 ? 110 : _TERM_COLS - 4 ))
-        (( width < 70 )) && width=70
+        tui_compute_layout
 
         clear_screen
         render_banner "logo" "$C_GREEN"
@@ -44,18 +43,18 @@ page_users() {
         local user_count=${#users[@]}
 
         # Main content
-        draw_box_top "$width" "User Management"
-        draw_box_empty "$width"
+        draw_box_top "" "User Management"
+        draw_box_empty
 
         if [[ $user_count -eq 0 ]]; then
-            draw_box_row " ${C_LGRAY}No users configured yet.${C_RST}" "$width"
-            draw_box_row " ${C_LGRAY}Install a protocol first, then add users.${C_RST}" "$width"
+            draw_box_row " ${C_LGRAY}No users configured yet.${C_RST}"
+            draw_box_row " ${C_LGRAY}Install a protocol first, then add users.${C_RST}"
         else
             # Table header
             local hdr
             hdr=$(printf ' %-20s %s' "${C_ORANGE}Username${C_RST}" "${C_ORANGE}Protocols${C_RST}")
-            draw_box_row "$hdr" "$width"
-            draw_box_sep "$width"
+            draw_box_row "$hdr"
+            draw_box_sep
 
             local i=0
             for uname in "${users[@]}"; do
@@ -67,14 +66,14 @@ page_users() {
                 fi
                 local row
                 row=$(printf '%s%-20s %b%s%b' "$prefix" "${ucolor}${uname}${C_RST}" "$C_LGRAY" "${user_protos[$i]}" "$C_RST")
-                draw_box_row "$row" "$width"
+                draw_box_row "$row"
                 (( i++ ))
             done
         fi
 
-        draw_box_empty "$width"
-        draw_box_sep "$width"
-        draw_box_empty "$width"
+        draw_box_empty
+        draw_box_sep
+        draw_box_empty
 
         # Action menu (below the user list)
         local actions=("Add User" "Remove User" "Show User Links" "Back to Main Menu")
@@ -92,14 +91,18 @@ page_users() {
                 prefix=" ${C_GREEN}>${C_RST}"
                 acolor="${C_GREEN}${C_BOLD}"
             fi
-            draw_box_row "${prefix} ${acolor}${action}${C_RST}" "$width"
+            draw_box_row "${prefix} ${acolor}${action}${C_RST}"
             (( a++ ))
         done
 
-        draw_box_empty "$width"
-        draw_box_sep "$width"
-        draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}" "$width"
-        draw_box_bottom "$width"
+        # Vertical fill
+        local used_rows=$(( user_count + action_count + 8 ))
+        local avail=$(( _TERM_ROWS - used_rows - 18 ))
+        while (( avail-- > 0 )); do draw_box_empty; done
+
+        draw_box_sep
+        draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+        draw_box_bottom
 
         # Key handling
         local key
@@ -150,16 +153,16 @@ page_users() {
 
 _add_user_page() {
     tui_get_size
-    local width=$(( _TERM_COLS > 80 ? 80 : _TERM_COLS - 4 ))
+    tui_compute_layout
 
     clear_screen
     printf '\n'
-    draw_box_top "$width" "Add User"
-    draw_box_empty "$width"
-    draw_box_row " ${C_TEXT}Enter a username for the new user.${C_RST}" "$width"
-    draw_box_row " ${C_LGRAY}They will be added to all installed protocols.${C_RST}" "$width"
-    draw_box_empty "$width"
-    draw_box_bottom "$width"
+    draw_box_top "" "Add User"
+    draw_box_empty
+    draw_box_row " ${C_TEXT}Enter a username for the new user.${C_RST}"
+    draw_box_row " ${C_LGRAY}They will be added to all installed protocols.${C_RST}"
+    draw_box_empty
+    draw_box_bottom
     printf '\n'
 
     local username=""
@@ -199,16 +202,16 @@ _add_user_page() {
 
 _remove_user_page() {
     tui_get_size
-    local width=$(( _TERM_COLS > 80 ? 80 : _TERM_COLS - 4 ))
+    tui_compute_layout
 
     clear_screen
     printf '\n'
-    draw_box_top "$width" "Remove User"
-    draw_box_empty "$width"
-    draw_box_row " ${C_TEXT}Enter the username to remove.${C_RST}" "$width"
-    draw_box_row " ${C_RED}This will remove them from ALL protocols.${C_RST}" "$width"
-    draw_box_empty "$width"
-    draw_box_bottom "$width"
+    draw_box_top "" "Remove User"
+    draw_box_empty
+    draw_box_row " ${C_TEXT}Enter the username to remove.${C_RST}"
+    draw_box_row " ${C_RED}This will remove them from ALL protocols.${C_RST}"
+    draw_box_empty
+    draw_box_bottom
     printf '\n'
 
     local username=""
@@ -243,12 +246,12 @@ _show_user_links_page() {
     local username="$1"
 
     tui_get_size
-    local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS - 4 ))
+    tui_compute_layout
 
     clear_screen
     printf '\n'
-    draw_box_top "$width" "Links for: $username"
-    draw_box_empty "$width"
+    draw_box_top "" "Links for: $username"
+    draw_box_empty
 
     if [[ -f "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" ]] && type jq &>/dev/null; then
         local protos
@@ -256,18 +259,18 @@ _show_user_links_page() {
             "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
 
         if [[ -z "$protos" ]]; then
-            draw_box_row " ${C_LGRAY}No protocols configured for this user.${C_RST}" "$width"
+            draw_box_row " ${C_LGRAY}No protocols configured for this user.${C_RST}"
         else
             while IFS= read -r proto; do
-                draw_box_row " ${C_ORANGE}${PROTOCOL_NAMES[$proto]:-$proto}${C_RST}" "$width"
-                draw_box_sep "$width"
+                draw_box_row " ${C_ORANGE}${PROTOCOL_NAMES[$proto]:-$proto}${C_RST}"
+                draw_box_sep
 
                 # Call protocol-specific link display
                 local show_fn="show_${proto}_links"
                 [[ "$proto" == "reality" ]] && show_fn="show_user_links"
                 if type "$show_fn" &>/dev/null; then
                     "$show_fn" "$username" 2>/dev/null | while IFS= read -r line; do
-                        draw_box_row " $line" "$width"
+                        draw_box_row " $line"
                     done
                 else
                     # Fallback: dump the protocol config
@@ -275,17 +278,17 @@ _show_user_links_page() {
                     config=$(jq ".users[\"$username\"].protocols[\"$proto\"]" \
                         "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
                     while IFS= read -r line; do
-                        draw_box_row " ${C_TEXT}$line${C_RST}" "$width"
+                        draw_box_row " ${C_TEXT}$line${C_RST}"
                     done <<< "$config"
                 fi
-                draw_box_empty "$width"
+                draw_box_empty
             done <<< "$protos"
         fi
     else
-        draw_box_row " ${C_LGRAY}User database not found or jq not installed.${C_RST}" "$width"
+        draw_box_row " ${C_LGRAY}User database not found or jq not installed.${C_RST}"
     fi
 
-    draw_box_bottom "$width"
+    draw_box_bottom
     printf '\n'
     press_any_key
 }

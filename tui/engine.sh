@@ -21,6 +21,11 @@ _TUI_FD=3
 _TUI_ACTIVE=0
 _TUI_OLD_STTY=""
 
+# Layout constants
+_MAX_FRAME_W=120         # Max frame width
+_COMPACT_COLS=100        # Below this: single-column stacked layout
+_CHROME_ROWS=6           # Banner + nav bar + borders overhead
+
 # Detect terminal size
 tui_get_size() {
     if [[ -e /dev/tty ]]; then
@@ -35,6 +40,27 @@ tui_get_size() {
     (( _TERM_COLS > 220 )) && _TERM_COLS=220
     (( _TERM_ROWS < 20 )) && _TERM_ROWS=20
     (( _TERM_ROWS > 80 )) && _TERM_ROWS=80
+    return 0
+}
+
+# Compute frame width, compact flag, and horizontal margin
+# Sets: _FRAME_W, _COMPACT, _MARGIN
+tui_compute_layout() {
+    local max="${1:-$_MAX_FRAME_W}"
+    _FRAME_W=$(( _TERM_COLS - 2 ))
+    (( _FRAME_W > max )) && _FRAME_W=$max
+    # Snap to even for clean splits
+    (( _FRAME_W % 2 == 1 )) && (( _FRAME_W-- )) || true
+    _COMPACT=0
+    (( _FRAME_W < _COMPACT_COLS )) && _COMPACT=1
+    _MARGIN=$(( (_TERM_COLS - _FRAME_W) / 2 ))
+    (( _MARGIN < 0 )) && _MARGIN=0
+    return 0
+}
+
+# Print margin spaces (used to center-align all frame output)
+_m() {
+    (( _MARGIN > 0 )) && printf '%*s' "$_MARGIN" ""
     return 0
 }
 
@@ -168,12 +194,12 @@ clear_screen() {
 # Draw top border with optional title
 # Usage: draw_box_top [width] [title] [border_color]
 draw_box_top() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local title="$2"
     local bc="${3:-$C_DGRAY}"
     local inner=$(( width - 2 ))
 
-    printf '%b%s' "$bc" "$BOX_TL"
+    _m; printf '%b%s' "$bc" "$BOX_TL"
     if [[ -n "$title" ]]; then
         local tlen=${#title}
         printf '%s' "$BOX_H"
@@ -188,22 +214,22 @@ draw_box_top() {
 
 # Draw bottom border
 draw_box_bottom() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     local inner=$(( width - 2 ))
 
-    printf '%b%s' "$bc" "$BOX_BL"
+    _m; printf '%b%s' "$bc" "$BOX_BL"
     repeat_str "$BOX_H" "$inner"
     printf '%s%b\n' "$BOX_BR" "$C_RST"
 }
 
 # Draw horizontal separator
 draw_box_sep() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     local inner=$(( width - 2 ))
 
-    printf '%b%s' "$bc" "$BOX_ML"
+    _m; printf '%b%s' "$bc" "$BOX_ML"
     repeat_str "$BOX_H" "$inner"
     printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
@@ -212,7 +238,7 @@ draw_box_sep() {
 # Usage: draw_box_row "text" [width] [border_color]
 draw_box_row() {
     local text="$1"
-    local width="${2:-$_TERM_COLS}"
+    local width="${2:-$_FRAME_W}"
     local bc="${3:-$C_DGRAY}"
     local inner=$(( width - 2 ))
 
@@ -221,7 +247,7 @@ draw_box_row() {
     local pad=$(( inner - vlen ))
     (( pad < 0 )) && pad=0
 
-    printf '%b%s%b %b%*s%b%s%b\n' \
+    _m; printf '%b%s%b %b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
         "$text" "$((pad - 1))" "" \
         "$bc" "$BOX_V" "$C_RST"
@@ -229,11 +255,11 @@ draw_box_row() {
 
 # Draw an empty row
 draw_box_empty() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     local inner=$(( width - 2 ))
 
-    printf '%b%s%b%*s%b%s%b\n' \
+    _m; printf '%b%s%b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
         "$inner" "" \
         "$bc" "$BOX_V" "$C_RST"
@@ -251,7 +277,7 @@ draw_box_empty() {
 # Output: sets SPLIT_LEFT_W and SPLIT_RIGHT_W
 compute_split() {
     local total="$1"
-    local ratio="${2:-65}"
+    local ratio="${2:-55}"
     local inner=$(( total - 2 ))
     SPLIT_LEFT_W=$(( inner * ratio / 100 ))
     SPLIT_RIGHT_W=$(( inner - SPLIT_LEFT_W - 1 ))  # -1 for middle border
@@ -259,14 +285,14 @@ compute_split() {
 
 # Draw split top border
 draw_split_top() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local left_title="$2"
     local right_title="$3"
     local bc="${4:-$C_DGRAY}"
 
     compute_split "$width"
 
-    printf '%b%s' "$bc" "$BOX_TL"
+    _m; printf '%b%s' "$bc" "$BOX_TL"
     if [[ -n "$left_title" ]]; then
         printf '%s' "$BOX_H"
         printf '%b %s %b' "$C_ORANGE" "$left_title" "$bc"
@@ -293,7 +319,7 @@ draw_split_top() {
 draw_split_row() {
     local left_text="$1"
     local right_text="$2"
-    local width="${3:-$_TERM_COLS}"
+    local width="${3:-$_FRAME_W}"
     local bc="${4:-$C_DGRAY}"
 
     compute_split "$width"
@@ -306,7 +332,7 @@ draw_split_row() {
     (( left_pad < 0 )) && left_pad=0
     (( right_pad < 0 )) && right_pad=0
 
-    printf '%b%s%b %b%*s%b%s%b %b%*s%b%s%b\n' \
+    _m; printf '%b%s%b %b%*s%b%s%b %b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
         "$left_text" "$((left_pad - 1))" "" \
         "$bc" "$BOX_V" "$C_RST" \
@@ -316,11 +342,11 @@ draw_split_row() {
 
 # Draw split empty row
 draw_split_empty() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     compute_split "$width"
 
-    printf '%b%s%b%*s%b%s%b%*s%b%s%b\n' \
+    _m; printf '%b%s%b%*s%b%s%b%*s%b%s%b\n' \
         "$bc" "$BOX_V" "$C_RST" \
         "$SPLIT_LEFT_W" "" \
         "$bc" "$BOX_V" "$C_RST" \
@@ -330,11 +356,11 @@ draw_split_empty() {
 
 # Draw split separator
 draw_split_sep() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     compute_split "$width"
 
-    printf '%b%s' "$bc" "$BOX_ML"
+    _m; printf '%b%s' "$bc" "$BOX_ML"
     repeat_str "$BOX_H" "$SPLIT_LEFT_W"
     printf '%s' "$BOX_CJ"
     repeat_str "$BOX_H" "$SPLIT_RIGHT_W"
@@ -343,11 +369,11 @@ draw_split_sep() {
 
 # Draw split bottom
 draw_split_bottom() {
-    local width="${1:-$_TERM_COLS}"
+    local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
     compute_split "$width"
 
-    printf '%b%s' "$bc" "$BOX_BL"
+    _m; printf '%b%s' "$bc" "$BOX_BL"
     repeat_str "$BOX_H" "$SPLIT_LEFT_W"
     printf '%s' "$BOX_BJ"
     repeat_str "$BOX_H" "$SPLIT_RIGHT_W"
@@ -577,7 +603,7 @@ render_banner() {
 
     if [[ -n "$banner_text" ]]; then
         while IFS= read -r line; do
-            printf '%b%s%b\n' "$color" "$line" "$C_RST"
+            _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
         done <<< "$banner_text"
     fi
 }
@@ -615,7 +641,7 @@ tui_select_menu() {
 
     while true; do
         tui_get_size
-        local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS ))
+        tui_compute_layout
         clear_screen
 
         # Banner
@@ -623,8 +649,8 @@ tui_select_menu() {
         printf '\n'
 
         # Box
-        draw_box_top "$width" "$title"
-        draw_box_empty "$width"
+        draw_box_top "" "$title"
+        draw_box_empty
 
         local i=0
         for item in "${items[@]}"; do
@@ -654,17 +680,17 @@ tui_select_menu() {
                 relay)         display+="  $badge_relay" ;;
             esac
 
-            draw_box_row "$display" "$width"
+            draw_box_row "$display"
             (( i++ ))
         done
 
-        draw_box_empty "$width"
-        draw_box_sep "$width"
+        draw_box_empty
+        draw_box_sep
         local hints=" ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  "
         hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
         hints+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
-        draw_box_row "$hints" "$width"
-        draw_box_bottom "$width"
+        draw_box_row "$hints"
+        draw_box_bottom
 
         # Read key
         local key
@@ -703,7 +729,8 @@ tui_select_menu() {
 
 press_any_key() {
     local msg="${1:-Press any key to continue...}"
-    printf '\n  %b%s%b' "$C_DGRAY" "$msg" "$C_RST"
+    printf '\n'
+    _m; printf '  %b%s%b' "$C_DGRAY" "$msg" "$C_RST"
     printf '\033[?25h'
     tui_read_key >/dev/null
     printf '\033[?25l'

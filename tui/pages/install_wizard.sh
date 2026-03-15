@@ -116,35 +116,34 @@ render_wizard_step() {
     IFS='|' read -r step_type step_var step_prompt step_default step_help step_options <<< "$step_def"
 
     tui_get_size
-    local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS - 4 ))
-    (( width < 60 )) && width=60
+    tui_compute_layout
 
     clear_screen
 
     # Progress bar
     printf '\n'
-    printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
+    _m; printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
     tui_progress "$step_num" "$total_steps" 20
     printf '\n\n'
 
     # Main content box
-    draw_box_top "$width" "$step_prompt"
-    draw_box_empty "$width"
+    draw_box_top "" "$step_prompt"
+    draw_box_empty
 
     # Help text (word-wrapped inside box)
     if [[ -n "$step_help" ]]; then
-        local help_width=$(( width - 6 ))
+        local help_width=$(( _FRAME_W - 6 ))
         while IFS= read -r line; do
-            draw_box_row " ${C_LGRAY}${line}${C_RST}" "$width"
+            draw_box_row " ${C_LGRAY}${line}${C_RST}"
         done <<< "$(word_wrap "$step_help" "$help_width")"
-        draw_box_empty "$width"
+        draw_box_empty
     fi
 
     case "$step_type" in
         info)
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}Press Enter to continue  |  Esc to cancel${C_RST}" "$width"
-            draw_box_bottom "$width"
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}Press Enter to continue  |  Esc to cancel${C_RST}"
+            draw_box_bottom
 
             while true; do
                 local key
@@ -167,20 +166,20 @@ render_wizard_step() {
                 # Redraw options
                 clear_screen
                 printf '\n'
-                printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
+                _m; printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
                 tui_progress "$step_num" "$total_steps" 20
                 printf '\n\n'
-                draw_box_top "$width" "$step_prompt"
-                draw_box_empty "$width"
+                draw_box_top "" "$step_prompt"
+                draw_box_empty
 
                 if [[ -n "$step_help" ]]; then
-                    local help_width=$(( width - 6 ))
+                    local help_width=$(( _FRAME_W - 6 ))
                     while IFS= read -r line; do
-                        draw_box_row " ${C_LGRAY}${line}${C_RST}" "$width"
+                        draw_box_row " ${C_LGRAY}${line}${C_RST}"
                     done <<< "$(word_wrap "$step_help" "$help_width")"
-                    draw_box_empty "$width"
-                    draw_box_sep "$width"
-                    draw_box_empty "$width"
+                    draw_box_empty
+                    draw_box_sep
+                    draw_box_empty
                 fi
 
                 local i=0
@@ -191,14 +190,14 @@ render_wizard_step() {
                         prefix=" ${C_GREEN}>${C_RST}"
                         ocolor="${C_GREEN}${C_BOLD}"
                     fi
-                    draw_box_row "${prefix} ${ocolor}${opt}${C_RST}" "$width"
+                    draw_box_row "${prefix} ${ocolor}${opt}${C_RST}"
                     (( i++ ))
                 done
 
-                draw_box_empty "$width"
-                draw_box_sep "$width"
-                draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}" "$width"
-                draw_box_bottom "$width"
+                draw_box_empty
+                draw_box_sep
+                draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+                draw_box_bottom
 
                 local key
                 key=$(tui_read_key)
@@ -226,15 +225,15 @@ render_wizard_step() {
             ;;
 
         input)
-            draw_box_sep "$width"
-            draw_box_empty "$width"
+            draw_box_sep
+            draw_box_empty
 
             local current_val="${!step_var:-$step_default}"
-            draw_box_row " ${C_DGRAY}Default: ${current_val}${C_RST}" "$width"
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}Enter value (or press Enter for default)  |  Esc back${C_RST}" "$width"
-            draw_box_bottom "$width"
+            draw_box_row " ${C_DGRAY}Default: ${current_val}${C_RST}"
+            draw_box_empty
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}Enter value (or press Enter for default)  |  Esc back${C_RST}"
+            draw_box_bottom
             printf '\n'
 
             local input_val=""
@@ -244,13 +243,13 @@ render_wizard_step() {
             ;;
 
         confirm)
-            draw_box_sep "$width"
-            draw_box_empty "$width"
-            draw_box_row " ${C_GREEN}[Y]${C_RST} ${C_TEXT}Yes${C_RST}    ${C_RED}[N]${C_RST} ${C_TEXT}No${C_RST}    ${C_DGRAY}Default: ${step_default}${C_RST}" "$width"
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}y/n to answer  |  Esc back${C_RST}" "$width"
-            draw_box_bottom "$width"
+            draw_box_sep
+            draw_box_empty
+            draw_box_row " ${C_GREEN}[Y]${C_RST} ${C_TEXT}Yes${C_RST}    ${C_RED}[N]${C_RST} ${C_TEXT}No${C_RST}    ${C_DGRAY}Default: ${step_default}${C_RST}"
+            draw_box_empty
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}y/n to answer  |  Esc back${C_RST}"
+            draw_box_bottom
 
             while true; do
                 local key
@@ -279,9 +278,9 @@ render_wizard_step() {
             ;;
 
         action)
-            draw_box_sep "$width"
-            draw_box_row " ${C_LGREEN}Installing... Please wait.${C_RST}" "$width"
-            draw_box_bottom "$width"
+            draw_box_sep
+            draw_box_row " ${C_LGREEN}Installing... Please wait.${C_RST}"
+            draw_box_bottom
             printf '\n'
 
             # Leave TUI mode temporarily to show install output

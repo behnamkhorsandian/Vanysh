@@ -41,10 +41,7 @@ page_main_menu() {
 
     while true; do
         tui_get_size
-        local width=$(( _TERM_COLS > 110 ? 110 : _TERM_COLS - 4 ))
-        (( width < 70 )) && width=70
-        local compact=0
-        (( width < 90 )) && compact=1
+        tui_compute_layout
 
         clear_screen
 
@@ -61,10 +58,10 @@ page_main_menu() {
             items+=("${name}|${proto}|${badge}")
         done
 
-        if (( compact )); then
+        if (( _COMPACT )); then
             # Compact mode: just a simple menu, no split
-            draw_box_top "$width" "Select Protocol"
-            draw_box_empty "$width"
+            draw_box_top "" "Select Protocol"
+            draw_box_empty
 
             local i=0
             for item in "${items[@]}"; do
@@ -91,17 +88,21 @@ page_main_menu() {
                     relay)         display+="  $badge_relay" ;;
                 esac
 
-                draw_box_row "$display" "$width"
+                draw_box_row "$display"
                 (( i++ ))
             done
 
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}" "$width"
-            draw_box_bottom "$width"
+            # Vertical fill: pad remaining rows
+            local content_rows=$(( ${#items[@]} + 5 ))  # items + top/empty/sep/hints/bottom
+            local avail=$(( _TERM_ROWS - content_rows - 18 ))  # ~18 for banner
+            while (( avail-- > 0 )); do draw_box_empty; done
+
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+            draw_box_bottom
         else
             # Full mode: split layout (left: list, right: description)
-            compute_split "$width" 55
+            compute_split "$_FRAME_W" 55
 
             # Get selected protocol info
             local sel_proto="${PROTOCOL_IDS[$selected]}"
@@ -110,8 +111,8 @@ page_main_menu() {
             local sel_clients="${PROTOCOL_CLIENTS[$sel_proto]}"
 
             # Draw split top
-            draw_split_top "$width" "Protocols" "Details"
-            draw_split_empty "$width"
+            draw_split_top "" "Protocols" "Details"
+            draw_split_empty
 
             # Draw each protocol item on the left, description on the right
             local i=0
@@ -139,10 +140,13 @@ page_main_menu() {
                 right_lines+=("${C_LGRAY}${cl}${C_RST}")
             done
 
-            # Draw rows
+            # Draw rows — fill to terminal height
             local max_rows=${#items[@]}
             local right_count=${#right_lines[@]}
             (( right_count > max_rows )) && max_rows=$right_count
+            # Compute available content rows (terminal - banner - chrome)
+            local avail_rows=$(( _TERM_ROWS - 22 ))  # ~18 banner + 4 chrome
+            (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do
                 # Left column
@@ -179,18 +183,18 @@ page_main_menu() {
                     right_text=" ${right_lines[$r]}"
                 fi
 
-                draw_split_row "$left_text" "$right_text" "$width"
+                draw_split_row "$left_text" "$right_text"
             done
 
-            draw_split_empty "$width"
-            draw_split_sep "$width"
+            draw_split_empty
+            draw_split_sep
             local hints=" ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  "
             hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
             hints+="${C_DGRAY}s${C_RST}${C_DIM} status${C_RST}  "
             hints+="${C_DGRAY}u${C_RST}${C_DIM} users${C_RST}  "
             hints+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
-            draw_box_row "$hints" "$width"
-            draw_box_bottom "$width"
+            draw_box_row "$hints"
+            draw_box_bottom
         fi
 
         # Read key

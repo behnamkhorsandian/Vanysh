@@ -158,10 +158,7 @@ page_protocol() {
 
     while true; do
         tui_get_size
-        local width=$(( _TERM_COLS > 110 ? 110 : _TERM_COLS - 4 ))
-        (( width < 70 )) && width=70
-        local compact=0
-        (( width < 90 )) && compact=1
+        tui_compute_layout
 
         # Build action list
         local actions=()
@@ -186,10 +183,10 @@ page_protocol() {
         render_banner "$banner_name" "$C_BLUE"
         printf '\n'
 
-        if (( compact )); then
+        if (( _COMPACT )); then
             # Compact: just action list
-            draw_box_top "$width" "$proto_name"
-            draw_box_empty "$width"
+            draw_box_top "" "$proto_name"
+            draw_box_empty
 
             # Status line
             if [[ $is_installed -eq 1 ]]; then
@@ -199,21 +196,21 @@ page_protocol() {
                 else
                     status_text="Status: $badge_stopped"
                 fi
-                draw_box_row " $status_text" "$width"
-                draw_box_empty "$width"
+                draw_box_row " $status_text"
+                draw_box_empty
             fi
 
             # Guide text (first 5 lines only in compact)
             local line_count=0
             while IFS= read -r line; do
                 (( line_count >= 5 )) && break
-                draw_box_row " ${C_TEXT}${line}${C_RST}" "$width"
+                draw_box_row " ${C_TEXT}${line}${C_RST}"
                 (( line_count++ ))
             done <<< "$guide"
 
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_empty "$width"
+            draw_box_empty
+            draw_box_sep
+            draw_box_empty
 
             # Action menu
             local i=0
@@ -224,19 +221,23 @@ page_protocol() {
                     prefix=" ${C_GREEN}>${C_RST}"
                     lcolor="${C_GREEN}${C_BOLD}"
                 fi
-                draw_box_row "${prefix} ${lcolor}${action}${C_RST}" "$width"
+                draw_box_row "${prefix} ${lcolor}${action}${C_RST}"
                 (( i++ ))
             done
 
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}" "$width"
-            draw_box_bottom "$width"
+            # Vertical fill
+            local used_rows=$(( line_count + action_count + 8 ))
+            local avail=$(( _TERM_ROWS - used_rows - 18 ))
+            while (( avail-- > 0 )); do draw_box_empty; done
+
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+            draw_box_bottom
         else
             # Full split layout: guide (left) + actions (right)
-            compute_split "$width" 60
+            compute_split "$_FRAME_W" 60
 
-            draw_split_top "$width" "$proto_name" "Actions"
+            draw_split_top "" "$proto_name" "Actions"
 
             # Status line
             if [[ $is_installed -eq 1 ]]; then
@@ -246,9 +247,9 @@ page_protocol() {
                 else
                     status_text="Status: $badge_stopped"
                 fi
-                draw_split_row " $status_text" "" "$width"
+                draw_split_row " $status_text" ""
             fi
-            draw_split_empty "$width"
+            draw_split_empty
 
             # Build guide lines array
             local guide_lines=()
@@ -256,10 +257,12 @@ page_protocol() {
                 guide_lines+=("$line")
             done <<< "$guide"
 
-            # Draw rows
+            # Draw rows — fill to terminal height
             local guide_count=${#guide_lines[@]}
             local max_rows=$guide_count
             (( action_count + 2 > max_rows )) && max_rows=$(( action_count + 2 ))
+            local avail_rows=$(( _TERM_ROWS - 22 ))
+            (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do
                 local left_text=""
@@ -278,21 +281,21 @@ page_protocol() {
                     right_text="${prefix} ${lcolor}${actions[$r]}${C_RST}"
                 fi
 
-                draw_split_row "$left_text" "$right_text" "$width"
+                draw_split_row "$left_text" "$right_text"
             done
 
-            draw_split_empty "$width"
-            draw_split_sep "$width"
+            draw_split_empty
+            draw_split_sep
 
             # Client apps info
             local clients="${PROTOCOL_CLIENTS[$proto]}"
             local client_line=""
             IFS=$'\n' read -r client_line <<< "$(printf '%b' "$clients")"
-            draw_box_row " ${C_LGREEN}Client Apps:${C_RST} ${C_LGRAY}${client_line}${C_RST}" "$width"
+            draw_box_row " ${C_LGREEN}Client Apps:${C_RST} ${C_LGRAY}${client_line}${C_RST}"
 
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}" "$width"
-            draw_box_bottom "$width"
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+            draw_box_bottom
         fi
 
         # Key handling

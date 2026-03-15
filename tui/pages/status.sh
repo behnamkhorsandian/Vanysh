@@ -14,10 +14,7 @@ source "$TUI_DIR/engine.sh"
 page_status() {
     while true; do
         tui_get_size
-        local width=$(( _TERM_COLS > 110 ? 110 : _TERM_COLS - 4 ))
-        (( width < 70 )) && width=70
-        local compact=0
-        (( width < 90 )) && compact=1
+        tui_compute_layout
 
         clear_screen
         render_banner "logo" "$C_GREEN"
@@ -73,41 +70,45 @@ page_status() {
 
         # ── Render ───────────────────────────────────────────────────────
 
-        if (( compact )); then
+        if (( _COMPACT )); then
             # Compact: single column
-            draw_box_top "$width" "System Status"
-            draw_box_empty "$width"
+            draw_box_top "" "System Status"
+            draw_box_empty
 
             # Server info
-            draw_box_row " ${C_ORANGE}Server${C_RST}" "$width"
-            draw_box_row "   ${C_LGRAY}IP:${C_RST}       ${C_TEXT}${server_ip}${C_RST}" "$width"
+            draw_box_row " ${C_ORANGE}Server${C_RST}"
+            draw_box_row "   ${C_LGRAY}IP:${C_RST}       ${C_TEXT}${server_ip}${C_RST}"
             [[ -n "$server_domain" && "$server_domain" != "null" ]] && \
-                draw_box_row "   ${C_LGRAY}Domain:${C_RST}   ${C_TEXT}${server_domain}${C_RST}" "$width"
-            draw_box_row "   ${C_LGRAY}Provider:${C_RST} ${C_TEXT}${server_provider}${C_RST}" "$width"
-            draw_box_row "   ${C_LGRAY}Users:${C_RST}    ${C_TEXT}${user_count}${C_RST}" "$width"
-            draw_box_row "   ${C_LGRAY}Uptime:${C_RST}   ${C_TEXT}${uptime_str}${C_RST}" "$width"
+                draw_box_row "   ${C_LGRAY}Domain:${C_RST}   ${C_TEXT}${server_domain}${C_RST}"
+            draw_box_row "   ${C_LGRAY}Provider:${C_RST} ${C_TEXT}${server_provider}${C_RST}"
+            draw_box_row "   ${C_LGRAY}Users:${C_RST}    ${C_TEXT}${user_count}${C_RST}"
+            draw_box_row "   ${C_LGRAY}Uptime:${C_RST}   ${C_TEXT}${uptime_str}${C_RST}"
 
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_empty "$width"
+            draw_box_empty
+            draw_box_sep
+            draw_box_empty
 
             # Services
-            draw_box_row " ${C_ORANGE}Services${C_RST}" "$width"
+            draw_box_row " ${C_ORANGE}Services${C_RST}"
             for sline in "${service_lines[@]}"; do
                 IFS='|' read -r sname sbadge sdetail <<< "$sline"
-                draw_box_row "   ${C_TEXT}${sname}${C_RST}  ${sbadge}" "$width"
+                draw_box_row "   ${C_TEXT}${sname}${C_RST}  ${sbadge}"
             done
 
-            draw_box_empty "$width"
-            draw_box_sep "$width"
-            draw_box_row " ${C_DGRAY}r${C_RST}${C_DIM} refresh${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  ${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}" "$width"
-            draw_box_bottom "$width"
+            # Vertical fill
+            local used_rows=$(( 10 + ${#service_lines[@]} ))
+            local avail=$(( _TERM_ROWS - used_rows - 18 ))
+            while (( avail-- > 0 )); do draw_box_empty; done
+
+            draw_box_sep
+            draw_box_row " ${C_DGRAY}r${C_RST}${C_DIM} refresh${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  ${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+            draw_box_bottom
         else
             # Split layout
-            compute_split "$width" 60
+            compute_split "$_FRAME_W" 60
 
-            draw_split_top "$width" "Services" "Server Info"
-            draw_split_empty "$width"
+            draw_split_top "" "Services" "Server Info"
+            draw_split_empty
 
             # Build right panel lines
             local right_lines=(
@@ -129,11 +130,13 @@ page_status() {
                 right_lines+=("  ${C_LGRAY}Memory:${C_RST}   ${C_TEXT}${mem_used} / ${mem_total}${C_RST}")
             fi
 
-            # Draw rows
+            # Draw rows — fill to terminal height
             local left_count=${#service_lines[@]}
             local right_count=${#right_lines[@]}
             local max_rows=$left_count
             (( right_count > max_rows )) && max_rows=$right_count
+            local avail_rows=$(( _TERM_ROWS - 28 ))
+            (( avail_rows > max_rows )) && max_rows=$avail_rows
 
             for (( r = 0; r < max_rows; r++ )); do
                 local left_text=""
@@ -147,14 +150,14 @@ page_status() {
                     right_text=" ${right_lines[$r]}"
                 fi
 
-                draw_split_row "$left_text" "$right_text" "$width"
+                draw_split_row "$left_text" "$right_text"
             done
 
-            draw_split_empty "$width"
+            draw_split_empty
 
             # Port status section
-            draw_split_sep "$width"
-            draw_split_empty "$width"
+            draw_split_sep
+            draw_split_empty
 
             local port_lines=()
             _check_port 443 "HTTPS (Reality/VRay)" && port_lines+=("${_PORT_LINE}") || port_lines+=("${_PORT_LINE}")
@@ -164,7 +167,7 @@ page_status() {
 
             local port_header_left="  ${C_ORANGE}Port Status${C_RST}"
             local port_header_right=" ${C_ORANGE}Quick Actions${C_RST}"
-            draw_split_row "$port_header_left" "$port_header_right" "$width"
+            draw_split_row "$port_header_left" "$port_header_right"
 
             local quick_actions=(
                 " ${C_LGREEN}r${C_RST}${C_DIM} refresh${C_RST}"
@@ -182,11 +185,11 @@ page_status() {
                 (( r < port_count )) && pl="  ${port_lines[$r]}"
                 local qa=""
                 (( r < qa_count )) && qa="${quick_actions[$r]}"
-                draw_split_row "$pl" "$qa" "$width"
+                draw_split_row "$pl" "$qa"
             done
 
-            draw_split_empty "$width"
-            draw_split_bottom "$width"
+            draw_split_empty
+            draw_split_bottom
         fi
 
         # Key handling
