@@ -85,7 +85,7 @@ describe('Landing Pages', () => {
 
   it('should include install instructions', () => {
     // Landing page should show curl command
-    const installCommand = 'curl -sSL https://reality.dnscloak.net | sudo bash';
+    const installCommand = 'curl https://reality.dnscloak.net | sudo bash';
     expect(installCommand).toContain('curl');
     expect(installCommand).toContain('sudo bash');
   });
@@ -93,7 +93,7 @@ describe('Landing Pages', () => {
   it('should not expose server IP in landing page', () => {
     // Landing page should not contain actual server IP
     // Only domain names
-    const htmlContent = '<p>Install with: curl -sSL reality.dnscloak.net | sudo bash</p>';
+    const htmlContent = '<p>Install with: curl reality.dnscloak.net | sudo bash</p>';
     expect(htmlContent).not.toMatch(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
   });
 });

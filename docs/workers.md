@@ -5,7 +5,7 @@ Each DNSCloak service has its own Cloudflare Worker that serves the installation
 ## Worker Architecture
 
 ```text
-User runs: curl -sSL reality.dnscloak.net | sudo bash
+User runs: curl reality.dnscloak.net | sudo bash
                          |
                          v
             Cloudflare Worker (reality)
@@ -126,7 +126,7 @@ function getInfoHTML(): string {
   <p>VLESS + REALITY proxy. No domain required.</p>
   
   <h2>Install</h2>
-  <pre>curl -sSL reality.dnscloak.net | sudo bash</pre>
+  <pre>curl reality.dnscloak.net | sudo bash</pre>
   
   <h2>Client Apps</h2>
   <ul>

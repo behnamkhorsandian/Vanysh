@@ -11,21 +11,21 @@ Multi-protocol censorship bypass platform. Deploy proxy services on any VM with 
 
 | Service | Status | Domain Required | Best For | Install Command |
 |---------|--------|-----------------|----------|-----------------|
-| Reality | ✅ Ready | No | Primary proxy (all countries) | `curl -sSL reality.dnscloak.net \| sudo bash` |
-| WS+CDN | ✅ Ready | Yes (Cloudflare) | IP hidden behind CDN | `curl -sSL ws.dnscloak.net \| sudo bash` |
-| DNStt | ✅ Ready | Yes (NS records) | Emergency during blackouts | `curl -sSL dnstt.dnscloak.net \| sudo bash` |
-| Conduit | 🧪 Experimental | No | Psiphon volunteer relay | `curl -sSL conduit.dnscloak.net \| sudo bash` |
-| SOS | 🧪 Experimental | Yes (NS) | Emergency encrypted chat | `curl -sSL sos.dnscloak.net \| bash` |
-| WireGuard | 🔜 Coming | No | Fast VPN tunnel | `curl -sSL wg.dnscloak.net \| sudo bash` |
-| MTP | 🔜 Coming | Optional | Telegram access | `curl -sSL mtp.dnscloak.net \| sudo bash` |
-| V2Ray | 🔜 Coming | Yes | Classic proxy with TLS | `curl -sSL vray.dnscloak.net \| sudo bash` |
+| Reality | ✅ Ready | No | Primary proxy (all countries) | `curl reality.dnscloak.net \| sudo bash` |
+| WS+CDN | ✅ Ready | Yes (Cloudflare) | IP hidden behind CDN | `curl ws.dnscloak.net \| sudo bash` |
+| DNStt | ✅ Ready | Yes (NS records) | Emergency during blackouts | `curl dnstt.dnscloak.net \| sudo bash` |
+| Conduit | 🧪 Experimental | No | Psiphon volunteer relay | `curl conduit.dnscloak.net \| sudo bash` |
+| SOS | 🧪 Experimental | Yes (NS) | Emergency encrypted chat | `curl sos.dnscloak.net \| bash` |
+| WireGuard | 🔜 Coming | No | Fast VPN tunnel | `curl wg.dnscloak.net \| sudo bash` |
+| MTP | 🔜 Coming | Optional | Telegram access | `curl mtp.dnscloak.net \| sudo bash` |
+| V2Ray | 🔜 Coming | Yes | Classic proxy with TLS | `curl vray.dnscloak.net \| sudo bash` |
 
 ## Quick Start
 
 SSH into your VPS and run:
 
 ```bash
-curl -sSL reality.dnscloak.net | sudo bash
+curl reality.dnscloak.net | sudo bash
 ```
 
 The script will:

@@ -71,7 +71,7 @@ WireGuard is a fast, modern VPN protocol. Simple configuration, excellent perfor
 ## Installation
 
 ```bash
-curl -sSL wg.dnscloak.net | sudo bash
+curl wg.dnscloak.net | sudo bash
 ```
 
 ## Network Layout

@@ -28,7 +28,7 @@ install_acme() {
     fi
 
     print_step "Installing acme.sh"
-    curl -sSL https://get.acme.sh | sh -s email="admin@$(hostname -f 2>/dev/null || echo 'localhost')" 2>/dev/null
+    curl https://get.acme.sh | sh -s email="admin@$(hostname -f 2>/dev/null || echo 'localhost')" 2>/dev/null
 
     if [[ ! -f "$HOME/.acme.sh/acme.sh" ]]; then
         print_error "Failed to install acme.sh"

@@ -204,7 +204,7 @@ shellcheck lib/*.sh services/*/*.sh cli/*.sh
 
 ### VM Testing
 1. Spin up fresh Ubuntu 22.04 VM
-2. Run installer: `curl -sSL <service>.dnscloak.net | sudo bash`
+2. Run installer: `curl <service>.dnscloak.net | sudo bash`
 3. Add test user: `dnscloak add <service> testuser`
 4. Verify connection from client device
 5. Test user removal: `dnscloak remove <service> testuser`

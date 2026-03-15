@@ -3,7 +3,7 @@
 # DNSCloak - DNSTT (DNS Tunnel) Service Installer
 # https://github.com/behnamkhorsandian/DNSCloak
 #
-# Usage: curl -sSL dnstt.dnscloak.net | sudo bash
+# Usage: curl dnstt.dnscloak.net | sudo bash
 #
 # Requires:
 #   - Domain with ability to set NS records

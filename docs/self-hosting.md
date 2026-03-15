@@ -4,7 +4,7 @@ Complete guide to hosting your own DNSCloak platform with custom domain.
 
 ## Overview
 
-DNSCloak uses Cloudflare Workers to serve installation scripts from GitHub. When a user runs `curl -sSL reality.dnscloak.net | sudo bash`, the request goes to your Cloudflare Worker, which fetches the script from your GitHub repo.
+DNSCloak uses Cloudflare Workers to serve installation scripts from GitHub. When a user runs `curl reality.dnscloak.net | sudo bash`, the request goes to your Cloudflare Worker, which fetches the script from your GitHub repo.
 
 ```text
 User's VM                 Cloudflare Worker              GitHub
@@ -106,7 +106,7 @@ const INFO_HTML = `<!DOCTYPE html>
 <head><title>DNSCloak - Reality</title></head>
 <body>
 <h1>Reality Proxy</h1>
-<pre>curl -sSL reality.yourdomain.com | sudo bash</pre>
+<pre>curl reality.yourdomain.com | sudo bash</pre>
 </body>
 </html>`;
 ```
@@ -150,7 +150,7 @@ CNAME  mtp      ->  dnscloak-mtp.your-subdomain.workers.dev
 
 ```bash
 # Should return installation script
-curl -sSL reality.yourdomain.com
+curl reality.yourdomain.com
 
 # Should return "ok"
 curl reality.yourdomain.com/health
@@ -165,7 +165,7 @@ curl reality.yourdomain.com/info
 2. SSH in
 3. Run:
    ```bash
-   curl -sSL reality.yourdomain.com | sudo bash
+   curl reality.yourdomain.com | sudo bash
    ```
 
 ## Directory Structure

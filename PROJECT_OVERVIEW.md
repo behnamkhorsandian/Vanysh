@@ -40,7 +40,7 @@ DNSCloak is split into delivery, install, runtime, and management layers.
 
 ### Install Flow (one-line install)
 ```
-User runs: curl -sSL reality.dnscloak.net | sudo bash
+User runs: curl reality.dnscloak.net | sudo bash
     -> Cloudflare Worker routes by subdomain
     -> Worker fetches services/reality/install.sh from GitHub
     -> Script downloads lib/* helpers (if piped)
@@ -86,7 +86,7 @@ Client app -> UDP/51820
 ### 1) Pick a service and install on your VPS
 ```
 # Example: Reality (no domain required)
-curl -sSL reality.dnscloak.net | sudo bash
+curl reality.dnscloak.net | sudo bash
 ```
 
 ### 2) Manage users via CLI

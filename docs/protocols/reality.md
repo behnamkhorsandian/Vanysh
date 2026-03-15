@@ -68,7 +68,7 @@ REALITY is the most advanced censorship bypass protocol. It "borrows" TLS certif
 ## Installation
 
 ```bash
-curl -sSL reality.dnscloak.net | sudo bash
+curl reality.dnscloak.net | sudo bash
 ```
 
 ## Configuration

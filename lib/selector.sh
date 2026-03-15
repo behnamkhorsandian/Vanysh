@@ -165,16 +165,16 @@ select_service() {
     echo "Available Commands:"
     echo "-------------------"
     echo ""
-    echo "  curl -sSL reality.dnscloak.net | sudo bash"
-    echo "  curl -sSL wg.dnscloak.net | sudo bash"
-    echo "  curl -sSL mtp.dnscloak.net | sudo bash"
+    echo "  curl reality.dnscloak.net | sudo bash"
+    echo "  curl wg.dnscloak.net | sudo bash"
+    echo "  curl mtp.dnscloak.net | sudo bash"
     
     if [[ "$has_domain" == "true" ]]; then
-        echo "  curl -sSL vray.dnscloak.net | sudo bash"
+        echo "  curl vray.dnscloak.net | sudo bash"
         if [[ "$has_cloudflare" == "true" ]]; then
-            echo "  curl -sSL ws.dnscloak.net | sudo bash"
+            echo "  curl ws.dnscloak.net | sudo bash"
         fi
-        echo "  curl -sSL dnstt.dnscloak.net | sudo bash"
+        echo "  curl dnstt.dnscloak.net | sudo bash"
     fi
     
     echo ""

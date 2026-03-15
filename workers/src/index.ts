@@ -241,7 +241,7 @@ export default {
       });
     }
 
-    // Per-protocol shortcut: curl -sSL reality.dnscloak.net | sudo bash
+    // Per-protocol shortcut: curl reality.dnscloak.net | sudo bash
     // Serves start.sh with DNSCLOAK_PROTOCOL pre-set for CLI tools
     // Browsers get the info page instead
     if (config) {
@@ -397,9 +397,9 @@ function getInfoPage(service: string, config: ServiceConfig): string {
     <div class="install-box">
       <h2>Install on your VPS</h2>
       <p style="color:#8b949e;margin-bottom:10px;">Install this protocol directly:</p>
-      <code>curl -sSL ${service}.dnscloak.net | sudo bash</code>
+      <code>curl ${service}.dnscloak.net | sudo bash</code>
       <p style="color:#8b949e;margin-top:15px;">Or install the full interactive menu:</p>
-      <code>curl -sSL dnscloak.net | sudo bash</code>
+      <code>curl dnscloak.net | sudo bash</code>
     </div>
     
     <div class="apps">
@@ -427,7 +427,7 @@ function getDnsttSetupScript(platform: string, pubkey: string, domain: string): 
     case 'linux':
       return `#!/bin/bash
 # DNSCloak DNSTT Client Setup - Linux
-# Run: curl -sSL "dnstt.dnscloak.net/setup/linux?key=${pubkey}&domain=${domain}" | bash
+# Run: curl "dnstt.dnscloak.net/setup/linux?key=${pubkey}&domain=${domain}" | bash
 
 set -e
 echo "=== DNSCloak DNSTT Client Setup ==="
@@ -469,7 +469,7 @@ echo ""
     case 'macos':
       return `#!/bin/bash
 # DNSCloak DNSTT Client Setup - macOS
-# Run: curl -sSL "dnstt.dnscloak.net/setup/macos?key=${pubkey}&domain=${domain}" | bash
+# Run: curl "dnstt.dnscloak.net/setup/macos?key=${pubkey}&domain=${domain}" | bash
 
 set -e
 echo "=== DNSCloak DNSTT Client Setup ==="
@@ -560,11 +560,11 @@ Write-Host ""
 function getDnsttClientPage(pubkey: string, domain: string): string {
   const hasConfig = pubkey && domain;
   const linuxCmd = hasConfig 
-    ? `curl -sSL "dnstt.dnscloak.net/setup/linux?key=${pubkey}&domain=${domain}" | bash`
-    : 'curl -sSL "dnstt.dnscloak.net/setup/linux?key=YOUR_KEY&domain=t.yourdomain.com" | bash';
+    ? `curl "dnstt.dnscloak.net/setup/linux?key=${pubkey}&domain=${domain}" | bash`
+    : 'curl "dnstt.dnscloak.net/setup/linux?key=YOUR_KEY&domain=t.yourdomain.com" | bash';
   const macCmd = hasConfig
-    ? `curl -sSL "dnstt.dnscloak.net/setup/macos?key=${pubkey}&domain=${domain}" | bash`
-    : 'curl -sSL "dnstt.dnscloak.net/setup/macos?key=YOUR_KEY&domain=t.yourdomain.com" | bash';
+    ? `curl "dnstt.dnscloak.net/setup/macos?key=${pubkey}&domain=${domain}" | bash`
+    : 'curl "dnstt.dnscloak.net/setup/macos?key=YOUR_KEY&domain=t.yourdomain.com" | bash';
   const winCmd = hasConfig
     ? `iex (iwr "dnstt.dnscloak.net/setup/windows?key=${pubkey}&domain=${domain}").Content`
     : 'iex (iwr "dnstt.dnscloak.net/setup/windows?key=YOUR_KEY&domain=t.yourdomain.com").Content';

@@ -4,9 +4,9 @@
 # https://github.com/behnamkhorsandian/DNSCloak
 #
 # Usage:
-#   curl -sSL start.dnscloak.net | sudo bash
-#   curl -sSL start.dnscloak.net | sudo bash -s -- --protocol=reality
-#   curl -sSL reality.dnscloak.net | sudo bash
+#   curl start.dnscloak.net | sudo bash
+#   curl start.dnscloak.net | sudo bash -s -- --protocol=reality
+#   curl reality.dnscloak.net | sudo bash
 #
 # All-in-one: install, manage, and remove VPN protocols on your VM.
 #===============================================================================
@@ -145,7 +145,7 @@ main() {
     # Check root
     if [[ $EUID -ne 0 ]]; then
         echo "ERROR: This script must be run as root or with sudo"
-        echo "Usage: curl -sSL start.dnscloak.net | sudo bash"
+        echo "Usage: curl start.dnscloak.net | sudo bash"
         exit 1
     fi
 

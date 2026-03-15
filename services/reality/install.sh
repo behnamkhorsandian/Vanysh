@@ -3,7 +3,7 @@
 # DNSCloak - VLESS + REALITY Service Installer
 # https://github.com/behnamkhorsandian/DNSCloak
 #
-# Usage: curl -sSL reality.dnscloak.net | sudo bash
+# Usage: curl reality.dnscloak.net | sudo bash
 #===============================================================================
 
 set -e

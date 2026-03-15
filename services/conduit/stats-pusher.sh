@@ -3,7 +3,7 @@
 # DNSCloak - Health & Stats Pusher
 # Pushes live stats and service health to stats.dnscloak.net
 # Monitors: Conduit, Xray (Reality/WS/VRAY), DNSTT, WireGuard, SOS
-# Usage: curl -sSL stats.dnscloak.net/setup | sudo bash
+# Usage: curl stats.dnscloak.net/setup | sudo bash
 #===============================================================================
 
 set -euo pipefail
@@ -184,7 +184,7 @@ push_stats() {
     stats=$(get_stats)
     
     # Push to endpoint (fire and forget, don't fail on error)
-    curl -sSL -X POST "$STATS_ENDPOINT" \
+    curl -X POST "$STATS_ENDPOINT" \
         -H "Content-Type: application/json" \
         -d "$stats" \
         --connect-timeout 5 \

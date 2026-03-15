@@ -3,7 +3,7 @@
 # DNSCloak - WireGuard VPN Service Installer
 # https://github.com/behnamkhorsandian/DNSCloak
 #
-# Usage: curl -sSL wg.dnscloak.net | sudo bash
+# Usage: curl wg.dnscloak.net | sudo bash
 #===============================================================================
 
 set -e

@@ -77,7 +77,7 @@ Classic V2Ray setup with proper TLS certificates. Requires a domain.
 ## Installation
 
 ```bash
-curl -sSL vray.dnscloak.net | sudo bash
+curl vray.dnscloak.net | sudo bash
 ```
 
 During setup:

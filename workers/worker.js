@@ -393,7 +393,7 @@ function getInfoPage(service, config) {
     
     <div class="install-box">
       <h2>Install on your VPS</h2>
-      <code>curl -sSL ${service}.dnscloak.net | sudo bash</code>
+      <code>curl ${service}.dnscloak.net | sudo bash</code>
     </div>
     
     <div class="apps">
