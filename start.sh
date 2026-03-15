@@ -160,34 +160,15 @@ main() {
 
     # Download TUI
     echo "  Loading DNSCloak..."
-    _dbg="/tmp/dnscloak-debug.log"
-    echo "========================================" > "$_dbg"
-    echo "[start.sh] Starting at $(date)" >> "$_dbg"
-    echo "[start.sh] EUID=$EUID BASH_VERSION=$BASH_VERSION" >> "$_dbg"
-    echo "[start.sh] TUI_DL_DIR=$TUI_DL_DIR LIB_DIR=$LIB_DIR" >> "$_dbg"
 
     if download_tui; then
-        echo "[start.sh] download_tui succeeded" >> "$_dbg"
-        ls -la "$TUI_DL_DIR/" >> "$_dbg" 2>&1
-        ls -la "$TUI_DL_DIR/pages/" >> "$_dbg" 2>&1
-
         # Set TUI_DIR so modules find each other
         export TUI_DIR="$TUI_DL_DIR"
         export BANNER_DIR="$TUI_DL_DIR/banners"
 
-        echo "[start.sh] sourcing $TUI_DL_DIR/main.sh" >> "$_dbg"
         # Source the TUI entry point (it sources everything else)
         # shellcheck source=/dev/null
-        . "$TUI_DL_DIR/main.sh" 2>>"$_dbg"
-        echo "[start.sh] source returned $?" >> "$_dbg"
-
-        echo "[start.sh] type dnscloak_tui_main = $(type -t dnscloak_tui_main 2>&1)" >> "$_dbg"
-        echo "[start.sh] type tui_init = $(type -t tui_init 2>&1)" >> "$_dbg"
-        echo "[start.sh] type page_main_menu = $(type -t page_main_menu 2>&1)" >> "$_dbg"
-        echo "[start.sh] which tui_init:" >> "$_dbg"
-        type tui_init >> "$_dbg" 2>&1 | head -5 >> "$_dbg"
-        echo "[start.sh] /dev/tty check: $(ls -la /dev/tty 2>&1)" >> "$_dbg"
-        echo "[start.sh] test open fd3: $(exec 3</dev/tty 2>&1 && echo 'OK' || echo 'FAIL')" >> "$_dbg"
+        . "$TUI_DL_DIR/main.sh"
 
         # Build TUI arguments
         local tui_args=()
@@ -196,11 +177,8 @@ main() {
         fi
 
         # Hand off to TUI main
-        echo "[start.sh] calling dnscloak_tui_main ${tui_args[*]}" >> "$_dbg"
-        dnscloak_tui_main "${tui_args[@]}" 2>>"$_dbg"
-        echo "[start.sh] dnscloak_tui_main returned $?" >> "$_dbg"
+        dnscloak_tui_main "${tui_args[@]}"
     else
-        echo "[start.sh] download_tui FAILED" >> "$_dbg"
         echo "ERROR: Failed to download TUI. Check your internet connection."
         exit 1
     fi

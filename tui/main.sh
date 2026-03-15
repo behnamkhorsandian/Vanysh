@@ -271,18 +271,13 @@ show_user_links() {
 _run_navigation() {
     local current_page="${START_PAGE:-main}"
     local current_proto="${START_PROTOCOL:-}"
-    local _dbg="/tmp/dnscloak-debug.log"
-    echo "[$(date)] _run_navigation: current_page=$current_page current_proto=$current_proto" >> "$_dbg"
 
     while true; do
-        echo "[$(date)] _run_navigation loop: page=$current_page" >> "$_dbg"
         case "$current_page" in
 
             main)
-                echo "[$(date)] calling page_main_menu" >> "$_dbg"
-                page_main_menu 2>>"$_dbg"
+                page_main_menu
                 local rc=$?
-                echo "[$(date)] page_main_menu returned rc=$rc SELECTED_PROTOCOL=${SELECTED_PROTOCOL:-}" >> "$_dbg"
 
                 if [[ $rc -ne 0 ]]; then
                     # Quit
@@ -446,38 +441,23 @@ _show_exit_banner() {
 #-------------------------------------------------------------------------------
 
 dnscloak_tui_main() {
-    # Debug log for troubleshooting
-    local _dbg="/tmp/dnscloak-debug.log"
-    echo "[$(date)] dnscloak_tui_main starting" >> "$_dbg"
-    echo "[$(date)] BASH_VERSION=$BASH_VERSION" >> "$_dbg"
-    echo "[$(date)] TERM=$TERM EUID=$EUID" >> "$_dbg"
-    echo "[$(date)] SCRIPT_DIR=$SCRIPT_DIR" >> "$_dbg"
-    echo "[$(date)] START_PAGE=${START_PAGE:-} START_PROTOCOL=${START_PROTOCOL:-}" >> "$_dbg"
-    echo "[$(date)] /dev/tty: $(ls -la /dev/tty 2>&1)" >> "$_dbg"
-    echo "[$(date)] tui_init is: $(type tui_init 2>&1 | head -3)" >> "$_dbg"
-    echo "[$(date)] fd3 status: $(ls -la /proc/self/fd/3 2>&1 || echo 'no /proc/self/fd')" >> "$_dbg"
+    # Disable set -e inherited from lib/bootstrap.sh — TUI uses (( )) && patterns
+    # that return non-zero legitimately and must not terminate the script
+    set +e
 
     _preflight
-    echo "[$(date)] _preflight done" >> "$_dbg"
 
     # Trap for clean exit
-    trap 'tui_cleanup 2>/dev/null; _show_exit_banner; echo "[$(date)] EXIT trap fired" >> /tmp/dnscloak-debug.log' EXIT
+    trap 'tui_cleanup 2>/dev/null; _show_exit_banner' EXIT
     trap 'tui_cleanup 2>/dev/null; exit 130' INT TERM
 
-    echo "[$(date)] calling tui_init" >> "$_dbg"
-    tui_init 2>>"$_dbg"
-    local init_rc=$?
-    echo "[$(date)] tui_init returned $init_rc" >> "$_dbg"
-    if [[ $init_rc -ne 0 ]]; then
-        printf '\033[31mError:\033[0m Failed to initialize TUI (rc=%d). Check terminal capabilities.\n' "$init_rc"
-        echo "[$(date)] tui_init FAILED with rc=$init_rc" >> "$_dbg"
+    tui_init
+    if [[ $? -ne 0 ]]; then
+        printf '\033[31mError:\033[0m Failed to initialize TUI. Check terminal capabilities.\n'
         return 1
     fi
-    echo "[$(date)] tui_init succeeded, _TUI_ACTIVE=$_TUI_ACTIVE _TERM_COLS=$_TERM_COLS _TERM_ROWS=$_TERM_ROWS" >> "$_dbg"
 
-    echo "[$(date)] calling _run_navigation" >> "$_dbg"
-    _run_navigation 2>>"$_dbg"
-    echo "[$(date)] _run_navigation returned $?" >> "$_dbg"
+    _run_navigation
 
     tui_cleanup
     _show_exit_banner
