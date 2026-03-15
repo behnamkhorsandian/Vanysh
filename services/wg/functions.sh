@@ -189,7 +189,41 @@ EOF
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+#-------------------------------------------------------------------------------
+
+install_wireguard_service() {
+    install_wireguard_package
+    generate_wg_server_keys
+    create_wg_config
+
+    # Open firewall
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port "$WG_PORT" "udp"
+    fi
+
+    # Enable IP forwarding
+    sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
+    if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf 2>/dev/null; then
+        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
+
+    # Start service
+    systemctl enable "wg-quick@${WG_INTERFACE}" 2>/dev/null
+    systemctl start "wg-quick@${WG_INTERFACE}"
+
+    sleep 2
+    if systemctl is-active --quiet "wg-quick@${WG_INTERFACE}"; then
+        print_success "WireGuard started"
+    else
+        print_error "WireGuard failed to start"
+        journalctl -u "wg-quick@${WG_INTERFACE}" -n 20 --no-pager 2>/dev/null || true
+        return 1
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_wg() {

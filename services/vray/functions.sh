@@ -107,7 +107,61 @@ validate_vray_domain() {
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+# Usage: install_vray_service <domain>
+#-------------------------------------------------------------------------------
+
+install_vray_service() {
+    local domain="$1"
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain required"
+        return 1
+    fi
+
+    if type bootstrap &>/dev/null; then
+        bootstrap
+    fi
+
+    if type install_xray &>/dev/null; then
+        install_xray
+    fi
+
+    install_acme || return 1
+
+    # Open port 80 for ACME challenge
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port 80 tcp
+    fi
+
+    issue_certificate "$domain" || return 1
+
+    xray_add_vray_inbound "$domain" "$CERT_DIR/fullchain.pem" "$CERT_DIR/privkey.pem"
+
+    # Open port 443
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port "$VRAY_PORT" tcp
+    fi
+
+    local server_ip
+    server_ip=$(cloud_get_public_ip 2>/dev/null || server_get "ip")
+    server_set "ip" "$server_ip" 2>/dev/null || true
+    server_set "vray_domain" "$domain"
+
+    xray_reload
+
+    sleep 2
+    if systemctl is-active --quiet xray; then
+        print_success "Xray is running with V2Ray TLS"
+    else
+        print_error "Xray failed to start"
+        journalctl -u xray -n 20 --no-pager 2>/dev/null || true
+        return 1
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_vray() {

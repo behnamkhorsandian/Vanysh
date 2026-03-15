@@ -167,12 +167,15 @@ _add_user_page() {
     draw_box_row " ${C_TEXT}Enter a username for the new user.${C_RST}"
     draw_box_row " ${C_LGRAY}They will be added to all installed protocols.${C_RST}"
     draw_box_empty
-    draw_box_bottom
-    printf '\n'
+    draw_box_sep
+    draw_box_row " ${C_DGRAY}Enter username  |  Esc back${C_RST}"
+    draw_box_empty
 
     local username=""
-    tui_read_line "Username" "" username
-    [[ -z "$username" ]] && return
+    tui_read_line_boxed "Username" "" username
+    local input_rc=$?
+    draw_box_bottom
+    [[ $input_rc -ne 0 || -z "$username" ]] && return
 
     printf '\n'
 
@@ -216,12 +219,15 @@ _remove_user_page() {
     draw_box_row " ${C_TEXT}Enter the username to remove.${C_RST}"
     draw_box_row " ${C_RED}This will remove them from ALL protocols.${C_RST}"
     draw_box_empty
-    draw_box_bottom
-    printf '\n'
+    draw_box_sep
+    draw_box_row " ${C_DGRAY}Enter username  |  Esc back${C_RST}"
+    draw_box_empty
 
     local username=""
-    tui_read_line "Username" "" username
-    [[ -z "$username" ]] && return
+    tui_read_line_boxed "Username" "" username
+    local input_rc=$?
+    draw_box_bottom
+    [[ $input_rc -ne 0 || -z "$username" ]] && return
 
     printf '\n'
     printf '\033[?25h'

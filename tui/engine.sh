@@ -543,6 +543,94 @@ tui_read_line() {
     eval "$result_var=\$input"
 }
 
+# Read a line of text input inside a TUI box, with ESC support
+# Usage: tui_read_line_boxed "prompt" "default" result_var [width] [border_color]
+# Returns: 0 = value entered, 1 = ESC pressed (back)
+tui_read_line_boxed() {
+    local prompt="$1"
+    local default="$2"
+    local result_var="$3"
+    local width="${4:-$_FRAME_W}"
+    local bc="${5:-$C_DGRAY}"
+
+    printf '\033[?25h'  # show cursor
+
+    # Flush any pending input from raw mode
+    stty echo icanon <&3 2>/dev/null
+    while read -rsn1 -t 0.05 _ <&3 2>/dev/null; do :; done
+
+    # Build the prompt text
+    local prompt_text=""
+    if [[ -n "$default" ]]; then
+        prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt} ${C_DGRAY}[${default}]${C_RST}: "
+    else
+        prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt}: "
+    fi
+
+    # Print left border + prompt (no right border yet — user will type here)
+    _m; printf '%b%s%b%b' "$bc" "$BOX_V" "$C_RST" "$prompt_text"
+
+    local input=""
+    # Read character by character to detect ESC
+    stty -echo -icanon min 1 time 0 <&3 2>/dev/null
+    while true; do
+        local ch=""
+        IFS= read -rsn1 ch <&3
+
+        if [[ "$ch" == $'\033' ]]; then
+            # Check for escape sequence
+            local c2=""
+            IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
+            if [[ -z "$c2" ]]; then
+                # Plain ESC key — redraw as complete box row and exit
+                stty echo icanon <&3 2>/dev/null
+                printf '\r'
+                draw_box_empty "$width" "$bc"
+                printf '\033[?25l'
+                return 1
+            fi
+            # Arrow keys or other sequences - ignore
+            if [[ "$c2" == "[" ]]; then
+                IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
+            fi
+            continue
+        fi
+
+        if [[ "$ch" == "" ]]; then
+            # Enter key
+            break
+        fi
+
+        if [[ "$ch" == $'\177' || "$ch" == $'\b' ]]; then
+            # Backspace
+            if [[ -n "$input" ]]; then
+                input="${input%?}"
+                printf '\b \b'
+            fi
+            continue
+        fi
+
+        # Regular character - only accept printable ASCII
+        if [[ "$ch" =~ ^[[:print:]]$ ]]; then
+            input+="$ch"
+            printf '%s' "$ch"
+        fi
+    done
+    stty echo icanon <&3 2>/dev/null
+
+    # Redraw the line as a closed box row showing the entered value
+    local display_val="${input:-$default}"
+    printf '\r'
+    draw_box_row " ${C_GREEN}[>]${C_RST} ${prompt}: ${C_TEXT}${display_val}${C_RST}" "$width" "$bc"
+    printf '\033[?25l'  # hide cursor
+
+    if [[ -z "$input" && -n "$default" ]]; then
+        input="$default"
+    fi
+    eval "$result_var=\$input"
+    return 0
+}
+
 # Yes/No confirmation prompt
 # Usage: tui_confirm "Question?" [default: y|n]
 # Returns 0 for yes, 1 for no

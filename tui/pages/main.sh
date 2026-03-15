@@ -229,7 +229,7 @@ page_main_menu() {
                 SELECTED_PROTOCOL="_users"
                 return 0
                 ;;
-            q|Q)
+            q|Q|ESC)
                 return 1
                 ;;
             [0-7])

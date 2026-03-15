@@ -123,7 +123,64 @@ EOF
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+# Usage: install_mtp_service <port> <mode> <tls_domain>
+#-------------------------------------------------------------------------------
+
+install_mtp_service() {
+    local port="${1:-$MTP_DEFAULT_PORT}"
+    local mode="${2:-$MODE_TLS}"
+    local tls_domain="${3:-www.google.com}"
+
+    if type bootstrap &>/dev/null; then
+        bootstrap
+    fi
+
+    if is_mtp_installed; then
+        systemctl stop "$MTP_SERVICE" 2>/dev/null || true
+    fi
+
+    install_mtp_prerequisites
+    clone_mtp_proxy
+
+    # Generate a temporary secret for config (first user adds theirs later)
+    local tmp_secret
+    tmp_secret=$(generate_mtp_secret)
+    local secret_prefix=""
+    [[ "$mode" == "tls" ]] && secret_prefix="ee" || secret_prefix="dd"
+
+    generate_mtp_config "$port" "$mode" "$tmp_secret" "_placeholder" "$tls_domain"
+    create_mtp_service
+
+    # Save server settings
+    local server_ip
+    server_ip=$(cloud_get_public_ip 2>/dev/null || server_get "ip")
+    server_set "ip" "$server_ip" 2>/dev/null || true
+    server_set "mtp_port" "$port"
+    server_set "mtp_mode" "$mode"
+    server_set "mtp_tls_domain" "$tls_domain"
+
+    # Open firewall
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port "$port" tcp
+    fi
+
+    # Start service
+    systemctl enable "$MTP_SERVICE" 2>/dev/null
+    systemctl start "$MTP_SERVICE"
+
+    sleep 2
+    if systemctl is-active --quiet "$MTP_SERVICE"; then
+        print_success "MTProto proxy is running on port $port"
+    else
+        print_error "MTProto proxy failed to start"
+        journalctl -u "$MTP_SERVICE" -n 20 --no-pager 2>/dev/null || true
+        return 1
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_mtp() {

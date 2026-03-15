@@ -247,7 +247,55 @@ EOF
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+# Usage: install_dnstt_service <domain>
+#-------------------------------------------------------------------------------
+
+install_dnstt_service() {
+    local domain="$1"
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain required"
+        return 1
+    fi
+
+    if type bootstrap &>/dev/null; then
+        bootstrap
+    fi
+
+    download_dnstt
+    generate_dnstt_keys
+    install_dnstt_socks_server
+    create_dnstt_service "$domain"
+
+    # Open firewall
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port 53 udp
+    fi
+
+    setup_dnstt_port_forward
+
+    local server_ip
+    server_ip=$(cloud_get_public_ip 2>/dev/null || server_get "ip")
+    server_set "ip" "$server_ip" 2>/dev/null || true
+    server_set "dnstt_domain" "$domain"
+    server_set "dnstt_pubkey" "$(cat "$DNSTT_DIR/server.pub")"
+
+    systemctl enable dnstt
+    systemctl start dnstt
+
+    sleep 2
+    if systemctl is-active --quiet dnstt; then
+        print_success "DNSTT is running"
+    else
+        print_error "DNSTT failed to start"
+        journalctl -u dnstt -n 20 --no-pager 2>/dev/null || true
+        return 1
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_dnstt() {

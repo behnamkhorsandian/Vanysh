@@ -584,6 +584,30 @@ show_server_status() {
     echo ""
 }
 
+#-------------------------------------------------------------------------------
+# Non-interactive install (called by TUI wizard)
+#-------------------------------------------------------------------------------
+
+install_sos_service() {
+    local python_cmd
+    python_cmd=$(check_python) || {
+        install_python
+        python_cmd=$(check_python) || {
+            print_error "Failed to install Python"
+            return 1
+        }
+    }
+    print_success "Found Python: $python_cmd"
+
+    install_server_dependencies "$python_cmd"
+    download_relay
+    configure_firewall
+    create_update_script
+    setup_auto_update
+    create_systemd_service
+    print_success "SOS Relay installed and running on port $SOS_RELAY_PORT"
+}
+
 main() {
     clear
     show_banner

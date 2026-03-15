@@ -112,7 +112,80 @@ generate_ws_path() {
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+# Usage: install_ws_service <domain>
+#-------------------------------------------------------------------------------
+
+install_ws_service() {
+    local domain="$1"
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain required"
+        return 1
+    fi
+
+    if type bootstrap &>/dev/null; then
+        bootstrap
+    fi
+
+    local uuid ws_path
+    uuid=$(random_uuid)
+    ws_path=$(generate_ws_path)
+
+    local inbound_config
+    inbound_config=$(cat <<EOF
+{
+  "tag": "ws-in",
+  "port": $WS_PORT,
+  "protocol": "vless",
+  "settings": {
+    "clients": [],
+    "decryption": "none"
+  },
+  "streamSettings": {
+    "network": "ws",
+    "wsSettings": {
+      "path": "$ws_path",
+      "headers": {
+        "Host": "$domain"
+      }
+    },
+    "security": "none"
+  }
+}
+EOF
+)
+
+    xray_add_inbound "$inbound_config"
+
+    local server_ip
+    server_ip=$(cloud_get_public_ip 2>/dev/null || server_get "ip")
+
+    server_set "ip" "$server_ip" 2>/dev/null || true
+    server_set "ws_domain" "$domain"
+    server_set "ws_path" "$ws_path"
+
+    # Open firewall
+    if type cloud_open_port &>/dev/null; then
+        cloud_open_port $WS_PORT tcp
+    fi
+
+    # Start Xray
+    systemctl enable xray 2>/dev/null || true
+    systemctl restart xray
+
+    sleep 2
+    if systemctl is-active --quiet xray; then
+        print_success "Xray is running with WS+CDN"
+    else
+        print_error "Xray failed to start"
+        journalctl -u xray -n 20 --no-pager 2>/dev/null || true
+        return 1
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_ws() {

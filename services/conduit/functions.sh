@@ -106,7 +106,27 @@ EOF
 }
 
 #-------------------------------------------------------------------------------
-# Install
+# Non-interactive install (called by TUI wizard)
+# Usage: install_conduit_service <max_clients> <bandwidth>
+#-------------------------------------------------------------------------------
+
+install_conduit_service() {
+    local max_clients="${1:-300}"
+    local bandwidth="${2:--1}"
+
+    CONDUIT_MAX_CLIENTS="$max_clients"
+    CONDUIT_BANDWIDTH="$bandwidth"
+
+    install_conduit_docker
+    install_conduit_deps
+    run_conduit_container
+    install_conduit_cli
+
+    print_success "Conduit installed successfully"
+}
+
+#-------------------------------------------------------------------------------
+# Interactive install (standalone / CLI mode)
 #-------------------------------------------------------------------------------
 
 install_conduit() {

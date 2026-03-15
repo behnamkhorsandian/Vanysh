@@ -314,7 +314,6 @@ _run_navigation() {
                         ;;
                     show_links)
                         # Prompt for username and show links
-                        printf '\033[?25h'
                         tui_get_size
                         local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS ))
                         clear_screen
@@ -322,13 +321,16 @@ _run_navigation() {
                         printf '\n'
                         draw_box_top "$width" "Show User Links"
                         draw_box_empty "$width"
-                        draw_box_row "  ${C_TEXT}Enter username:${C_RST}" "$width"
+                        draw_box_row "  ${C_TEXT}Enter the username to view connection links.${C_RST}" "$width"
                         draw_box_empty "$width"
+                        draw_box_sep "$width"
+                        draw_box_row " ${C_DGRAY}Enter username  |  Esc back${C_RST}" "$width"
+                        draw_box_empty "$width"
+                        local link_user=""
+                        tui_read_line_boxed "Username" "" link_user "$width"
+                        local link_rc=$?
                         draw_box_bottom "$width"
-                        local link_user
-                        link_user=$(tui_read_line "Username" "")
-                        printf '\033[?25l'
-                        if [[ -n "$link_user" ]]; then
+                        if [[ $link_rc -eq 0 && -n "$link_user" ]]; then
                             _show_user_links_page "$link_user" "$current_proto"
                         fi
                         ;;

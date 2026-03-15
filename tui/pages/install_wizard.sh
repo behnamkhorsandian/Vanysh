@@ -233,11 +233,15 @@ render_wizard_step() {
             draw_box_empty
             draw_box_sep
             draw_box_row " ${C_DGRAY}Enter value (or press Enter for default)  |  Esc back${C_RST}"
-            draw_box_bottom
-            printf '\n'
+            draw_box_empty
 
             local input_val=""
-            tui_read_line "$step_prompt" "$step_default" input_val
+            tui_read_line_boxed "$step_prompt" "$step_default" input_val
+            local input_rc=$?
+            draw_box_bottom
+            if [[ $input_rc -ne 0 ]]; then
+                return 1
+            fi
             eval "$step_var=\$input_val"
             return 0
             ;;
@@ -499,20 +503,28 @@ install_sos_automated() {
 _source_protocol() {
     local proto="$1"
     local script_path=""
+    local functions_sourced=0
 
-    # Try local paths
+    # Try local paths — prefer functions.sh (TUI-compatible non-interactive functions)
     for dir in "/opt/dnscloak/services/$proto" \
                "$(dirname "${BASH_SOURCE[0]}")/../../services/$proto" \
                "/tmp/dnscloak-services/$proto"; do
-        if [[ -f "$dir/install.sh" ]]; then
-            script_path="$dir/install.sh"
-            break
-        fi
         if [[ -f "$dir/functions.sh" ]]; then
             source "$dir/functions.sh"
+            functions_sourced=1
+        fi
+        if [[ -f "$dir/install.sh" ]]; then
+            script_path="$dir/install.sh"
         fi
     done
 
+    # If we sourced functions.sh, that's sufficient — don't source install.sh
+    # which may contain interactive functions that conflict
+    if [[ $functions_sourced -eq 1 ]]; then
+        return 0
+    fi
+
+    # No functions.sh found — try install.sh (standalone installer)
     if [[ -z "$script_path" ]]; then
         # Download from GitHub
         local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/services/$proto/install.sh"
@@ -525,8 +537,6 @@ _source_protocol() {
     fi
 
     # Source without running main()
-    # We need to extract only the functions, not execute the script
-    # Use a subshell trick: source but override main
     local _original_main=""
     if type main &>/dev/null; then
         _original_main=$(declare -f main)
