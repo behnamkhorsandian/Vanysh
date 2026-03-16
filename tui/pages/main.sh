@@ -1,243 +1,355 @@
 #!/bin/bash
 #===============================================================================
-# DNSCloak TUI - Main Menu Page
-# Split layout: protocol list (left) + description sidebar (right)
+# DNSCloak TUI - Main Page (Protocol Browser)
+# Unified view: sidebar selects protocol, content shows detail + actions
+# Merges the old main.sh + protocol.sh into one cohesive page
 #===============================================================================
 
-# Source engine
 TUI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$TUI_DIR/engine.sh"
 
 #-------------------------------------------------------------------------------
-# Get protocol status badge string
+# Protocol guide text (moved from protocol.sh)
 #-------------------------------------------------------------------------------
 
-_get_proto_badge() {
-    local proto="$1"
+declare -A PROTOCOL_GUIDE
 
-    # Check if service functions are available
-    if type service_installed &>/dev/null && type service_running &>/dev/null; then
-        if service_installed "$proto"; then
-            if service_running "$proto"; then
-                echo "running"
-            else
-                echo "stopped"
-            fi
-            return
+PROTOCOL_GUIDE[reality]="VLESS + REALITY uses Xray-core to create a
+proxy that mimics legitimate HTTPS traffic.
+
+How it works:
+  Your server pretends to be a normal website
+  (like google.com or apple.com). Censors see
+  what looks like regular HTTPS connections.
+
+When to use:
+  * First choice for most users
+  * Works without a domain name
+  * Very fast, low overhead
+  * Hard to detect and block
+
+Port used: 443 (HTTPS)"
+
+PROTOCOL_GUIDE[wg]="WireGuard is a modern VPN protocol. It creates
+an encrypted tunnel for ALL device traffic.
+
+How it works:
+  Lightweight kernel-level VPN. Uses public key
+  cryptography. Extremely fast handshakes.
+
+When to use:
+  * You want a full VPN (all traffic tunneled)
+  * You need native app support (iOS/Android)
+  * You want simplicity and speed
+  * May be blocked by DPI in some countries
+
+Port used: 51820 (UDP)"
+
+PROTOCOL_GUIDE[ws]="VLESS + WebSocket routes traffic through
+Cloudflare's CDN network.
+
+How it works:
+  Traffic goes: Client -> Cloudflare CDN ->
+  Your server. Censors only see Cloudflare IPs.
+  Your real server IP stays completely hidden.
+
+When to use:
+  * Your server IP is already blocked
+  * You want IP protection via CDN
+  * You have a domain on Cloudflare
+
+Requires: Domain name with Cloudflare DNS
+Port used: 80 (HTTP, Cloudflare handles TLS)"
+
+PROTOCOL_GUIDE[mtp]="MTProto Proxy is Telegram's built-in proxy
+protocol. It only works for Telegram.
+
+How it works:
+  Runs a proxy server that speaks Telegram's
+  native protocol. Supports Fake-TLS mode to
+  disguise traffic as HTTPS.
+
+When to use:
+  * You only need Telegram access
+  * Users don't want to install extra apps
+  * Simple, single-purpose solution
+
+Port used: Custom (you choose during setup)"
+
+PROTOCOL_GUIDE[dnstt]="DNS Tunnel encodes data inside DNS queries.
+This is an emergency backup protocol.
+
+How it works:
+  All traffic is encoded as DNS lookups to your
+  domain. Works even when all other protocols
+  are blocked because DNS queries are essential.
+
+When to use:
+  * Total internet blackout
+  * All other protocols are blocked
+  * Emergency backup (VERY slow: ~50 KB/s)
+
+Requires: Domain with NS record configured
+Port used: 53 (DNS)"
+
+PROTOCOL_GUIDE[conduit]="Conduit turns your server into a volunteer
+relay node for the Psiphon network.
+
+How it works:
+  Runs a Docker container that relays traffic
+  for Psiphon users. You donate bandwidth to
+  help people in censored regions.
+
+When to use:
+  * You want to help others bypass censorship
+  * You have spare bandwidth to donate
+  * No client configuration needed
+
+Requires: Docker
+Port used: Assigned automatically"
+
+PROTOCOL_GUIDE[vray]="VLESS + TLS is the classic V2Ray setup with
+proper TLS certificates.
+
+How it works:
+  Standard proxy with real TLS certificate from
+  Let's Encrypt. Looks like any HTTPS website.
+
+When to use:
+  * You have a domain name
+  * You want maximum compatibility
+  * Standard V2Ray/Xray setup
+
+Requires: Domain name + valid DNS
+Port used: 443 (HTTPS)"
+
+PROTOCOL_GUIDE[sos]="SOS is an encrypted emergency chat system
+that works over DNS tunnels.
+
+How it works:
+  Messages are encrypted end-to-end using NaCl.
+  They travel through the DNSTT tunnel, making
+  them nearly impossible to block.
+
+When to use:
+  * Emergency communication during blackouts
+  * Needs DNSTT service running first
+  * Available as TUI app or web interface
+
+Requires: DNSTT service running, Python 3.8+"
+
+#-------------------------------------------------------------------------------
+# Build content lines for selected protocol
+#-------------------------------------------------------------------------------
+
+_build_protocol_content() {
+    local proto="$1"
+    local action_sel="$2"   # -1 = no action focus, 0..N = action index
+    local proto_name="${PROTOCOL_NAMES[$proto]}"
+    local guide="${PROTOCOL_GUIDE[$proto]}"
+    local desc="${PROTOCOL_DESC[$proto]}"
+    local reqs="${PROTOCOL_REQS[$proto]}"
+    local clients="${PROTOCOL_CLIENTS[$proto]}"
+
+    FRAME_CONTENT=()
+
+    # Title
+    FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}${proto_name}${C_RST}")
+    FRAME_CONTENT+=("")
+
+    # Status badge
+    local is_installed=0
+    local is_running=0
+    if type service_installed &>/dev/null && service_installed "$proto" 2>/dev/null; then
+        is_installed=1
+        if type service_running &>/dev/null && service_running "$proto" 2>/dev/null; then
+            is_running=1
         fi
     fi
 
-    # Fallback: use static tags from theme
-    echo "${PROTOCOL_TAGS[$proto]}"
+    if [[ $is_installed -eq 1 ]]; then
+        if [[ $is_running -eq 1 ]]; then
+            FRAME_CONTENT+=("Status: $badge_running")
+        else
+            FRAME_CONTENT+=("Status: $badge_stopped")
+        fi
+    else
+        FRAME_CONTENT+=("Status: $badge_not_installed")
+    fi
+    FRAME_CONTENT+=("")
+
+    # Guide text
+    while IFS= read -r line; do
+        FRAME_CONTENT+=("${C_TEXT}${line}${C_RST}")
+    done <<< "$guide"
+    FRAME_CONTENT+=("")
+
+    # Requirements
+    FRAME_CONTENT+=("${C_LGREEN}Requirements:${C_RST}")
+    while IFS= read -r line; do
+        line=$(printf '%b' "$line")
+        FRAME_CONTENT+=("${C_LGRAY}${line}${C_RST}")
+    done <<< "$(printf '%b' "$reqs")"
+    FRAME_CONTENT+=("")
+
+    # Client apps
+    FRAME_CONTENT+=("${C_LGREEN}Client Apps:${C_RST}")
+    while IFS= read -r line; do
+        line=$(printf '%b' "$line")
+        FRAME_CONTENT+=("${C_LGRAY}${line}${C_RST}")
+    done <<< "$(printf '%b' "$clients")"
+    FRAME_CONTENT+=("")
+
+    # Separator before actions
+    local sep_w=$(( _CONTENT_INNER_W - 4 ))
+    (( sep_w < 10 )) && sep_w=10
+    (( sep_w > 40 )) && sep_w=40
+    FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
+    FRAME_CONTENT+=("")
+
+    # Action buttons
+    _PROTO_ACTIONS=()
+    _PROTO_ACTION_IDS=()
+    if [[ $is_installed -eq 0 ]]; then
+        _PROTO_ACTIONS+=("Install ${proto_name}")
+        _PROTO_ACTION_IDS+=("install")
+    else
+        _PROTO_ACTIONS+=("Add User" "Remove User" "Show User Links" "Restart Service" "Uninstall")
+        _PROTO_ACTION_IDS+=("add_user" "remove_user" "show_links" "restart" "uninstall")
+    fi
+
+    local a=0
+    for action in "${_PROTO_ACTIONS[@]}"; do
+        local prefix="   "
+        local acolor="$C_TEXT"
+        if [[ $action_sel -ge 0 && $a -eq $action_sel ]]; then
+            prefix=" ${C_GREEN}>${C_RST}"
+            acolor="${C_GREEN}${C_BOLD}"
+        fi
+        FRAME_CONTENT+=("${prefix} ${acolor}${action}${C_RST}")
+        (( a++ ))
+    done
 }
 
 #-------------------------------------------------------------------------------
-# Render the main menu — returns selected protocol ID in SELECTED_PROTOCOL
-# Returns: 0 on selection, 1 on quit
+# Main page — protocol browser with unified frame
+# Returns 0 on action selection, 1 on quit
+# Sets: SELECTED_PROTOCOL, PROTOCOL_ACTION
 #-------------------------------------------------------------------------------
 
 page_main_menu() {
-    local selected=0
+    _SIDEBAR_SEL=0
+    _SIDEBAR_PAGE="protocols"
+    _SIDEBAR_DIM=0
+
+    local focus="sidebar"   # "sidebar" or "content"
+    local action_sel=0
+    local proto_count=${#PROTOCOL_IDS[@]}
+
+    # Pre-select protocol if START_PROTOCOL is set (from --page argument)
+    if [[ -n "${START_PROTOCOL:-}" ]]; then
+        local i=0
+        for pid in "${PROTOCOL_IDS[@]}"; do
+            if [[ "$pid" == "$START_PROTOCOL" ]]; then
+                _SIDEBAR_SEL=$i
+                break
+            fi
+            (( i++ ))
+        done
+        START_PROTOCOL=""
+    fi
 
     while true; do
         tui_get_size
         tui_compute_layout
 
-        clear_screen
+        local proto="${PROTOCOL_IDS[$_SIDEBAR_SEL]}"
 
-        # Banner
-        render_banner "menu" "$C_GREEN"
-        printf '\n'
-
-        # Build menu items with badges
-        local items=()
-        for proto in "${PROTOCOL_IDS[@]}"; do
-            local name="${PROTOCOL_NAMES[$proto]}"
-            local badge
-            badge=$(_get_proto_badge "$proto")
-            items+=("${name}|${proto}|${badge}")
-        done
-
-        if (( _COMPACT )); then
-            # Compact mode: just a simple menu, no split
-            draw_box_top "" "Select Protocol"
-            draw_box_empty
-
-            local i=0
-            for item in "${items[@]}"; do
-                local label="${item%%|*}"
-                local rest="${item#*|}"
-                local proto="${rest%%|*}"
-                local badge="${rest##*|}"
-
-                local prefix="   "
-                local lcolor="$C_TEXT"
-                if [[ $i -eq $selected ]]; then
-                    prefix=" ${C_GREEN}>${C_RST}"
-                    lcolor="${C_GREEN}${C_BOLD}"
-                fi
-
-                local display="${prefix} ${lcolor}${label}${C_RST}"
-
-                case "$badge" in
-                    running)       display+="  $badge_running" ;;
-                    stopped)       display+="  $badge_stopped" ;;
-                    recommended)   display+="  $badge_recommended" ;;
-                    needs_domain)  display+="  $badge_needs_domain" ;;
-                    emergency)     display+="  $badge_emergency" ;;
-                    relay)         display+="  $badge_relay" ;;
-                esac
-
-                draw_box_row "$display"
-                (( i++ ))
-            done
-
-            # Vertical fill using actual banner height
-            # Chrome: top border(1) + empty(1) + sep(1) + hints(1) + bottom(1) = 5
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 5 ))
-            local avail=$(( _TERM_ROWS - chrome_rows - ${#items[@]} ))
-            while (( avail-- > 0 )); do draw_box_empty; done
-
-            draw_box_sep
-            draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
-            draw_box_bottom
+        # Build content for selected protocol
+        if [[ $focus == "content" ]]; then
+            _build_protocol_content "$proto" "$action_sel"
         else
-            # Full mode: split layout (left: list, right: description)
-            compute_split "$_FRAME_W" 55
-
-            # Get selected protocol info
-            local sel_proto="${PROTOCOL_IDS[$selected]}"
-            local sel_desc="${PROTOCOL_DESC[$sel_proto]}"
-            local sel_reqs="${PROTOCOL_REQS[$sel_proto]}"
-            local sel_clients="${PROTOCOL_CLIENTS[$sel_proto]}"
-
-            # Draw split top
-            draw_split_top "" "Protocols" "Details"
-            draw_split_empty
-
-            # Draw each protocol item on the left, description on the right
-            local i=0
-            local right_lines=()
-
-            # Prepare right panel content
-            IFS=$'\n' read -r -d '' -a desc_lines <<< "$(printf '%b' "$sel_desc")" || true
-            IFS=$'\n' read -r -d '' -a req_lines <<< "$(printf '%b' "$sel_reqs")" || true
-            IFS=$'\n' read -r -d '' -a client_lines <<< "$(printf '%b' "$sel_clients")" || true
-
-            # Build right panel line array with clear sections
-            right_lines+=("${C_ORANGE}${C_BOLD}${PROTOCOL_NAMES[$sel_proto]}${C_RST}")
-            right_lines+=("")
-            for dl in "${desc_lines[@]}"; do
-                right_lines+=("${C_TEXT}${dl}${C_RST}")
-            done
-            right_lines+=("")
-            right_lines+=("${C_LGREEN}Requirements:${C_RST}")
-            for rl in "${req_lines[@]}"; do
-                right_lines+=("${C_LGRAY}${rl}${C_RST}")
-            done
-            right_lines+=("")
-            right_lines+=("${C_LGREEN}Client Apps:${C_RST}")
-            for cl in "${client_lines[@]}"; do
-                right_lines+=("${C_LGRAY}${cl}${C_RST}")
-            done
-
-            # Compute available content rows using actual banner height
-            # Chrome: newline(1) + split_top(1) + split_empty_top(1) +
-            #         split_empty_bottom(1) + merge_sep(1) + hints(1) + bottom(1) = 6
-            local chrome_rows=$(( _BANNER_HEIGHT + 1 + 6 ))
-            local avail_rows=$(( _TERM_ROWS - chrome_rows ))
-            (( avail_rows < 1 )) && avail_rows=1
-
-            # Content height = max of left and right
-            local max_rows=${#items[@]}
-            local right_count=${#right_lines[@]}
-            (( right_count > max_rows )) && max_rows=$right_count
-            # Fill to available rows (stretch to terminal)
-            (( avail_rows > max_rows )) && max_rows=$avail_rows
-
-            for (( r = 0; r < max_rows; r++ )); do
-                # Left column
-                local left_text=""
-                if (( r < ${#items[@]} )); then
-                    local item="${items[$r]}"
-                    local label="${item%%|*}"
-                    local rest="${item#*|}"
-                    local proto="${rest%%|*}"
-                    local badge="${rest##*|}"
-
-                    local prefix="   "
-                    local lcolor="$C_TEXT"
-                    if [[ $r -eq $selected ]]; then
-                        prefix=" ${C_GREEN}>${C_RST}"
-                        lcolor="${C_GREEN}${C_BOLD}"
-                    fi
-
-                    left_text="${prefix} ${lcolor}${label}${C_RST}"
-
-                    case "$badge" in
-                        running)       left_text+="  $badge_running" ;;
-                        stopped)       left_text+="  $badge_stopped" ;;
-                        recommended)   left_text+="  $badge_recommended" ;;
-                        needs_domain)  left_text+="  $badge_needs_domain" ;;
-                        emergency)     left_text+="  $badge_emergency" ;;
-                        relay)         left_text+="  $badge_relay" ;;
-                    esac
-                fi
-
-                # Right column
-                local right_text=""
-                if (( r < right_count )); then
-                    right_text=" ${right_lines[$r]}"
-                fi
-
-                draw_split_row "$left_text" "$right_text"
-            done
-
-            draw_split_empty
-            draw_split_to_box_sep
-            local hints=" ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  "
-            hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
-            hints+="${C_DGRAY}s${C_RST}${C_DIM} status${C_RST}  "
-            hints+="${C_DGRAY}u${C_RST}${C_DIM} users${C_RST}  "
-            hints+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
-            draw_box_row "$hints"
-            draw_box_bottom
+            _build_protocol_content "$proto" -1
         fi
+
+        # Footer
+        if [[ $focus == "sidebar" ]]; then
+            FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} navigate${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} actions${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}s${C_RST}${C_DIM} status${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}u${C_RST}${C_DIM} users${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+        else
+            FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} navigate${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+        fi
+
+        tui_render_frame
 
         # Read key
         local key
         key=$(tui_read_key)
 
-        case "$key" in
-            UP)
-                (( selected-- ))
-                (( selected < 0 )) && selected=$(( ${#PROTOCOL_IDS[@]} - 1 ))
-                ;;
-            DOWN)
-                (( selected++ ))
-                (( selected >= ${#PROTOCOL_IDS[@]} )) && selected=0
-                ;;
-            ENTER)
-                SELECTED_PROTOCOL="${PROTOCOL_IDS[$selected]}"
-                return 0
-                ;;
-            s|S)
-                SELECTED_PROTOCOL="_status"
-                return 0
-                ;;
-            u|U)
-                SELECTED_PROTOCOL="_users"
-                return 0
-                ;;
-            q|Q|ESC)
-                return 1
-                ;;
-            [0-7])
-                if (( key < ${#PROTOCOL_IDS[@]} )); then
-                    SELECTED_PROTOCOL="${PROTOCOL_IDS[$key]}"
+        if [[ $focus == "sidebar" ]]; then
+            case "$key" in
+                UP)
+                    (( _SIDEBAR_SEL-- ))
+                    (( _SIDEBAR_SEL < 0 )) && _SIDEBAR_SEL=$(( proto_count - 1 ))
+                    action_sel=0
+                    ;;
+                DOWN)
+                    (( _SIDEBAR_SEL++ ))
+                    (( _SIDEBAR_SEL >= proto_count )) && _SIDEBAR_SEL=0
+                    action_sel=0
+                    ;;
+                ENTER|RIGHT)
+                    focus="content"
+                    action_sel=0
+                    ;;
+                s|S)
+                    SELECTED_PROTOCOL="_status"
                     return 0
-                fi
-                ;;
-        esac
+                    ;;
+                u|U)
+                    SELECTED_PROTOCOL="_users"
+                    return 0
+                    ;;
+                q|Q|ESC)
+                    return 1
+                    ;;
+                [0-7])
+                    if (( key < proto_count )); then
+                        _SIDEBAR_SEL=$key
+                        action_sel=0
+                    fi
+                    ;;
+            esac
+        else
+            # Content focus — navigate action buttons
+            local action_count=${#_PROTO_ACTIONS[@]}
+            case "$key" in
+                UP)
+                    (( action_sel-- ))
+                    (( action_sel < 0 )) && action_sel=$(( action_count - 1 ))
+                    ;;
+                DOWN)
+                    (( action_sel++ ))
+                    (( action_sel >= action_count )) && action_sel=0
+                    ;;
+                ENTER)
+                    SELECTED_PROTOCOL="${PROTOCOL_IDS[$_SIDEBAR_SEL]}"
+                    PROTOCOL_ACTION="${_PROTO_ACTION_IDS[$action_sel]}"
+                    return 0
+                    ;;
+                ESC|LEFT)
+                    focus="sidebar"
+                    ;;
+                q|Q)
+                    return 1
+                    ;;
+            esac
+        fi
     done
 }

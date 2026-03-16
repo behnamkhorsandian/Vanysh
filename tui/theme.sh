@@ -35,6 +35,16 @@ BOX_TJ="┬"   # top-junction
 BOX_BJ="┴"   # bottom-junction
 BOX_CJ="┼"   # cross
 
+# Background colors
+C_BG_DARK='\033[48;5;235m'   # dark background for status bar
+
+# ── Status Dots (ASCII-safe) ────────────────────────────────────────────────
+DOT_ON="${C_GREEN}*${C_RST}"         # running
+DOT_OFF="${C_YELLOW}*${C_RST}"       # stopped / installed but not running
+DOT_ERR="${C_RED}*${C_RST}"          # error
+DOT_NONE="${C_DGRAY}-${C_RST}"       # not installed
+DOT_REC="${C_BLUE}*${C_RST}"         # recommended (fallback tag)
+
 # ── Status Badges ────────────────────────────────────────────────────────────
 badge_running="${C_GREEN}[running]${C_RST}"
 badge_stopped="${C_YELLOW}[stopped]${C_RST}"
@@ -69,6 +79,18 @@ declare -A PROTOCOL_NAMES=(
     [conduit]="Conduit (Psiphon)"
     [vray]="VLESS + TLS"
     [sos]="SOS Emergency Chat"
+)
+
+# Short names for sidebar (max ~16 chars)
+declare -A PROTOCOL_SHORT=(
+    [reality]="REALITY"
+    [wg]="WireGuard"
+    [ws]="WS + CDN"
+    [mtp]="MTProto"
+    [dnstt]="DNS Tunnel"
+    [conduit]="Conduit"
+    [vray]="VLESS+TLS"
+    [sos]="SOS Chat"
 )
 
 # Short descriptions (shown in main menu sidebar)

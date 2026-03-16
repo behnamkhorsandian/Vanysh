@@ -70,3 +70,4 @@ workers/.env
 VPNS.txt
 sample.wrangler/
 sample/
+*.bak

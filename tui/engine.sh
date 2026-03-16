@@ -1,8 +1,8 @@
 #!/bin/bash
 #===============================================================================
 # DNSCloak TUI - Rendering Engine
-# Core functions for building full-screen terminal UIs
-# Modeled after 432.sh's frame.js / box.js / layout.js
+# Unified frame model: status bar + sidebar + content + footer
+# Inspired by 432.sh layout patterns, ported to bash
 #===============================================================================
 
 # Source theme if not already loaded
@@ -11,9 +11,9 @@ if [[ -z "$C_RST" ]]; then
     source "$SCRIPT_DIR/theme.sh"
 fi
 
-#-------------------------------------------------------------------------------
-# Terminal Detection
-#-------------------------------------------------------------------------------
+#===============================================================================
+# SECTION 1: Terminal Detection
+#===============================================================================
 
 _TERM_COLS=80
 _TERM_ROWS=24
@@ -21,13 +21,6 @@ _TUI_FD=3
 _TUI_ACTIVE=0
 _TUI_OLD_STTY=""
 
-# Layout constants
-_MAX_FRAME_W=120         # Max frame width
-_COMPACT_COLS=100        # Below this: single-column stacked layout
-_CHROME_ROWS=6           # Banner + nav bar + borders overhead
-_BANNER_HEIGHT=0         # Set by render_banner()
-
-# Detect terminal size
 tui_get_size() {
     if [[ -e /dev/tty ]]; then
         _TERM_COLS=$(tput cols </dev/tty 2>/dev/null || echo 80)
@@ -36,52 +29,141 @@ tui_get_size() {
         _TERM_COLS=${COLUMNS:-80}
         _TERM_ROWS=${LINES:-24}
     fi
-    # Clamp to reasonable range
-    (( _TERM_COLS < 60 )) && _TERM_COLS=60
-    (( _TERM_COLS > 220 )) && _TERM_COLS=220
-    (( _TERM_ROWS < 20 )) && _TERM_ROWS=20
-    (( _TERM_ROWS > 80 )) && _TERM_ROWS=80
+    (( _TERM_COLS < 40 )) && _TERM_COLS=40
+    (( _TERM_COLS > 300 )) && _TERM_COLS=300
+    (( _TERM_ROWS < 15 )) && _TERM_ROWS=15
+    (( _TERM_ROWS > 100 )) && _TERM_ROWS=100
     return 0
 }
 
-# Compute frame width, compact flag, and horizontal margin
-# Sets: _FRAME_W, _COMPACT, _MARGIN
+#===============================================================================
+# SECTION 2: Layout Computation
+#===============================================================================
+
+# Layout globals
+_FRAME_W=0            # Total frame width (= TERM_COLS)
+_SIDEBAR_INNER_W=20   # Sidebar inner width (fixed)
+_CONTENT_INNER_W=0    # Content inner width (computed)
+_CONTENT_H=0          # Content area height (rows available)
+_COMPACT=0            # 1 = no sidebar (narrow terminal)
+_MARGIN=0             # Always 0 in new layout (edge-to-edge)
+
+# Chrome rows: top(1) + status(1) + split_top(1) + split_bottom(1) + footer(1) + bottom(1) = 6
+_CHROME_ROWS=6
+
 tui_compute_layout() {
-    local max="${1:-$_MAX_FRAME_W}"
-    _FRAME_W=$(( _TERM_COLS - 2 ))
-    (( _FRAME_W > max )) && _FRAME_W=$max
-    # Snap to even for clean splits
-    (( _FRAME_W % 2 == 1 )) && (( _FRAME_W-- )) || true
-    _COMPACT=0
-    (( _FRAME_W < _COMPACT_COLS )) && _COMPACT=1
-    _MARGIN=$(( (_TERM_COLS - _FRAME_W) / 2 ))
-    (( _MARGIN < 0 )) && _MARGIN=0
+    _FRAME_W=$_TERM_COLS
+
+    if (( _TERM_COLS < 80 )); then
+        _COMPACT=1
+        _SIDEBAR_INNER_W=0
+        _CONTENT_INNER_W=$(( _FRAME_W - 2 ))
+    else
+        _COMPACT=0
+        _SIDEBAR_INNER_W=20
+        # left border(1) + sidebar(20) + mid border(1) + content(?) + right border(1) = FRAME_W
+        _CONTENT_INNER_W=$(( _FRAME_W - _SIDEBAR_INNER_W - 3 ))
+    fi
+
+    _CONTENT_H=$(( _TERM_ROWS - _CHROME_ROWS ))
+    (( _CONTENT_H < 5 )) && _CONTENT_H=5
+
+    # _MARGIN is 0 — edge-to-edge rendering
+    _MARGIN=0
     return 0
 }
 
-# Print margin spaces (used to center-align all frame output)
+# Kept for backward compat (wizard, etc.)
 _m() {
-    (( _MARGIN > 0 )) && printf '%*s' "$_MARGIN" ""
     return 0
 }
 
-#-------------------------------------------------------------------------------
-# TUI Lifecycle
-#-------------------------------------------------------------------------------
+#===============================================================================
+# SECTION 3: ANSI Utilities
+#===============================================================================
 
-# Initialize TUI mode — alternate screen, hide cursor, raw input
+strip_ansi() {
+    printf '%b' "$1" | sed 's/\x1b\[[0-9;]*m//g'
+}
+
+visible_len() {
+    local stripped
+    stripped=$(strip_ansi "$1")
+    printf '%d' "${#stripped}"
+}
+
+repeat_char() {
+    local ch="$1"
+    local n="$2"
+    (( n <= 0 )) && return
+    printf "%${n}s" "" | tr ' ' "$ch"
+}
+
+repeat_str() {
+    local str="$1"
+    local n="$2"
+    local i
+    for (( i = 0; i < n; i++ )); do
+        printf '%s' "$str"
+    done
+}
+
+pad_right() {
+    local text="$1"
+    local target_width="$2"
+    local vlen
+    vlen=$(visible_len "$text")
+    local pad=$(( target_width - vlen ))
+    printf '%b' "$text"
+    (( pad > 0 )) && printf '%*s' "$pad" ""
+}
+
+# Truncate string to max visible width, preserving reset at end
+truncate_str() {
+    local text="$1"
+    local max_width="$2"
+    local vlen
+    vlen=$(visible_len "$text")
+    if (( vlen <= max_width )); then
+        printf '%b' "$text"
+        return
+    fi
+    # Walk through characters, tracking visible count
+    local stripped
+    stripped=$(strip_ansi "$text")
+    printf '%b' "${stripped:0:$((max_width - 2))}..${C_RST}"
+}
+
+cursor_to() {
+    local row="$1"
+    local col="$2"
+    printf '\033[%d;%dH' "$row" "$col"
+}
+
+clear_screen() {
+    printf '\033[2J\033[H'
+}
+
+word_wrap() {
+    local text="$1"
+    local max_width="${2:-50}"
+    printf '%s' "$text" | fold -s -w "$max_width"
+}
+
+#===============================================================================
+# SECTION 4: TUI Lifecycle
+#===============================================================================
+
 tui_init() {
     if [[ $_TUI_ACTIVE -eq 1 ]]; then
         return 0
     fi
 
-    # Check /dev/tty is accessible
     if [[ ! -r /dev/tty ]]; then
         echo "tui_init: /dev/tty not readable" >&2
         return 1
     fi
 
-    # Open /dev/tty for keyboard (stdin may be a pipe from curl)
     if ! exec 3</dev/tty; then
         echo "tui_init: failed to open /dev/tty on fd 3" >&2
         return 1
@@ -93,14 +175,24 @@ tui_init() {
     printf '\033[2J'       # clear screen
     _TUI_ACTIVE=1
     tui_get_size
+
+    # Handle terminal resize
+    trap '_tui_on_resize' WINCH
+
     return 0
 }
 
-# Restore terminal state
+_tui_on_resize() {
+    tui_get_size
+    tui_compute_layout
+    # Pages will re-render on next loop iteration
+}
+
 tui_cleanup() {
     if [[ $_TUI_ACTIVE -eq 0 ]]; then
         return 0
     fi
+    trap '' WINCH
     if [[ -n "$_TUI_OLD_STTY" ]]; then
         stty "$_TUI_OLD_STTY" <&3 2>/dev/null
     fi
@@ -110,90 +202,264 @@ tui_cleanup() {
     _TUI_ACTIVE=0
 }
 
+#===============================================================================
+# SECTION 5: Unified Frame Renderer
+#
+# Layout:
+#   ┌──────────────────────────────────────────────────────────────────────┐
+#   │  DNSCLOAK  *  1.2.3.4  |  3 services  |  q quit              16:58 │
+#   ├──────────────────┬───────────────────────────────────────────────────┤
+#   │  Protocols       │  Content area...                                 │
+#   │ > REALITY    *   │                                                  │
+#   │   WireGuard  -   │                                                  │
+#   │   ...            │                                                  │
+#   │  ─────────────── │                                                  │
+#   │  [s] Status      │                                                  │
+#   │  [u] Users       │                                                  │
+#   ├──────────────────┴───────────────────────────────────────────────────┤
+#   │  ^/v navigate  Enter select  s status  u users  q quit              │
+#   └──────────────────────────────────────────────────────────────────────┘
+#===============================================================================
+
+# Sidebar state (set by pages before calling tui_render_frame)
+_SIDEBAR_SEL=0             # Which sidebar item is highlighted (0-based)
+_SIDEBAR_PAGE=""           # "protocols", "status", "users" — which section is active
+_SIDEBAR_DIM=0             # 1 = dim sidebar (during wizard)
+
+# Frame content arrays (set by pages before calling tui_render_frame)
+FRAME_CONTENT=()           # Content lines for right panel
+FRAME_FOOTER=""            # Footer hint text
+
+# Cached sidebar lines (built internally by _build_sidebar)
+_SIDEBAR_LINES=()
+
 #-------------------------------------------------------------------------------
-# ANSI Utilities
+# Build sidebar lines
 #-------------------------------------------------------------------------------
 
-# Strip ANSI escape codes from a string
-strip_ansi() {
-    printf '%b' "$1" | sed 's/\x1b\[[0-9;]*m//g'
-}
+_build_sidebar() {
+    _SIDEBAR_LINES=()
 
-# Visible length of a string (ignoring ANSI codes)
-visible_len() {
-    local stripped
-    stripped=$(strip_ansi "$1")
-    printf '%d' "${#stripped}"
-}
+    local dim_prefix=""
+    [[ $_SIDEBAR_DIM -eq 1 ]] && dim_prefix="$C_DIM"
 
-# Repeat a character N times
-repeat_char() {
-    local ch="$1"
-    local n="$2"
-    (( n <= 0 )) && return
-    printf "%${n}s" "" | tr ' ' "$ch"
-}
+    # Section header
+    _SIDEBAR_LINES+=("${dim_prefix}${C_ORANGE} Protocols${C_RST}")
+    _SIDEBAR_LINES+=("")
 
-# Repeat a multi-byte string N times (for Unicode box chars)
-repeat_str() {
-    local str="$1"
-    local n="$2"
-    local i
-    for (( i = 0; i < n; i++ )); do
-        printf '%s' "$str"
+    # Protocol list
+    local i=0
+    for proto in "${PROTOCOL_IDS[@]}"; do
+        local name="${PROTOCOL_SHORT[$proto]}"
+        local dot="$DOT_NONE"
+
+        # Check live service status if functions available
+        if type service_installed &>/dev/null; then
+            if service_installed "$proto" 2>/dev/null; then
+                if type service_running &>/dev/null && service_running "$proto" 2>/dev/null; then
+                    dot="$DOT_ON"
+                else
+                    dot="$DOT_OFF"
+                fi
+            fi
+        else
+            # Fallback: use tag from theme
+            case "${PROTOCOL_TAGS[$proto]}" in
+                recommended) dot="$DOT_REC" ;;
+                emergency)   dot="$DOT_ERR" ;;
+            esac
+        fi
+
+        local prefix="  "
+        local ncolor="${dim_prefix}${C_TEXT}"
+        if [[ $_SIDEBAR_PAGE == "protocols" && $i -eq $_SIDEBAR_SEL ]]; then
+            prefix="${C_GREEN}>${C_RST} "
+            ncolor="${C_GREEN}${C_BOLD}"
+        fi
+        _SIDEBAR_LINES+=("${prefix}${ncolor}${name}${C_RST} ${dot}")
+        (( i++ ))
     done
-}
 
-# Pad a string with spaces to a target visible width
-pad_right() {
-    local text="$1"
-    local target_width="$2"
-    local vlen
-    vlen=$(visible_len "$text")
-    local pad=$(( target_width - vlen ))
-    printf '%b' "$text"
-    (( pad > 0 )) && printf '%*s' "$pad" ""
-}
+    # Blank line + separator
+    _SIDEBAR_LINES+=("")
+    local sep_w=$(( _SIDEBAR_INNER_W - 2 ))
+    (( sep_w < 4 )) && sep_w=4
+    _SIDEBAR_LINES+=(" ${dim_prefix}${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
 
-# Truncate a string (ANSI-aware) to max visible width
-truncate_str() {
-    local text="$1"
-    local max_width="$2"
-    local vlen
-    vlen=$(visible_len "$text")
-    if (( vlen <= max_width )); then
-        printf '%b' "$text"
-        return
+    # Navigation items
+    local s_prefix="  "
+    local s_color="${dim_prefix}${C_TEXT}"
+    if [[ $_SIDEBAR_PAGE == "status" ]]; then
+        s_prefix="${C_GREEN}>${C_RST} "
+        s_color="${C_GREEN}${C_BOLD}"
     fi
-    # Brute force: strip ANSI, truncate, lose colors at truncation point
-    local stripped
-    stripped=$(strip_ansi "$text")
-    printf '%b' "${stripped:0:$((max_width - 1))}.${C_RST}"
-}
+    _SIDEBAR_LINES+=("${s_prefix}${C_LGREEN}s${C_RST} ${s_color}Status${C_RST}")
 
-# Move cursor to position
-cursor_to() {
-    local row="$1"
-    local col="$2"
-    printf '\033[%d;%dH' "$row" "$col"
-}
-
-# Clear screen and move to top
-clear_screen() {
-    printf '\033[2J\033[H'
+    local u_prefix="  "
+    local u_color="${dim_prefix}${C_TEXT}"
+    if [[ $_SIDEBAR_PAGE == "users" ]]; then
+        u_prefix="${C_GREEN}>${C_RST} "
+        u_color="${C_GREEN}${C_BOLD}"
+    fi
+    _SIDEBAR_LINES+=("${u_prefix}${C_LGREEN}u${C_RST} ${u_color}Users${C_RST}")
 }
 
 #-------------------------------------------------------------------------------
-# Box Drawing
-#   ┌─ Title ──────────────┐
-#   │ content              │
-#   ├──────────────────────┤
-#   │ more content         │
-#   └──────────────────────┘
+# Build status bar text
 #-------------------------------------------------------------------------------
 
-# Draw top border with optional title
-# Usage: draw_box_top [width] [title] [border_color]
+_build_status_text() {
+    local ip="?"
+    local svc_count=0
+    local user_count=0
+    local clock=""
+
+    # Read from users.json if available
+    if [[ -f "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" ]] && type jq &>/dev/null; then
+        ip=$(jq -r '.server.ip // "?"' "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+        user_count=$(jq -r '.users // {} | keys | length' "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+    fi
+
+    # Count running services
+    if type service_installed &>/dev/null && type service_running &>/dev/null; then
+        for proto in "${PROTOCOL_IDS[@]}"; do
+            service_running "$proto" 2>/dev/null && (( svc_count++ ))
+        done
+    fi
+
+    # Clock
+    clock=$(date +%H:%M 2>/dev/null || echo "--:--")
+
+    # Overall health dot
+    local health_dot="$DOT_NONE"
+    if (( svc_count > 0 )); then
+        health_dot="$DOT_ON"
+    fi
+
+    printf ' %bDNSCLOAK%b  %b  %b%s%b  %b|%b  %b%d%b svcs  %b|%b  %b%d%b users  %b|%b  %b%s%b' \
+        "$C_GREEN" "$C_RST" \
+        "$health_dot" \
+        "$C_TEXT" "$ip" "$C_RST" \
+        "$C_DGRAY" "$C_RST" \
+        "$C_TEXT" "$svc_count" "$C_RST" \
+        "$C_DGRAY" "$C_RST" \
+        "$C_TEXT" "$user_count" "$C_RST" \
+        "$C_DGRAY" "$C_RST" \
+        "$C_LGRAY" "$clock" "$C_RST"
+}
+
+#-------------------------------------------------------------------------------
+# Print helpers for frame rows
+#-------------------------------------------------------------------------------
+
+# Print a full-width row: │ text <padding> │
+_print_full_row() {
+    local text="$1"
+    local inner=$(( _FRAME_W - 2 ))
+    local vlen
+    vlen=$(visible_len "$text")
+    local pad=$(( inner - vlen ))
+    (( pad < 0 )) && pad=0
+    printf '%b%s%b%b%*s%b%s%b\n' \
+        "$C_DGRAY" "$BOX_V" "$C_RST" \
+        "$text" "$pad" "" \
+        "$C_DGRAY" "$BOX_V" "$C_RST"
+}
+
+# Print a split row: │ sidebar <pad> │ content <pad> │
+_print_split_row() {
+    local sidebar_text="$1"
+    local content_text="$2"
+    local bc="$C_DGRAY"
+
+    local sv cl sp cp
+    sv=$(visible_len "$sidebar_text")
+    cl=$(visible_len "$content_text")
+    sp=$(( _SIDEBAR_INNER_W - sv ))
+    cp=$(( _CONTENT_INNER_W - cl ))
+    (( sp < 0 )) && sp=0
+    (( cp < 0 )) && cp=0
+
+    printf '%b%s%b%b%*s%b%s%b%b%*s%b%s%b\n' \
+        "$bc" "$BOX_V" "$C_RST" \
+        "$sidebar_text" "$sp" "" \
+        "$bc" "$BOX_V" "$C_RST" \
+        "$content_text" "$cp" "" \
+        "$bc" "$BOX_V" "$C_RST"
+}
+
+#-------------------------------------------------------------------------------
+# Main frame renderer
+# Call this after setting FRAME_CONTENT[], FRAME_FOOTER, sidebar state globals
+#-------------------------------------------------------------------------------
+
+tui_render_frame() {
+    local bc="$C_DGRAY"
+
+    _build_sidebar
+
+    # Pre-compute horizontal rules
+    local h_full h_side h_cont
+    h_full=$(repeat_str "$BOX_H" $(( _FRAME_W - 2 )))
+    if (( ! _COMPACT )); then
+        h_side=$(repeat_str "$BOX_H" "$_SIDEBAR_INNER_W")
+        h_cont=$(repeat_str "$BOX_H" "$_CONTENT_INNER_W")
+    fi
+
+    # Build status bar text
+    local status_text
+    status_text=$(_build_status_text)
+
+    # --- Render all at once via subshell to reduce flicker ---
+    {
+        printf '\033[H'  # cursor home (overwrite, no clear)
+
+        # Row 1: Top border
+        printf '%b%s%s%s%b\n' "$bc" "$BOX_TL" "$h_full" "$BOX_TR" "$C_RST"
+
+        # Row 2: Status bar
+        _print_full_row "$status_text"
+
+        if (( _COMPACT )); then
+            # Row 3: Separator
+            printf '%b%s%s%s%b\n' "$bc" "$BOX_ML" "$h_full" "$BOX_MR" "$C_RST"
+
+            # Content rows (full-width, no sidebar)
+            local r=0
+            while (( r < _CONTENT_H )); do
+                _print_full_row " ${FRAME_CONTENT[$r]:-}"
+                (( r++ ))
+            done
+
+            # Footer separator
+            printf '%b%s%s%s%b\n' "$bc" "$BOX_ML" "$h_full" "$BOX_MR" "$C_RST"
+        else
+            # Row 3: Split top (├──────┬──────┤)
+            printf '%b%s%s%s%s%s%b\n' "$bc" "$BOX_ML" "$h_side" "$BOX_TJ" "$h_cont" "$BOX_MR" "$C_RST"
+
+            # Content rows (sidebar | content)
+            local r=0
+            while (( r < _CONTENT_H )); do
+                _print_split_row " ${_SIDEBAR_LINES[$r]:-}" " ${FRAME_CONTENT[$r]:-}"
+                (( r++ ))
+            done
+
+            # Footer separator (├──────┴──────┤)
+            printf '%b%s%s%s%s%s%b\n' "$bc" "$BOX_ML" "$h_side" "$BOX_BJ" "$h_cont" "$BOX_MR" "$C_RST"
+        fi
+
+        # Footer row
+        _print_full_row " $FRAME_FOOTER"
+
+        # Bottom border
+        printf '%b%s%s%s%b\n' "$bc" "$BOX_BL" "$h_full" "$BOX_BR" "$C_RST"
+    }
+}
+
+#===============================================================================
+# SECTION 6: Legacy Box Drawing (kept for wizard & dialogs)
+#===============================================================================
+
 draw_box_top() {
     local width="${1:-$_FRAME_W}"
     local title="$2"
@@ -213,7 +479,6 @@ draw_box_top() {
     printf '%s%b\n' "$BOX_TR" "$C_RST"
 }
 
-# Draw bottom border
 draw_box_bottom() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -224,7 +489,6 @@ draw_box_bottom() {
     printf '%s%b\n' "$BOX_BR" "$C_RST"
 }
 
-# Draw horizontal separator
 draw_box_sep() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -235,8 +499,6 @@ draw_box_sep() {
     printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
 
-# Draw a content row with left/right borders
-# Usage: draw_box_row "text" [width] [border_color]
 draw_box_row() {
     local text="$1"
     local width="${2:-$_FRAME_W}"
@@ -245,13 +507,12 @@ draw_box_row() {
 
     local vlen
     vlen=$(visible_len "$text")
-    local max_content=$(( inner - 1 ))  # 1 char leading space
-    # Truncate if text exceeds available width
+    local max_content=$(( inner - 1 ))
     if (( vlen > max_content )); then
         text=$(truncate_str "$text" "$max_content")
         vlen=$(visible_len "$text")
     fi
-    local pad=$(( inner - vlen - 1 ))  # -1 for leading space
+    local pad=$(( inner - vlen - 1 ))
     (( pad < 0 )) && pad=0
 
     _m; printf '%b%s%b %b%*s%b%s%b\n' \
@@ -260,7 +521,6 @@ draw_box_row() {
         "$bc" "$BOX_V" "$C_RST"
 }
 
-# Draw an empty row
 draw_box_empty() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -272,25 +532,15 @@ draw_box_empty() {
         "$bc" "$BOX_V" "$C_RST"
 }
 
-#-------------------------------------------------------------------------------
-# Split Layout (side-by-side columns)
-#   ┌─────────────────────────┬──────────────┐
-#   │  Left content (65%)     │ Right (35%)  │
-#   └─────────────────────────┴──────────────┘
-#-------------------------------------------------------------------------------
-
-# Compute column widths
-# Usage: compute_split total_width ratio
-# Output: sets SPLIT_LEFT_W and SPLIT_RIGHT_W
+# Legacy split functions (kept for wizard backward compat)
 compute_split() {
     local total="$1"
     local ratio="${2:-55}"
     local inner=$(( total - 2 ))
     SPLIT_LEFT_W=$(( inner * ratio / 100 ))
-    SPLIT_RIGHT_W=$(( inner - SPLIT_LEFT_W - 1 ))  # -1 for middle border
+    SPLIT_RIGHT_W=$(( inner - SPLIT_LEFT_W - 1 ))
 }
 
-# Draw split top border
 draw_split_top() {
     local width="${1:-$_FRAME_W}"
     local left_title="$2"
@@ -322,7 +572,6 @@ draw_split_top() {
     printf '%s%b\n' "$BOX_TR" "$C_RST"
 }
 
-# Draw a split content row (left | right)
 draw_split_row() {
     local left_text="$1"
     local right_text="$2"
@@ -335,7 +584,6 @@ draw_split_row() {
     left_vlen=$(visible_len "$left_text")
     right_vlen=$(visible_len "$right_text")
 
-    # Truncate if text exceeds column width (with 1 char leading space)
     local left_max=$(( SPLIT_LEFT_W - 1 ))
     local right_max=$(( SPLIT_RIGHT_W - 1 ))
     if (( left_vlen > left_max )); then
@@ -347,7 +595,7 @@ draw_split_row() {
         right_vlen=$(visible_len "$right_text")
     fi
 
-    left_pad=$(( SPLIT_LEFT_W - left_vlen - 1 ))  # -1 for leading space
+    left_pad=$(( SPLIT_LEFT_W - left_vlen - 1 ))
     right_pad=$(( SPLIT_RIGHT_W - right_vlen - 1 ))
     (( left_pad < 0 )) && left_pad=0
     (( right_pad < 0 )) && right_pad=0
@@ -360,7 +608,6 @@ draw_split_row() {
         "$bc" "$BOX_V" "$C_RST"
 }
 
-# Draw split empty row
 draw_split_empty() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -374,7 +621,6 @@ draw_split_empty() {
         "$bc" "$BOX_V" "$C_RST"
 }
 
-# Draw split separator
 draw_split_sep() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -387,7 +633,6 @@ draw_split_sep() {
     printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
 
-# Draw split bottom
 draw_split_bottom() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -400,8 +645,6 @@ draw_split_bottom() {
     printf '%s%b\n' "$BOX_BR" "$C_RST"
 }
 
-# Transition: split -> full-width (merge columns)
-#   ├──────────────┴──────────────┤
 draw_split_to_box_sep() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -414,8 +657,6 @@ draw_split_to_box_sep() {
     printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
 
-# Transition: full-width -> split (introduce columns)
-#   ├──────────────┬──────────────┤
 draw_box_to_split_sep() {
     local width="${1:-$_FRAME_W}"
     local bc="${2:-$C_DGRAY}"
@@ -428,56 +669,10 @@ draw_box_to_split_sep() {
     printf '%s%b\n' "$BOX_MR" "$C_RST"
 }
 
-#-------------------------------------------------------------------------------
-# Navigation Bar
-#   ── [0] Main  [1] Reality  [2] WireGuard  ... ── q quit  h help ──
-#-------------------------------------------------------------------------------
+#===============================================================================
+# SECTION 7: Input Handling
+#===============================================================================
 
-# Draw navigation bar at the bottom
-# Usage: draw_nav_bar current_index page_names_array width
-draw_nav_bar() {
-    local current="$1"
-    shift
-    local width="${!#}"  # last argument is width
-    local pages=("${@:1:$#-1}")  # all but last
-
-    local bc="$C_DGRAY"
-    local inner=$(( width - 2 ))
-
-    # Separator line
-    printf '%b%s' "$bc" "$BOX_ML"
-    repeat_str "$BOX_H" "$inner"
-    printf '%s%b\n' "$BOX_MR" "$C_RST"
-
-    # Page tabs
-    local tabs=" "
-    local i=0
-    for page in "${pages[@]}"; do
-        if [[ $i -eq $current ]]; then
-            tabs+="${C_GREEN}${C_BOLD}[$i] ${page}${C_RST}  "
-        else
-            tabs+="${C_LGREEN}[$i]${C_RST} ${C_TEXT}${page}${C_RST}  "
-        fi
-        (( i++ ))
-    done
-
-    draw_box_row "$tabs" "$width"
-
-    # Key hints
-    local hints=" ${C_DGRAY}0-9${C_RST}${C_DIM} navigate${C_RST}  "
-    hints+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
-    hints+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  "
-    hints+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
-
-    draw_box_row "$hints" "$width"
-}
-
-#-------------------------------------------------------------------------------
-# Input Handling
-# Works when stdin is a pipe (curl | bash) by reading from /dev/tty via fd 3
-#-------------------------------------------------------------------------------
-
-# Read a single keypress — returns: UP, DOWN, LEFT, RIGHT, ENTER, ESC, TAB, or char
 tui_read_key() {
     local c1 c2 c3
 
@@ -512,16 +707,13 @@ tui_read_key() {
     echo "$c1"
 }
 
-# Read a line of text input (shows cursor, allows typing)
-# Usage: tui_read_line "prompt" "default" result_var
 tui_read_line() {
     local prompt="$1"
     local default="$2"
     local result_var="$3"
 
-    printf '\033[?25h'  # show cursor
+    printf '\033[?25h'
 
-    # Flush any pending input from raw mode (stale escape sequences)
     stty echo icanon <&3 2>/dev/null
     while read -rsn1 -t 0.05 _ <&3 2>/dev/null; do :; done
 
@@ -535,7 +727,7 @@ tui_read_line() {
     local input=""
     read -r input <&3
 
-    printf '\033[?25l'  # hide cursor again
+    printf '\033[?25l'
 
     if [[ -z "$input" && -n "$default" ]]; then
         input="$default"
@@ -543,9 +735,6 @@ tui_read_line() {
     eval "$result_var=\$input"
 }
 
-# Read a line of text input inside a TUI box, with ESC support
-# Usage: tui_read_line_boxed "prompt" "default" result_var [width] [border_color]
-# Returns: 0 = value entered, 1 = ESC pressed (back)
 tui_read_line_boxed() {
     local prompt="$1"
     local default="$2"
@@ -553,13 +742,11 @@ tui_read_line_boxed() {
     local width="${4:-$_FRAME_W}"
     local bc="${5:-$C_DGRAY}"
 
-    printf '\033[?25h'  # show cursor
+    printf '\033[?25h'
 
-    # Flush any pending input from raw mode
     stty echo icanon <&3 2>/dev/null
     while read -rsn1 -t 0.05 _ <&3 2>/dev/null; do :; done
 
-    # Build the prompt text
     local prompt_text=""
     if [[ -n "$default" ]]; then
         prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt} ${C_DGRAY}[${default}]${C_RST}: "
@@ -567,29 +754,24 @@ tui_read_line_boxed() {
         prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt}: "
     fi
 
-    # Print left border + prompt (no right border yet — user will type here)
     _m; printf '%b%s%b%b' "$bc" "$BOX_V" "$C_RST" "$prompt_text"
 
     local input=""
-    # Read character by character to detect ESC
     stty -echo -icanon min 1 time 0 <&3 2>/dev/null
     while true; do
         local ch=""
         IFS= read -rsn1 ch <&3
 
         if [[ "$ch" == $'\033' ]]; then
-            # Check for escape sequence
             local c2=""
             IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
             if [[ -z "$c2" ]]; then
-                # Plain ESC key — redraw as complete box row and exit
                 stty echo icanon <&3 2>/dev/null
                 printf '\r'
                 draw_box_empty "$width" "$bc"
                 printf '\033[?25l'
                 return 1
             fi
-            # Arrow keys or other sequences - ignore
             if [[ "$c2" == "[" ]]; then
                 IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
             fi
@@ -597,12 +779,10 @@ tui_read_line_boxed() {
         fi
 
         if [[ "$ch" == "" ]]; then
-            # Enter key
             break
         fi
 
         if [[ "$ch" == $'\177' || "$ch" == $'\b' ]]; then
-            # Backspace
             if [[ -n "$input" ]]; then
                 input="${input%?}"
                 printf '\b \b'
@@ -610,7 +790,6 @@ tui_read_line_boxed() {
             continue
         fi
 
-        # Regular character - only accept printable ASCII
         if [[ "$ch" =~ ^[[:print:]]$ ]]; then
             input+="$ch"
             printf '%s' "$ch"
@@ -618,11 +797,10 @@ tui_read_line_boxed() {
     done
     stty echo icanon <&3 2>/dev/null
 
-    # Redraw the line as a closed box row showing the entered value
     local display_val="${input:-$default}"
     printf '\r'
     draw_box_row " ${C_GREEN}[>]${C_RST} ${prompt}: ${C_TEXT}${display_val}${C_RST}" "$width" "$bc"
-    printf '\033[?25l'  # hide cursor
+    printf '\033[?25l'
 
     if [[ -z "$input" && -n "$default" ]]; then
         input="$default"
@@ -631,9 +809,6 @@ tui_read_line_boxed() {
     return 0
 }
 
-# Yes/No confirmation prompt
-# Usage: tui_confirm "Question?" [default: y|n]
-# Returns 0 for yes, 1 for no
 tui_confirm() {
     local prompt="$1"
     local default="${2:-n}"
@@ -657,12 +832,10 @@ tui_confirm() {
     [[ "$answer" =~ ^[Yy]$ ]]
 }
 
-#-------------------------------------------------------------------------------
-# Progress Display
-#-------------------------------------------------------------------------------
+#===============================================================================
+# SECTION 8: Progress Display
+#===============================================================================
 
-# Show a spinner while a command runs
-# Usage: tui_spinner "message" command args...
 tui_spinner() {
     local msg="$1"
     shift
@@ -690,8 +863,6 @@ tui_spinner() {
     return $rc
 }
 
-# Simple progress bar
-# Usage: tui_progress current total [width]
 tui_progress() {
     local current="$1"
     local total="$2"
@@ -710,12 +881,56 @@ tui_progress() {
     printf '%b] %b%d%%%b' "$C_DGRAY" "$C_TEXT" "$pct" "$C_RST"
 }
 
-#-------------------------------------------------------------------------------
-# Banner Rendering
-#-------------------------------------------------------------------------------
+# Run a command with output displayed within frame content area
+# Usage: tui_run_cmd_framed "description" command args...
+# Captures output and displays last N lines in FRAME_CONTENT
+tui_run_cmd_framed() {
+    local desc="$1"
+    shift
+    local logfile="/tmp/dnscloak-install-$$.log"
+    local max_lines=$(( _CONTENT_H - 6 ))
+    (( max_lines < 5 )) && max_lines=5
 
-# Load and display an ASCII banner
-# Usage: render_banner "banner_name" [color] [width]
+    "$@" > "$logfile" 2>&1 &
+    local pid=$!
+
+    local spin_chars='|/-\'
+    local spin_i=0
+
+    while kill -0 "$pid" 2>/dev/null; do
+        # Build content with log tail
+        FRAME_CONTENT=()
+        FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}${desc}${C_RST}")
+        FRAME_CONTENT+=("")
+
+        local ch="${spin_chars:$((spin_i % 4)):1}"
+        FRAME_CONTENT+=("${C_GREEN}[${ch}]${C_RST} ${C_TEXT}Installing...${C_RST}")
+        FRAME_CONTENT+=("")
+
+        # Show last N lines of log
+        if [[ -f "$logfile" ]]; then
+            while IFS= read -r line; do
+                FRAME_CONTENT+=("${C_LGRAY}${line}${C_RST}")
+            done < <(tail -n "$max_lines" "$logfile" 2>/dev/null)
+        fi
+
+        tui_render_frame
+        sleep 0.3
+        (( spin_i++ ))
+    done
+
+    wait "$pid"
+    local rc=$?
+    rm -f "$logfile"
+    return $rc
+}
+
+#===============================================================================
+# SECTION 9: Banner Rendering (legacy, for splash screen)
+#===============================================================================
+
+_BANNER_HEIGHT=0
+
 render_banner() {
     local name="$1"
     local color="${2:-$C_GREEN}"
@@ -723,7 +938,6 @@ render_banner() {
 
     local banner_text=""
 
-    # Try local file first
     if [[ -n "${BANNER_DIR:-}" && -f "${BANNER_DIR}/${name}.txt" ]]; then
         banner_text=$(cat "${BANNER_DIR}/${name}.txt")
     elif [[ -f "/opt/dnscloak/banners/${name}.txt" ]]; then
@@ -733,7 +947,6 @@ render_banner() {
     elif [[ -f "$(dirname "${BASH_SOURCE[0]}")/../banners/${name}.txt" ]]; then
         banner_text=$(cat "$(dirname "${BASH_SOURCE[0]}")/../banners/${name}.txt")
     else
-        # Download from GitHub
         mkdir -p /tmp/dnscloak-banners
         local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/banners/${name}.txt"
         if curl -sL "$url" -o "/tmp/dnscloak-banners/${name}.txt" 2>/dev/null; then
@@ -743,55 +956,22 @@ render_banner() {
 
     _BANNER_HEIGHT=0
     if [[ -n "$banner_text" ]]; then
-        # On short terminals, skip large banners
-        local banner_lines=0
-        while IFS= read -r _; do
-            (( banner_lines++ ))
+        while IFS= read -r line; do
+            printf '%b%s%b\n' "$color" "$line" "$C_RST"
+            (( _BANNER_HEIGHT++ ))
         done <<< "$banner_text"
-
-        if (( _TERM_ROWS < 30 && banner_lines > 5 )); then
-            # Very short terminal: show just the version line
-            _m; printf '%b  DNSCloak v%s%b\n' "$C_GREEN" "${DNSCLOAK_VERSION:-2.0.0}" "$C_RST"
-            _BANNER_HEIGHT=1
-        elif (( _TERM_ROWS < 40 && banner_lines > 10 )); then
-            # Medium terminal: show last 6 lines of banner
-            local skip=$(( banner_lines - 6 ))
-            local count=0
-            while IFS= read -r line; do
-                (( count++ ))
-                (( count <= skip )) && continue
-                _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
-                (( _BANNER_HEIGHT++ ))
-            done <<< "$banner_text"
-        else
-            while IFS= read -r line; do
-                _m; printf '%b%s%b\n' "$color" "$line" "$C_RST"
-                (( _BANNER_HEIGHT++ ))
-            done <<< "$banner_text"
-        fi
     fi
 }
 
-#-------------------------------------------------------------------------------
-# Word wrapping helper
-#-------------------------------------------------------------------------------
+#===============================================================================
+# SECTION 10: Misc Helpers
+#===============================================================================
 
-# Wrap text to max width
-# Usage: word_wrap "text" max_width
-word_wrap() {
-    local text="$1"
-    local max_width="${2:-50}"
-
-    # Use fold for simple word wrapping
-    printf '%s' "$text" | fold -s -w "$max_width"
+press_any_key() {
+    local msg="${1:-Press any key to continue...}"
+    printf '  %b%s%b' "$C_DGRAY" "$msg" "$C_RST"
+    tui_read_key >/dev/null
 }
-
-#-------------------------------------------------------------------------------
-# Menu helper: renders a list with highlight and returns selected index
-# Usage: tui_select_menu title selected_var item1 item2 ...
-# Items format: "Label|description|badge"
-# This is the main menu drawing loop used by pages
-#-------------------------------------------------------------------------------
 
 tui_select_menu() {
     local title="$1"
@@ -808,11 +988,6 @@ tui_select_menu() {
         tui_compute_layout
         clear_screen
 
-        # Banner
-        render_banner "logo" "$C_GREEN"
-        printf '\n'
-
-        # Box
         draw_box_top "" "$title"
         draw_box_empty
 
@@ -848,9 +1023,7 @@ tui_select_menu() {
             (( i++ ))
         done
 
-        # Vertical fill
-        # Chrome: newline(1) + top(1) + empty(1) + empty(1) + sep(1) + hints(1) + bottom(1) = 7
-        local chrome_rows=$(( _BANNER_HEIGHT + 1 + 6 + count ))
+        local chrome_rows=$(( 5 + count ))
         local avail=$(( _TERM_ROWS - chrome_rows ))
         while (( avail-- > 0 )); do draw_box_empty; done
 
@@ -861,7 +1034,6 @@ tui_select_menu() {
         draw_box_row "$hints"
         draw_box_bottom
 
-        # Read key
         local key
         key=$(tui_read_key)
 
@@ -890,44 +1062,4 @@ tui_select_menu() {
                 ;;
         esac
     done
-}
-
-#-------------------------------------------------------------------------------
-# Wait for keypress
-#-------------------------------------------------------------------------------
-
-press_any_key() {
-    local msg="${1:-Press any key to continue...}"
-    printf '\n'
-    _m; printf '  %b%s%b' "$C_DGRAY" "$msg" "$C_RST"
-    printf '\033[?25h'
-    tui_read_key >/dev/null
-    printf '\033[?25l'
-}
-
-#-------------------------------------------------------------------------------
-# Output area for showing command output within the TUI
-# Captures output and displays it in a scrollable box
-#-------------------------------------------------------------------------------
-
-# Run a command and display its output in a box
-# Usage: tui_run_cmd "description" command args...
-tui_run_cmd() {
-    local desc="$1"
-    shift
-
-    printf '\n  %b%s %b%s%b\n' "$C_PURPLE" "$MARKER_STEP" "$C_BOLD" "$desc" "$C_RST"
-
-    # Show output with a prefix
-    "$@" 2>&1 | while IFS= read -r line; do
-        printf '  %b|%b %s\n' "$C_DGRAY" "$C_RST" "$line"
-    done
-    local rc=${PIPESTATUS[0]}
-
-    if [[ $rc -eq 0 ]]; then
-        printf '  %b[+]%b %s\n' "$C_GREEN" "$C_RST" "$desc"
-    else
-        printf '  %b[-]%b %s (exit code: %d)\n' "$C_RED" "$C_RST" "$desc" "$rc"
-    fi
-    return $rc
 }

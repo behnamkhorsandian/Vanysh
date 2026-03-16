@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # DNSCloak TUI - Step-by-Step Install Wizard
-# One question per screen, with guide text, progress indicator, and navigation
+# Renders within unified frame with dimmed sidebar + scrolling log panel
 #===============================================================================
 
 TUI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -106,6 +106,56 @@ define_wizard_steps() {
 # Sets the step's variable to the collected value
 #-------------------------------------------------------------------------------
 
+# Build a text progress bar for FRAME_CONTENT
+_wizard_progress_line() {
+    local current=$1
+    local total=$2
+    local bar_w=20
+    local pct=0
+    (( total > 0 )) && pct=$(( current * 100 / total ))
+    local filled=0
+    (( total > 0 )) && filled=$(( bar_w * current / total ))
+    local empty=$(( bar_w - filled ))
+
+    local bar="${C_GREEN}"
+    local i
+    for (( i = 0; i < filled; i++ )); do bar+="$BOX_H"; done
+    bar+="${C_DGRAY}"
+    for (( i = 0; i < empty; i++ )); do bar+="$BOX_H"; done
+    bar+="${C_RST}"
+
+    printf '%bStep %d of %d%b  [%b]  %b%d%%%b' \
+        "$C_ORANGE" "$current" "$total" "$C_RST" \
+        "$bar" \
+        "$C_TEXT" "$pct" "$C_RST"
+}
+
+# Build common wizard FRAME_CONTENT header (title, progress, help text)
+_wizard_build_header() {
+    local proto_name="$1"
+    local step_prompt="$2"
+    local step_num="$3"
+    local total_steps="$4"
+    local step_help="$5"
+
+    FRAME_CONTENT=()
+    FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}${proto_name}${C_RST}")
+    FRAME_CONTENT+=("")
+    FRAME_CONTENT+=("$(_wizard_progress_line "$step_num" "$total_steps")")
+    FRAME_CONTENT+=("")
+    FRAME_CONTENT+=("${C_LGREEN}${step_prompt}${C_RST}")
+    FRAME_CONTENT+=("")
+
+    if [[ -n "$step_help" ]]; then
+        local help_width=$(( _CONTENT_INNER_W - 4 ))
+        (( help_width < 20 )) && help_width=20
+        while IFS= read -r line; do
+            FRAME_CONTENT+=("${C_LGRAY}${line}${C_RST}")
+        done <<< "$(word_wrap "$step_help" "$help_width")"
+        FRAME_CONTENT+=("")
+    fi
+}
+
 render_wizard_step() {
     local step_def="$1"
     local step_num="$2"
@@ -118,69 +168,43 @@ render_wizard_step() {
     tui_get_size
     tui_compute_layout
 
-    clear_screen
-
-    # Progress bar
-    printf '\n'
-    _m; printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
-    tui_progress "$step_num" "$total_steps" 20
-    printf '\n\n'
-
-    # Main content box
-    draw_box_top "" "$step_prompt"
-    draw_box_empty
-
-    # Help text (word-wrapped inside box)
-    if [[ -n "$step_help" ]]; then
-        local help_width=$(( _FRAME_W - 6 ))
-        while IFS= read -r line; do
-            draw_box_row " ${C_LGRAY}${line}${C_RST}"
-        done <<< "$(word_wrap "$step_help" "$help_width")"
-        draw_box_empty
-    fi
-
     case "$step_type" in
         info)
-            draw_box_sep
-            draw_box_row " ${C_DGRAY}Press Enter to continue  |  Esc to cancel${C_RST}"
-            draw_box_bottom
+            _wizard_build_header "$proto_name" "$step_prompt" "$step_num" "$total_steps" "$step_help"
+            FRAME_CONTENT+=("${C_TEXT}Press Enter to continue${C_RST}")
+
+            FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} continue${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} cancel${C_RST}"
+
+            tui_render_frame
 
             while true; do
                 local key
                 key=$(tui_read_key)
                 case "$key" in
                     ENTER) return 0 ;;
-                    ESC)   return 2 ;;
-                    q|Q)   return 2 ;;
+                    ESC|q|Q) return 2 ;;
                 esac
             done
             ;;
 
         choice)
-            # Parse options
             IFS=',' read -ra options <<< "$step_options"
             local sel="${!step_var:-$step_default}"
             [[ -z "$sel" ]] && sel=0
 
             while true; do
-                # Redraw options
-                clear_screen
-                printf '\n'
-                _m; printf '  %b%s%b  Step %d of %d  ' "$C_ORANGE" "$proto_name" "$C_RST" "$step_num" "$total_steps"
-                tui_progress "$step_num" "$total_steps" 20
-                printf '\n\n'
-                draw_box_top "" "$step_prompt"
-                draw_box_empty
+                tui_get_size
+                tui_compute_layout
 
-                if [[ -n "$step_help" ]]; then
-                    local help_width=$(( _FRAME_W - 6 ))
-                    while IFS= read -r line; do
-                        draw_box_row " ${C_LGRAY}${line}${C_RST}"
-                    done <<< "$(word_wrap "$step_help" "$help_width")"
-                    draw_box_empty
-                    draw_box_sep
-                    draw_box_empty
-                fi
+                _wizard_build_header "$proto_name" "$step_prompt" "$step_num" "$total_steps" "$step_help"
+
+                # Separator
+                local sep_w=$(( _CONTENT_INNER_W - 4 ))
+                (( sep_w > 40 )) && sep_w=40
+                (( sep_w < 10 )) && sep_w=10
+                FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
+                FRAME_CONTENT+=("")
 
                 local i=0
                 for opt in "${options[@]}"; do
@@ -190,14 +214,15 @@ render_wizard_step() {
                         prefix=" ${C_GREEN}>${C_RST}"
                         ocolor="${C_GREEN}${C_BOLD}"
                     fi
-                    draw_box_row "${prefix} ${ocolor}${opt}${C_RST}"
+                    FRAME_CONTENT+=("${prefix} ${ocolor}${opt}${C_RST}")
                     (( i++ ))
                 done
 
-                draw_box_empty
-                draw_box_sep
-                draw_box_row " ${C_DGRAY}Up/Down${C_RST}${C_DIM} navigate${C_RST}  ${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  ${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
-                draw_box_bottom
+                FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} navigate${C_RST}  "
+                FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
+                FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+
+                tui_render_frame
 
                 local key
                 key=$(tui_read_key)
@@ -214,46 +239,111 @@ render_wizard_step() {
                         eval "$step_var=$sel"
                         return 0
                         ;;
-                    ESC)
-                        return 1
-                        ;;
-                    q|Q)
-                        return 2
-                        ;;
+                    ESC)  return 1 ;;
+                    q|Q)  return 2 ;;
                 esac
             done
             ;;
 
         input)
-            draw_box_sep
-            draw_box_empty
+            _wizard_build_header "$proto_name" "$step_prompt" "$step_num" "$total_steps" "$step_help"
 
             local current_val="${!step_var:-$step_default}"
-            draw_box_row " ${C_DGRAY}Default: ${current_val}${C_RST}"
-            draw_box_empty
-            draw_box_sep
-            draw_box_row " ${C_DGRAY}Enter value (or press Enter for default)  |  Esc back${C_RST}"
-            draw_box_empty
+            FRAME_CONTENT+=("${C_DGRAY}Default: ${current_val}${C_RST}")
+            FRAME_CONTENT+=("")
 
+            # Record which content line the input prompt will be on
+            local input_line_idx=${#FRAME_CONTENT[@]}
+            FRAME_CONTENT+=("${C_GREEN}[>]${C_RST} ${step_prompt}: ")
+
+            FRAME_FOOTER="${C_DIM}Type value${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} confirm${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+
+            tui_render_frame
+
+            # Position cursor at input field
+            # Content rows start at screen row 4 (top border + status + split top)
+            local screen_row=$(( 4 + input_line_idx ))
+            local prompt_text="${C_GREEN}[>]${C_RST} ${step_prompt}: "
+            local prompt_vlen
+            prompt_vlen=$(visible_len " $prompt_text")
+            local col_start
+            if (( _COMPACT )); then
+                col_start=$(( 2 + prompt_vlen ))
+            else
+                col_start=$(( _SIDEBAR_INNER_W + 3 + prompt_vlen ))
+            fi
+
+            printf '\033[?25h'
+            cursor_to "$screen_row" "$col_start"
+
+            # Read input character by character
             local input_val=""
-            tui_read_line_boxed "$step_prompt" "$step_default" input_val
-            local input_rc=$?
-            draw_box_bottom
-            if [[ $input_rc -ne 0 ]]; then
-                return 1
+            stty -echo -icanon min 1 time 0 <&3 2>/dev/null
+
+            while true; do
+                local ch=""
+                IFS= read -rsn1 ch <&3
+
+                if [[ "$ch" == $'\033' ]]; then
+                    local c2=""
+                    IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
+                    if [[ -z "$c2" ]]; then
+                        # Escape pressed
+                        stty echo icanon <&3 2>/dev/null
+                        printf '\033[?25l'
+                        return 1
+                    fi
+                    # Consume rest of escape sequence
+                    [[ "$c2" == "[" ]] && IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
+                    continue
+                fi
+
+                if [[ "$ch" == "" ]]; then
+                    # Enter pressed
+                    break
+                fi
+
+                if [[ "$ch" == $'\177' || "$ch" == $'\b' ]]; then
+                    if [[ -n "$input_val" ]]; then
+                        input_val="${input_val%?}"
+                        printf '\b \b'
+                    fi
+                    continue
+                fi
+
+                if [[ "$ch" =~ ^[[:print:]]$ ]]; then
+                    input_val+="$ch"
+                    printf '%s' "$ch"
+                fi
+            done
+
+            stty echo icanon <&3 2>/dev/null
+            printf '\033[?25l'
+
+            if [[ -z "$input_val" && -n "$step_default" ]]; then
+                input_val="$step_default"
             fi
             eval "$step_var=\$input_val"
             return 0
             ;;
 
         confirm)
-            draw_box_sep
-            draw_box_empty
-            draw_box_row " ${C_GREEN}[Y]${C_RST} ${C_TEXT}Yes${C_RST}    ${C_RED}[N]${C_RST} ${C_TEXT}No${C_RST}    ${C_DGRAY}Default: ${step_default}${C_RST}"
-            draw_box_empty
-            draw_box_sep
-            draw_box_row " ${C_DGRAY}y/n to answer  |  Esc back${C_RST}"
-            draw_box_bottom
+            _wizard_build_header "$proto_name" "$step_prompt" "$step_num" "$total_steps" "$step_help"
+
+            local sep_w=$(( _CONTENT_INNER_W - 4 ))
+            (( sep_w > 40 )) && sep_w=40
+            (( sep_w < 10 )) && sep_w=10
+            FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
+            FRAME_CONTENT+=("")
+            FRAME_CONTENT+=(" ${C_GREEN}[Y]${C_RST} ${C_TEXT}Yes${C_RST}    ${C_RED}[N]${C_RST} ${C_TEXT}No${C_RST}    ${C_DGRAY}Default: ${step_default}${C_RST}")
+
+            FRAME_FOOTER="${C_DGRAY}y/n${C_RST}${C_DIM} answer${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} default${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+
+            tui_render_frame
 
             while true; do
                 local key
@@ -271,47 +361,55 @@ render_wizard_step() {
                         eval "$step_var=$step_default"
                         return 0
                         ;;
-                    ESC)
-                        return 1
-                        ;;
-                    q|Q)
-                        return 2
-                        ;;
+                    ESC)  return 1 ;;
+                    q|Q)  return 2 ;;
                 esac
             done
             ;;
 
         action)
-            draw_box_sep
-            draw_box_row " ${C_LGREEN}Installing... Please wait.${C_RST}"
-            draw_box_bottom
-            printf '\n'
-
-            # Call the installation function with output captured to log
-            local install_log="/tmp/dnscloak-install-$$.log"
-            if type "$step_options" &>/dev/null; then
-                "$step_options" > "$install_log" 2>&1
-                local rc=$?
-                if [[ $rc -ne 0 ]]; then
-                    printf '\n  %b[-]%b Installation failed (exit code: %d)\n\n' "$C_RED" "$C_RST" "$rc"
-                    # Show last 15 lines of log for debugging
-                    tail -15 "$install_log" 2>/dev/null | while IFS= read -r line; do
-                        printf '  %b|%b %s\n' "$C_DGRAY" "$C_RST" "$line"
-                    done
-                    rm -f "$install_log"
-                    printf '\n'
-                    press_any_key "Press any key to go back..."
-                    return 1
-                fi
-                rm -f "$install_log"
-            else
-                printf '  %b[-]%b Install function "%s" not found\n' "$C_RED" "$C_RST" "$step_options"
-                press_any_key "Press any key to go back..."
+            if ! type "$step_options" &>/dev/null; then
+                _wizard_build_header "$proto_name" "Error" "$step_num" "$total_steps" ""
+                FRAME_CONTENT+=("${C_RED}Install function \"${step_options}\" not found${C_RST}")
+                FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} back${C_RST}"
+                tui_render_frame
+                tui_read_key >/dev/null
                 return 1
             fi
 
-            printf '\n'
-            press_any_key "Installation complete! Press any key..."
+            # Use tui_run_cmd_framed for live log display
+            FRAME_FOOTER="${C_DIM}Installing... please wait${C_RST}"
+            tui_run_cmd_framed "Installing ${proto_name}" "$step_options"
+            local rc=$?
+
+            if [[ $rc -ne 0 ]]; then
+                # Show failure in frame
+                _wizard_build_header "$proto_name" "Installation Failed" "$step_num" "$total_steps" ""
+                FRAME_CONTENT+=("${C_RED}Exit code: ${rc}${C_RST}")
+                FRAME_CONTENT+=("")
+
+                # Show last lines of log if available
+                local logfile="/tmp/dnscloak-install-$$.log"
+                if [[ -f "$logfile" ]]; then
+                    FRAME_CONTENT+=("${C_LGRAY}Last output:${C_RST}")
+                    while IFS= read -r line; do
+                        FRAME_CONTENT+=("${C_DGRAY}${line}${C_RST}")
+                    done < <(tail -10 "$logfile" 2>/dev/null)
+                    rm -f "$logfile"
+                fi
+
+                FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} go back${C_RST}"
+                tui_render_frame
+                tui_read_key >/dev/null
+                return 1
+            fi
+
+            # Show success in frame
+            _wizard_build_header "$proto_name" "Complete" "$step_num" "$total_steps" ""
+            FRAME_CONTENT+=("${C_GREEN}*${C_RST} ${C_TEXT}Installation completed successfully${C_RST}")
+            FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} continue${C_RST}"
+            tui_render_frame
+            tui_read_key >/dev/null
             return 0
             ;;
     esac
@@ -327,17 +425,22 @@ run_wizard() {
     local proto="$1"
     local proto_name="${PROTOCOL_NAMES[$proto]}"
 
+    # Dim sidebar during wizard
+    _SIDEBAR_DIM=1
+    _SIDEBAR_PAGE="protocols"
+
     define_wizard_steps "$proto"
 
     local step_count=${#WIZARD_STEPS[@]}
-    (( step_count == 0 )) && return 1
+    if (( step_count == 0 )); then
+        _SIDEBAR_DIM=0
+        return 1
+    fi
 
-    # Filter out conditional steps (e.g., domain input only if USE_DOMAIN=y)
     local current_step=0
 
     while (( current_step < step_count )); do
         local step_def="${WIZARD_STEPS[$current_step]}"
-        local step_type="${step_def%%|*}"
 
         # Skip conditional steps
         if _should_skip_step "$proto" "$current_step"; then
@@ -354,17 +457,18 @@ run_wizard() {
                 ;;
             1)  # Back
                 (( current_step > 0 )) && (( current_step-- ))
-                # Skip back past conditional steps too
                 while (( current_step > 0 )) && _should_skip_step "$proto" "$current_step"; do
                     (( current_step-- ))
                 done
                 ;;
             2)  # Cancel
+                _SIDEBAR_DIM=0
                 return 1
                 ;;
         esac
     done
 
+    _SIDEBAR_DIM=0
     return 0
 }
 

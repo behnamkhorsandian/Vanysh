@@ -67,7 +67,7 @@ START_PROTOCOL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --page|-p)
-            START_PAGE="protocol"
+            START_PAGE="main"
             START_PROTOCOL="$2"
             shift 2
             ;;
@@ -101,7 +101,7 @@ EOF
         *)
             # Treat bare argument as protocol name
             if [[ " ${PROTOCOL_IDS[*]:-} " == *" $1 "* ]]; then
-                START_PAGE="protocol"
+                START_PAGE="main"
                 START_PROTOCOL="$1"
             fi
             shift
@@ -280,7 +280,6 @@ _run_navigation() {
                 local rc=$?
 
                 if [[ $rc -ne 0 ]]; then
-                    # Quit
                     return 0
                 fi
 
@@ -292,76 +291,71 @@ _run_navigation() {
                         current_page="users"
                         ;;
                     *)
-                        current_page="protocol"
                         current_proto="$SELECTED_PROTOCOL"
-                        ;;
-                esac
-                ;;
-
-            protocol)
-                page_protocol "$current_proto"
-
-                case "${PROTOCOL_ACTION:-back}" in
-                    install)
-                        current_page="wizard"
-                        ;;
-                    add_user)
-                        _add_user_page "$current_proto"
-                        # Stay on protocol page
-                        ;;
-                    remove_user)
-                        _remove_user_page "$current_proto"
-                        ;;
-                    show_links)
-                        # Prompt for username and show links
-                        tui_get_size
-                        local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS ))
-                        clear_screen
-                        render_banner "logo" "$C_GREEN"
-                        printf '\n'
-                        draw_box_top "$width" "Show User Links"
-                        draw_box_empty "$width"
-                        draw_box_row "  ${C_TEXT}Enter the username to view connection links.${C_RST}" "$width"
-                        draw_box_empty "$width"
-                        draw_box_sep "$width"
-                        draw_box_row " ${C_DGRAY}Enter username  |  Esc back${C_RST}" "$width"
-                        draw_box_empty "$width"
-                        local link_user=""
-                        tui_read_line_boxed "Username" "" link_user "$width"
-                        local link_rc=$?
-                        draw_box_bottom "$width"
-                        if [[ $link_rc -eq 0 && -n "$link_user" ]]; then
-                            _show_user_links_page "$link_user" "$current_proto"
-                        fi
-                        ;;
-                    status)
-                        current_page="status"
-                        ;;
-                    restart)
-                        clear_screen
-                        render_banner "logo" "$C_ORANGE"
-                        printf '\n'
-                        tui_run_cmd "Restarting ${PROTOCOL_NAMES[$current_proto]}" \
-                            service_restart "$current_proto"
-                        press_any_key
-                        ;;
-                    uninstall)
-                        tui_confirm "Uninstall ${PROTOCOL_NAMES[$current_proto]}? This cannot be undone." "n"
-                        if [[ $? -eq 0 ]]; then
-                            clear_screen
-                            render_banner "logo" "$C_RED"
-                            printf '\n'
-                            tui_run_cmd "Uninstalling ${PROTOCOL_NAMES[$current_proto]}" \
-                                service_uninstall "$current_proto"
-                            press_any_key
-                        fi
-                        current_page="main"
-                        current_proto=""
-                        ;;
-                    quit)
-                        return 0
-                        ;;
-                    back|*)
+                        # Handle the action directly — no separate protocol page
+                        case "${PROTOCOL_ACTION:-}" in
+                            install)
+                                current_page="wizard"
+                                ;;
+                            add_user)
+                                _add_user_page "$current_proto"
+                                ;;
+                            remove_user)
+                                _remove_user_page "$current_proto"
+                                ;;
+                            show_links)
+                                tui_get_size
+                                tui_compute_layout
+                                clear_screen
+                                printf '\n'
+                                draw_box_top "" "Show User Links"
+                                draw_box_empty
+                                draw_box_row "  ${C_TEXT}Enter the username to view connection links.${C_RST}"
+                                draw_box_empty
+                                draw_box_sep
+                                draw_box_row " ${C_DGRAY}Enter username  |  Esc back${C_RST}"
+                                draw_box_empty
+                                local link_user=""
+                                tui_read_line_boxed "Username" "" link_user
+                                local link_rc=$?
+                                draw_box_bottom
+                                if [[ $link_rc -eq 0 && -n "$link_user" ]]; then
+                                    _show_user_links_page "$link_user" "$current_proto"
+                                fi
+                                ;;
+                            restart)
+                                _SIDEBAR_DIM=1
+                                FRAME_CONTENT=()
+                                FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}Restarting ${PROTOCOL_NAMES[$current_proto]}${C_RST}")
+                                FRAME_CONTENT+=("")
+                                FRAME_CONTENT+=("${C_LGRAY}Please wait...${C_RST}")
+                                FRAME_FOOTER="${C_DIM}Restarting service...${C_RST}"
+                                tui_render_frame
+                                service_restart "$current_proto"
+                                FRAME_CONTENT+=("")
+                                FRAME_CONTENT+=("${C_GREEN}*${C_RST} ${C_TEXT}Service restarted${C_RST}")
+                                FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} continue${C_RST}"
+                                tui_render_frame
+                                tui_read_key >/dev/null
+                                _SIDEBAR_DIM=0
+                                ;;
+                            uninstall)
+                                printf '\033[?25h'
+                                if tui_confirm "Uninstall ${PROTOCOL_NAMES[$current_proto]}? This cannot be undone." "n"; then
+                                    printf '\033[?25l'
+                                    FRAME_FOOTER="${C_DIM}Uninstalling...${C_RST}"
+                                    tui_run_cmd_framed "Uninstalling ${PROTOCOL_NAMES[$current_proto]}" \
+                                        service_uninstall "$current_proto"
+                                    tui_read_key >/dev/null
+                                else
+                                    printf '\033[?25l'
+                                fi
+                                ;;
+                            *)
+                                # Unknown or empty action, return to main
+                                ;;
+                        esac
+                        # After handling action, return to main page
                         current_page="main"
                         current_proto=""
                         ;;
@@ -372,29 +366,26 @@ _run_navigation() {
                 run_wizard "$current_proto"
                 local wrc=$?
                 if [[ $wrc -eq 0 ]]; then
-                    # Install completed — show success
-                    clear_screen
-                    local banner_name="${current_proto}"
-                    [[ "$current_proto" == "wg" ]] && banner_name="wireguard"
-                    render_banner "$banner_name" "$C_GREEN" 2>/dev/null || render_banner "logo" "$C_GREEN"
-                    printf '\n'
-
+                    # Show success in frame
                     tui_get_size
-                    local width=$(( _TERM_COLS > 100 ? 100 : _TERM_COLS ))
-                    draw_box_top "$width" "Installation Complete"
-                    draw_box_empty "$width"
-                    draw_box_row "  ${C_GREEN}*${C_RST} ${PROTOCOL_NAMES[$current_proto]} has been installed successfully." "$width"
-                    draw_box_empty "$width"
-                    draw_box_row "  ${C_TEXT}Next steps:${C_RST}" "$width"
-                    draw_box_row "    ${C_LGRAY}- Add users with the 'Add User' option${C_RST}" "$width"
-                    draw_box_row "    ${C_LGRAY}- Share connection links with your users${C_RST}" "$width"
-                    draw_box_row "    ${C_LGRAY}- Monitor status from the Status dashboard${C_RST}" "$width"
-                    draw_box_empty "$width"
-                    draw_box_bottom "$width"
-                    press_any_key
+                    tui_compute_layout
+                    _SIDEBAR_DIM=0
+                    _SIDEBAR_PAGE="protocols"
+                    FRAME_CONTENT=()
+                    FRAME_CONTENT+=("${C_GREEN}${C_BOLD}Installation Complete${C_RST}")
+                    FRAME_CONTENT+=("")
+                    FRAME_CONTENT+=("${C_GREEN}*${C_RST} ${C_TEXT}${PROTOCOL_NAMES[$current_proto]} has been installed successfully.${C_RST}")
+                    FRAME_CONTENT+=("")
+                    FRAME_CONTENT+=("${C_LGREEN}Next steps:${C_RST}")
+                    FRAME_CONTENT+=("  ${C_LGRAY}- Add users with the 'Add User' option${C_RST}")
+                    FRAME_CONTENT+=("  ${C_LGRAY}- Share connection links with your users${C_RST}")
+                    FRAME_CONTENT+=("  ${C_LGRAY}- Monitor status from the Status dashboard${C_RST}")
+                    FRAME_FOOTER="${C_DGRAY}Enter${C_RST}${C_DIM} continue${C_RST}"
+                    tui_render_frame
+                    tui_read_key >/dev/null
                 fi
-                # Go back to protocol page
-                current_page="protocol"
+                current_page="main"
+                current_proto=""
                 ;;
 
             status)
@@ -477,8 +468,7 @@ dnscloak_tui_main() {
     trap 'tui_cleanup 2>/dev/null; _show_exit_banner' EXIT
     trap 'tui_cleanup 2>/dev/null; exit 130' INT TERM
 
-    tui_init
-    if [[ $? -ne 0 ]]; then
+    if ! tui_init; then
         printf '\033[31mError:\033[0m Failed to initialize TUI. Check terminal capabilities.\n'
         return 1
     fi
