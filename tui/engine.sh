@@ -268,19 +268,23 @@ _load_frame_banner() {
     local script_dir
     script_dir="$(dirname "${BASH_SOURCE[0]}")"
 
-    if [[ -n "${BANNER_DIR:-}" && -f "${BANNER_DIR}/${FRAME_BANNER}.txt" ]]; then
-        banner_text=$(cat "${BANNER_DIR}/${FRAME_BANNER}.txt")
-    elif [[ -f "/opt/dnscloak/banners/${FRAME_BANNER}.txt" ]]; then
-        banner_text=$(cat "/opt/dnscloak/banners/${FRAME_BANNER}.txt")
-    elif [[ -f "/tmp/dnscloak-banners/${FRAME_BANNER}.txt" ]]; then
-        banner_text=$(cat "/tmp/dnscloak-banners/${FRAME_BANNER}.txt")
-    elif [[ -f "${script_dir}/../banners/${FRAME_BANNER}.txt" ]]; then
-        banner_text=$(cat "${script_dir}/../banners/${FRAME_BANNER}.txt")
+    # Normalize banner name — ensure .txt extension for file lookup
+    local bfile="$FRAME_BANNER"
+    [[ "$bfile" != *.txt ]] && bfile="${bfile}.txt"
+
+    if [[ -n "${BANNER_DIR:-}" && -f "${BANNER_DIR}/${bfile}" ]]; then
+        banner_text=$(cat "${BANNER_DIR}/${bfile}")
+    elif [[ -f "/opt/dnscloak/banners/${bfile}" ]]; then
+        banner_text=$(cat "/opt/dnscloak/banners/${bfile}")
+    elif [[ -f "/tmp/dnscloak-banners/${bfile}" ]]; then
+        banner_text=$(cat "/tmp/dnscloak-banners/${bfile}")
+    elif [[ -f "${script_dir}/../banners/${bfile}" ]]; then
+        banner_text=$(cat "${script_dir}/../banners/${bfile}")
     else
         mkdir -p /tmp/dnscloak-banners
-        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/banners/${FRAME_BANNER}.txt"
-        if curl -sL "$url" -o "/tmp/dnscloak-banners/${FRAME_BANNER}.txt" 2>/dev/null; then
-            banner_text=$(cat "/tmp/dnscloak-banners/${FRAME_BANNER}.txt")
+        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/banners/${bfile}"
+        if curl -sL "$url" -o "/tmp/dnscloak-banners/${bfile}" 2>/dev/null; then
+            banner_text=$(cat "/tmp/dnscloak-banners/${bfile}")
         fi
     fi
 
@@ -559,7 +563,7 @@ _build_sidebar() {
         h_prefix="${C_GREEN}>${C_RST} "
         h_color="${C_GREEN}${C_BOLD}"
     fi
-    _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}?${C_RST} ${h_color}Help${C_RST}")
+    _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}h${C_RST} ${h_color}Help${C_RST}")
 }
 
 #-------------------------------------------------------------------------------
@@ -1238,6 +1242,9 @@ tui_read_key() {
     if [[ "$c1" == "" ]]; then
         echo "ENTER"; return
     fi
+    if [[ "$c1" == $'\177' || "$c1" == $'\b' ]]; then
+        echo "BACKSPACE"; return
+    fi
     if [[ "$c1" == $'\t' ]]; then
         echo "TAB"; return
     fi
@@ -1475,19 +1482,23 @@ render_banner() {
 
     local banner_text=""
 
-    if [[ -n "${BANNER_DIR:-}" && -f "${BANNER_DIR}/${name}.txt" ]]; then
-        banner_text=$(cat "${BANNER_DIR}/${name}.txt")
-    elif [[ -f "/opt/dnscloak/banners/${name}.txt" ]]; then
-        banner_text=$(cat "/opt/dnscloak/banners/${name}.txt")
-    elif [[ -f "/tmp/dnscloak-banners/${name}.txt" ]]; then
-        banner_text=$(cat "/tmp/dnscloak-banners/${name}.txt")
-    elif [[ -f "$(dirname "${BASH_SOURCE[0]}")/../banners/${name}.txt" ]]; then
-        banner_text=$(cat "$(dirname "${BASH_SOURCE[0]}")/../banners/${name}.txt")
+    # Normalize name — ensure .txt extension for file lookup
+    local bfile="$name"
+    [[ "$bfile" != *.txt ]] && bfile="${bfile}.txt"
+
+    if [[ -n "${BANNER_DIR:-}" && -f "${BANNER_DIR}/${bfile}" ]]; then
+        banner_text=$(cat "${BANNER_DIR}/${bfile}")
+    elif [[ -f "/opt/dnscloak/banners/${bfile}" ]]; then
+        banner_text=$(cat "/opt/dnscloak/banners/${bfile}")
+    elif [[ -f "/tmp/dnscloak-banners/${bfile}" ]]; then
+        banner_text=$(cat "/tmp/dnscloak-banners/${bfile}")
+    elif [[ -f "$(dirname "${BASH_SOURCE[0]}")/../banners/${bfile}" ]]; then
+        banner_text=$(cat "$(dirname "${BASH_SOURCE[0]}")/../banners/${bfile}")
     else
         mkdir -p /tmp/dnscloak-banners
-        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/banners/${name}.txt"
-        if curl -sL "$url" -o "/tmp/dnscloak-banners/${name}.txt" 2>/dev/null; then
-            banner_text=$(cat "/tmp/dnscloak-banners/${name}.txt")
+        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/DNSCloak/main}/banners/${bfile}"
+        if curl -sL "$url" -o "/tmp/dnscloak-banners/${bfile}" 2>/dev/null; then
+            banner_text=$(cat "/tmp/dnscloak-banners/${bfile}")
         fi
     fi
 

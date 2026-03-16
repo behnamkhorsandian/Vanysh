@@ -144,7 +144,7 @@ page_status() {
             DOWN)   tui_scroll_down ;;
             LEFT)   tui_scroll_up ;;
             RIGHT)  tui_scroll_down ;;
-            ESC)    return 0 ;;
+            ESC|BACKSPACE)    return 0 ;;
             q|Q)    return 1 ;;
             *)      continue ;;
         esac

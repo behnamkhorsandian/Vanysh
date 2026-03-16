@@ -144,7 +144,7 @@ page_main_menu() {
         fi
         FRAME_FOOTER+="${C_DGRAY}s${C_RST}${C_DIM} status${C_RST}  "
         FRAME_FOOTER+="${C_DGRAY}u${C_RST}${C_DIM} users${C_RST}  "
-        FRAME_FOOTER+="${C_DGRAY}?${C_RST}${C_DIM} help${C_RST}  "
+        FRAME_FOOTER+="${C_DGRAY}h${C_RST}${C_DIM} help${C_RST}  "
         FRAME_FOOTER+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
 
         tui_render_frame
@@ -232,11 +232,11 @@ page_main_menu() {
                 SELECTED_PROTOCOL="_users"
                 return 0
                 ;;
-            "?"|h|H)
+            h|H)
                 SELECTED_PROTOCOL="_help"
                 return 0
                 ;;
-            q|Q|ESC)
+            q|Q)
                 return 1
                 ;;
             [0-7])

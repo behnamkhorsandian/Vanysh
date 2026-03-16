@@ -229,7 +229,8 @@ render_wizard_step() {
 
                 FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} navigate${C_RST}  "
                 FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} select${C_RST}  "
-                FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+                FRAME_FOOTER+="${C_DGRAY}del${C_RST}${C_DIM} back${C_RST}  "
+                FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} cancel${C_RST}"
 
                 tui_render_frame
 
@@ -248,8 +249,8 @@ render_wizard_step() {
                         eval "$step_var=$sel"
                         return 0
                         ;;
-                    ESC)  return 1 ;;
-                    q|Q)  return 2 ;;
+                    BACKSPACE) return 1 ;;
+                    ESC|q|Q)   return 2 ;;
                 esac
             done
             ;;
@@ -267,7 +268,7 @@ render_wizard_step() {
 
             FRAME_FOOTER="${C_DIM}Type value${C_RST}  "
             FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} confirm${C_RST}  "
-            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} cancel${C_RST}"
 
             tui_render_frame
 
@@ -299,10 +300,10 @@ render_wizard_step() {
                     local c2=""
                     IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
                     if [[ -z "$c2" ]]; then
-                        # Escape pressed
+                        # Escape pressed — cancel wizard
                         stty echo icanon <&3 2>/dev/null
                         printf '\033[?25l'
-                        return 1
+                        return 2
                     fi
                     # Consume rest of escape sequence
                     [[ "$c2" == "[" ]] && IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
@@ -350,7 +351,8 @@ render_wizard_step() {
 
             FRAME_FOOTER="${C_DGRAY}y/n${C_RST}${C_DIM} answer${C_RST}  "
             FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} default${C_RST}  "
-            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}"
+            FRAME_FOOTER+="${C_DGRAY}del${C_RST}${C_DIM} back${C_RST}  "
+            FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} cancel${C_RST}"
 
             tui_render_frame
 
@@ -370,7 +372,8 @@ render_wizard_step() {
                         eval "$step_var=$step_default"
                         return 0
                         ;;
-                    ESC)  return 1 ;;
+                    ESC)      return 2 ;;
+                    BACKSPACE) return 1 ;;
                     q|Q)  return 2 ;;
                 esac
             done

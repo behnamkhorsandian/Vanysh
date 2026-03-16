@@ -173,6 +173,8 @@ page_users() {
             l|L|ENTER)
                 if [[ $user_count -gt 0 ]]; then
                     _show_user_links_inframe "${users[$selected]}"
+                    local lrc=$?
+                    [[ $lrc -eq 1 ]] && return 1
                 fi
                 ;;
             t|T)
@@ -184,7 +186,7 @@ page_users() {
                 fi
                 selected=0
                 ;;
-            ESC)
+            ESC|BACKSPACE)
                 return 0
                 ;;
             q|Q)
@@ -309,13 +311,123 @@ _remove_user_page() {
 }
 
 #-------------------------------------------------------------------------------
-# Show user links — in-frame scrollable (replaces _show_user_links_page)
+# Show user links — protocol picker then single-protocol view
+# Returns: 0 on back (BACKSPACE), 1 on quit (q)
 #-------------------------------------------------------------------------------
 
 _show_user_links_inframe() {
     local username="$1"
     local filter_proto="${2:-}"
 
+    # If a specific protocol was given, show its links directly
+    if [[ -n "$filter_proto" ]]; then
+        _show_single_proto_links "$username" "$filter_proto"
+        return $?
+    fi
+
+    # Get user's protocols
+    local -a user_protos=()
+    if [[ -f "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" ]] && type jq &>/dev/null; then
+        while IFS= read -r p; do
+            [[ -n "$p" ]] && user_protos+=("$p")
+        done < <(jq -r ".users[\"$username\"].protocols // {} | keys[]" \
+            "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+    fi
+
+    if [[ ${#user_protos[@]} -eq 0 ]]; then
+        # No protocols — show message and wait
+        FRAME_CONTENT=()
+        FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}Links for: ${username}${C_RST}")
+        FRAME_CONTENT+=("")
+        FRAME_CONTENT+=("${C_LGRAY}No protocols configured for this user.${C_RST}")
+        FRAME_FOOTER="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  "
+        FRAME_FOOTER+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+        tui_render_frame
+        local key
+        key=$(tui_read_key)
+        case "$key" in
+            q|Q) return 1 ;;
+            *)   return 0 ;;
+        esac
+    fi
+
+    if [[ ${#user_protos[@]} -eq 1 ]]; then
+        # Only one protocol — show it directly
+        _show_single_proto_links "$username" "${user_protos[0]}"
+        return $?
+    fi
+
+    # Multiple protocols — show picker
+    local proto_sel=0
+    while true; do
+        tui_get_size
+        tui_compute_layout
+
+        FRAME_CONTENT=()
+        FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}Links for: ${username}${C_RST}")
+        FRAME_CONTENT+=("${C_LGRAY}Select a protocol to view connection links${C_RST}")
+        FRAME_CONTENT+=("")
+
+        local sep_w=$(( _CONTENT_INNER_W - 4 ))
+        (( sep_w > 40 )) && sep_w=40
+        (( sep_w < 10 )) && sep_w=10
+        FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
+        FRAME_CONTENT+=("")
+
+        local i=0
+        for p in "${user_protos[@]}"; do
+            local prefix="   "
+            local pcolor="$C_TEXT"
+            if [[ $i -eq $proto_sel ]]; then
+                prefix=" ${C_GREEN}>${C_RST}"
+                pcolor="${C_GREEN}${C_BOLD}"
+            fi
+            FRAME_CONTENT+=("${prefix} ${pcolor}${PROTOCOL_NAMES[$p]:-$p}${C_RST}")
+            (( i++ ))
+        done
+
+        FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} select${C_RST}  "
+        FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} view${C_RST}  "
+        FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} back${C_RST}  "
+        FRAME_FOOTER+="${C_DGRAY}q${C_RST}${C_DIM} quit${C_RST}"
+
+        tui_render_frame
+
+        local key
+        key=$(tui_read_key)
+
+        case "$key" in
+            UP)
+                (( proto_sel-- ))
+                (( proto_sel < 0 )) && proto_sel=$(( ${#user_protos[@]} - 1 ))
+                ;;
+            DOWN)
+                (( proto_sel++ ))
+                (( proto_sel >= ${#user_protos[@]} )) && proto_sel=0
+                ;;
+            ENTER)
+                _show_single_proto_links "$username" "${user_protos[$proto_sel]}"
+                local lrc=$?
+                [[ $lrc -eq 1 ]] && return 1
+                ;;
+            ESC|BACKSPACE)
+                return 0
+                ;;
+            q|Q)
+                return 1
+                ;;
+        esac
+    done
+}
+
+#-------------------------------------------------------------------------------
+# Show links for a single protocol (scrollable)
+# Returns: 0 on back, 1 on quit
+#-------------------------------------------------------------------------------
+
+_show_single_proto_links() {
+    local username="$1"
+    local proto="$2"
     local link_scroll=0
 
     while true; do
@@ -323,56 +435,30 @@ _show_user_links_inframe() {
         tui_compute_layout
 
         FRAME_CONTENT=()
-        FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}Links for: ${username}${C_RST}")
+        FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}${PROTOCOL_NAMES[$proto]:-$proto} — ${username}${C_RST}")
         FRAME_CONTENT+=("")
 
-        if [[ -f "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" ]] && type jq &>/dev/null; then
-            local protos
-            if [[ -n "$filter_proto" ]]; then
-                if jq -e ".users[\"$username\"].protocols[\"$filter_proto\"]" \
-                        "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" &>/dev/null; then
-                    protos="$filter_proto"
-                else
-                    protos=""
-                fi
-            else
-                protos=$(jq -r ".users[\"$username\"].protocols // {} | keys[]" \
-                    "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
-            fi
+        local show_fn="show_${proto}_links"
+        if ! type "$show_fn" &>/dev/null; then
+            _source_protocol "$proto" 2>/dev/null
+        fi
 
-            if [[ -z "$protos" ]]; then
-                FRAME_CONTENT+=("${C_LGRAY}No protocols configured for this user.${C_RST}")
-            else
-                while IFS= read -r proto; do
-                    [[ -z "$proto" ]] && continue
-                    local show_fn="show_${proto}_links"
-                    if ! type "$show_fn" &>/dev/null; then
-                        _source_protocol "$proto" 2>/dev/null
-                    fi
+        local sep_w=$(( _CONTENT_INNER_W - 4 ))
+        (( sep_w < 10 )) && sep_w=10
+        (( sep_w > 50 )) && sep_w=50
+        FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
 
-                    FRAME_CONTENT+=("${C_LGREEN}${PROTOCOL_NAMES[$proto]:-$proto}${C_RST}")
-                    local sep_w=$(( _CONTENT_INNER_W - 4 ))
-                    (( sep_w < 10 )) && sep_w=10
-                    (( sep_w > 50 )) && sep_w=50
-                    FRAME_CONTENT+=("${C_DGRAY}$(repeat_str "$BOX_H" "$sep_w")${C_RST}")
-
-                    if type "$show_fn" &>/dev/null; then
-                        while IFS= read -r line; do
-                            FRAME_CONTENT+=(" ${C_TEXT}${line}${C_RST}")
-                        done < <("$show_fn" "$username" 2>/dev/null)
-                    else
-                        local config
-                        config=$(jq ".users[\"$username\"].protocols[\"$proto\"]" \
-                            "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
-                        while IFS= read -r line; do
-                            FRAME_CONTENT+=(" ${C_TEXT}${line}${C_RST}")
-                        done <<< "$config"
-                    fi
-                    FRAME_CONTENT+=("")
-                done <<< "$protos"
-            fi
+        if type "$show_fn" &>/dev/null; then
+            while IFS= read -r line; do
+                FRAME_CONTENT+=(" ${C_TEXT}${line}${C_RST}")
+            done < <("$show_fn" "$username" 2>/dev/null)
         else
-            FRAME_CONTENT+=("${C_LGRAY}User database not found or jq not installed.${C_RST}")
+            local config
+            config=$(jq ".users[\"$username\"].protocols[\"$proto\"]" \
+                "${DNSCLOAK_USERS:-/opt/dnscloak/users.json}" 2>/dev/null)
+            while IFS= read -r line; do
+                FRAME_CONTENT+=(" ${C_TEXT}${line}${C_RST}")
+            done <<< "$config"
         fi
 
         # Apply scroll offset
@@ -395,13 +481,13 @@ _show_user_links_inframe() {
             DOWN|RIGHT)
                 (( link_scroll < _SCROLL_MAX )) && (( link_scroll++ ))
                 ;;
-            ESC|ENTER)
+            ESC|BACKSPACE|ENTER)
                 tui_scroll_reset
-                return
+                return 0
                 ;;
             q|Q)
                 tui_scroll_reset
-                return
+                return 1
                 ;;
         esac
     done

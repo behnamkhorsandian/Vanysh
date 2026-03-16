@@ -41,8 +41,9 @@ page_help() {
             "s|Open status dashboard"
             "u|Open user management"
             "t|Toggle sort order (users page)"
-            "?  h|Open this help page"
-            "Esc|Go back"
+            "h|Open this help page"
+            "Esc|Back to main menu"
+            "del|Go back one step"
             "q|Quit DNSCloak"
         )
         tui_render_table "Keyboard Shortcuts" kb_headers kb_rows
@@ -108,7 +109,7 @@ page_help() {
             DOWN|RIGHT)
                 (( help_scroll < _SCROLL_MAX )) && (( help_scroll++ ))
                 ;;
-            ESC|ENTER)
+            ESC|BACKSPACE|ENTER)
                 tui_scroll_reset
                 return 0
                 ;;
