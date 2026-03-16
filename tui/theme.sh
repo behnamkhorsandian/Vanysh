@@ -38,12 +38,12 @@ BOX_CJ="┼"   # cross
 # Background colors
 C_BG_DARK='\033[48;5;235m'   # dark background for status bar
 
-# ── Status Dots (ASCII-safe) ────────────────────────────────────────────────
-DOT_ON="${C_GREEN}*${C_RST}"         # running
-DOT_OFF="${C_YELLOW}*${C_RST}"       # stopped / installed but not running
-DOT_ERR="${C_RED}*${C_RST}"          # error
-DOT_NONE="${C_DGRAY}-${C_RST}"       # not installed
-DOT_REC="${C_BLUE}*${C_RST}"         # recommended (fallback tag)
+# ── Status Dots (Unicode — overridden by icons.json when loaded) ─────────────
+DOT_ON="${C_GREEN}◍${C_RST}"         # running
+DOT_OFF="${C_YELLOW}○${C_RST}"       # stopped / installed but not running
+DOT_ERR="${C_RED}◍${C_RST}"          # error
+DOT_NONE="${C_DGRAY}◌${C_RST}"       # not installed
+DOT_REC="${C_BLUE}◍${C_RST}"         # recommended (fallback tag)
 
 # ── Status Badges ────────────────────────────────────────────────────────────
 badge_running="${C_GREEN}[running]${C_RST}"
@@ -64,7 +64,7 @@ MARKER_INFO="i"
 MARKER_WARN="!"
 MARKER_STEP=">>>"
 
-# ── Protocol Metadata ───────────────────────────────────────────────────────
+# ── Protocol Metadata (fallback — overridden by tui/content/protocols.json) ──
 
 # Protocol IDs (order = display order in main menu)
 PROTOCOL_IDS=( reality wg ws mtp dnstt conduit vray sos )

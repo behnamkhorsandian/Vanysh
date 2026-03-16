@@ -31,6 +31,15 @@ define_wizard_steps() {
 
     WIZARD_STEPS=()
 
+    # Try to load from JSON data (populated by engine.sh _load_wizard_steps_json)
+    if type _load_wizard_steps_json &>/dev/null; then
+        _load_wizard_steps_json "$proto"
+        if [[ ${#WIZARD_STEPS[@]} -gt 0 ]]; then
+            return
+        fi
+    fi
+
+    # Fallback: hardcoded step definitions
     case "$proto" in
         reality)
             WIZARD_STEPS=(
@@ -430,18 +439,9 @@ run_wizard() {
     _SIDEBAR_PAGE="protocols"
 
     # Set banner to the protocol being installed
-    local -A _WIZ_BANNER_COLOR=(
-        [reality]="$C_GREEN"
-        [wg]="$C_BLUE"
-        [ws]="$C_ORANGE"
-        [mtp]="$C_PURPLE"
-        [dnstt]="$C_RED"
-        [conduit]="$C_PURPLE"
-        [vray]="$C_LGREEN"
-        [sos]="$C_RED"
-    )
-    FRAME_BANNER="$proto"
-    FRAME_BANNER_COLOR="${_WIZ_BANNER_COLOR[$proto]:-$C_GREEN}"
+    FRAME_BANNER="${PROTOCOL_BANNER_FILE[$proto]:-$proto}"
+    local bcolor="${PROTOCOL_BANNER_COLOR[$proto]:-green}"
+    FRAME_BANNER_COLOR="${_COLOR_MAP[$bcolor]:-$C_GREEN}"
 
     define_wizard_steps "$proto"
 

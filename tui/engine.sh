@@ -12,6 +12,192 @@ if [[ -z "$C_RST" ]]; then
 fi
 
 #===============================================================================
+# SECTION 0: JSON Data Loaders
+#===============================================================================
+
+_CONTENT_DIR=""
+_JSON_LOADED=0
+
+# Color name to escape code mapping (for JSON -> bash)
+declare -A _COLOR_MAP=(
+    [green]="$C_GREEN"   [lgreen]="$C_LGREEN" [dgreen]="$C_DGREEN"
+    [blue]="$C_BLUE"     [red]="$C_RED"       [orange]="$C_ORANGE"
+    [yellow]="$C_YELLOW" [purple]="$C_PURPLE"  [lgray]="$C_LGRAY"
+    [dgray]="$C_DGRAY"   [white]="$C_WHITE"   [text]="$C_TEXT"
+)
+
+_resolve_color() {
+    local name="$1"
+    printf '%b' "${_COLOR_MAP[$name]:-$C_TEXT}"
+}
+
+#-------------------------------------------------------------------------------
+# Load icons.json — populates DOT_*, MARKER_*, badge_* variables
+#-------------------------------------------------------------------------------
+_load_icons_json() {
+    local json_file="${_CONTENT_DIR}/icons.json"
+    [[ ! -f "$json_file" ]] && return 1
+
+    # Status dots
+    local icon color
+    for status in running stopped not_installed error recommended; do
+        icon=$(jq -r ".status.${status}.icon // \"*\"" "$json_file")
+        color=$(jq -r ".status.${status}.color // \"text\"" "$json_file")
+        local esc
+        esc=$(_resolve_color "$color")
+        case "$status" in
+            running)       DOT_ON="${esc}${icon}${C_RST}" ;;
+            stopped)       DOT_OFF="${esc}${icon}${C_RST}" ;;
+            not_installed) DOT_NONE="${esc}${icon}${C_RST}" ;;
+            error)         DOT_ERR="${esc}${icon}${C_RST}" ;;
+            recommended)   DOT_REC="${esc}${icon}${C_RST}" ;;
+        esac
+    done
+
+    # Markers
+    MARKER_ARROW=$(jq -r '.markers.arrow // ">"' "$json_file")
+    MARKER_DOT=$(jq -r '.markers.dot // "*"' "$json_file")
+    MARKER_CHECK=$(jq -r '.markers.check // "+"' "$json_file")
+    MARKER_CROSS=$(jq -r '.markers.cross // "x"' "$json_file")
+    MARKER_INFO=$(jq -r '.markers.info // "i"' "$json_file")
+    MARKER_WARN=$(jq -r '.markers.warn // "!"' "$json_file")
+    MARKER_STEP=$(jq -r '.markers.step // ">>>"' "$json_file")
+
+    # Badges
+    local badge_text badge_color
+    for btype in running stopped installed not_installed recommended needs_domain emergency relay; do
+        badge_text=$(jq -r ".badges.${btype}.text // \"${btype}\"" "$json_file")
+        badge_color=$(jq -r ".badges.${btype}.color // \"text\"" "$json_file")
+        local besc
+        besc=$(_resolve_color "$badge_color")
+        local varname="badge_${btype}"
+        eval "${varname}=\"${besc}[${badge_text}]${C_RST}\""
+    done
+}
+
+#-------------------------------------------------------------------------------
+# Load protocols.json — populates PROTOCOL_IDS, PROTOCOL_NAMES, etc.
+#-------------------------------------------------------------------------------
+_load_protocols_json() {
+    local json_file="${_CONTENT_DIR}/protocols.json"
+    [[ ! -f "$json_file" ]] && return 1
+
+    # Protocol order
+    PROTOCOL_IDS=()
+    while IFS= read -r pid; do
+        PROTOCOL_IDS+=("$pid")
+    done < <(jq -r '.order[]' "$json_file")
+
+    # Associative arrays
+    declare -gA PROTOCOL_NAMES=()
+    declare -gA PROTOCOL_SHORT=()
+    declare -gA PROTOCOL_DESC=()
+    declare -gA PROTOCOL_REQS=()
+    declare -gA PROTOCOL_CLIENTS=()
+    declare -gA PROTOCOL_TAGS=()
+    declare -gA PROTOCOL_BANNER_FILE=()
+    declare -gA PROTOCOL_BANNER_COLOR=()
+    declare -gA PROTOCOL_DESC_MD=()
+    declare -gA PROTOCOL_PORT=()
+
+    for pid in "${PROTOCOL_IDS[@]}"; do
+        PROTOCOL_NAMES[$pid]=$(jq -r ".protocols.${pid}.name // \"\"" "$json_file")
+        PROTOCOL_SHORT[$pid]=$(jq -r ".protocols.${pid}.short // \"\"" "$json_file")
+        PROTOCOL_DESC[$pid]=$(jq -r ".protocols.${pid}.description // \"\"" "$json_file")
+        PROTOCOL_TAGS[$pid]=$(jq -r ".protocols.${pid}.tag // \"\"" "$json_file")
+        PROTOCOL_BANNER_FILE[$pid]=$(jq -r ".protocols.${pid}.banner_file // \"${pid}\"" "$json_file")
+        PROTOCOL_BANNER_COLOR[$pid]=$(jq -r ".protocols.${pid}.banner_color // \"green\"" "$json_file")
+        PROTOCOL_DESC_MD[$pid]=$(jq -r ".protocols.${pid}.description_md // \"\"" "$json_file")
+        PROTOCOL_PORT[$pid]=$(jq -r ".protocols.${pid}.port // \"\"" "$json_file")
+
+        # Requirements as newline-separated "- item" lines
+        PROTOCOL_REQS[$pid]=$(jq -r ".protocols.${pid}.requirements // [] | map(\"- \" + .) | join(\"\n\")" "$json_file")
+
+        # Clients as formatted text
+        local has_note
+        has_note=$(jq -r ".protocols.${pid}.clients.note // empty" "$json_file" 2>/dev/null)
+        if [[ -n "$has_note" ]]; then
+            PROTOCOL_CLIENTS[$pid]="$has_note"
+        else
+            local client_lines=""
+            local ios android windows macos terminal browser
+            ios=$(jq -r ".protocols.${pid}.clients.ios // empty" "$json_file" 2>/dev/null)
+            android=$(jq -r ".protocols.${pid}.clients.android // empty" "$json_file" 2>/dev/null)
+            windows=$(jq -r ".protocols.${pid}.clients.windows // empty" "$json_file" 2>/dev/null)
+            macos=$(jq -r ".protocols.${pid}.clients.macos // empty" "$json_file" 2>/dev/null)
+            terminal=$(jq -r ".protocols.${pid}.clients.terminal // empty" "$json_file" 2>/dev/null)
+            browser=$(jq -r ".protocols.${pid}.clients.browser // empty" "$json_file" 2>/dev/null)
+            [[ -n "$ios" && -n "$android" ]] && client_lines+="iOS: ${ios}  Android: ${android}\n"
+            [[ -n "$windows" && -n "$macos" ]] && client_lines+="Windows: ${windows}  macOS: ${macos}\n"
+            [[ -n "$terminal" ]] && client_lines+="Terminal: ${terminal}\n"
+            [[ -n "$browser" ]] && client_lines+="Browser: ${browser}\n"
+            PROTOCOL_CLIENTS[$pid]="${client_lines%\\n}"
+        fi
+    done
+}
+
+#-------------------------------------------------------------------------------
+# Load wizard steps for a given protocol from JSON
+# Populates WIZARD_STEPS[] in the pipe-delimited format the wizard engine expects
+#-------------------------------------------------------------------------------
+_load_wizard_steps_json() {
+    local proto="$1"
+    local json_file="${_CONTENT_DIR}/protocols.json"
+    [[ ! -f "$json_file" ]] && return 1
+
+    WIZARD_STEPS=()
+    local step_count
+    step_count=$(jq -r ".protocols.${proto}.wizard_steps | length" "$json_file")
+
+    local i=0
+    while (( i < step_count )); do
+        local stype svar sprompt sdefault shelp soptions
+        stype=$(jq -r ".protocols.${proto}.wizard_steps[$i].type // \"\"" "$json_file")
+        svar=$(jq -r ".protocols.${proto}.wizard_steps[$i].var // \"\"" "$json_file")
+        sprompt=$(jq -r ".protocols.${proto}.wizard_steps[$i].prompt // \"\"" "$json_file")
+        sdefault=$(jq -r ".protocols.${proto}.wizard_steps[$i].default // \"\"" "$json_file")
+        shelp=$(jq -r ".protocols.${proto}.wizard_steps[$i].help // \"\"" "$json_file")
+        soptions=$(jq -r ".protocols.${proto}.wizard_steps[$i].options // \"\"" "$json_file")
+
+        # For action type, options = function name
+        if [[ "$stype" == "action" ]]; then
+            local sfunc
+            sfunc=$(jq -r ".protocols.${proto}.wizard_steps[$i].function // \"${soptions}\"" "$json_file")
+            soptions="$sfunc"
+        fi
+
+        WIZARD_STEPS+=("${stype}|${svar}|${sprompt}|${sdefault}|${shelp}|${soptions}")
+        (( i++ ))
+    done
+}
+
+#-------------------------------------------------------------------------------
+# Master loader — call once during TUI init
+#-------------------------------------------------------------------------------
+_load_json_data() {
+    # Find content directory
+    local script_dir
+    script_dir="$(dirname "${BASH_SOURCE[0]}")"
+    if [[ -d "${script_dir}/content" ]]; then
+        _CONTENT_DIR="${script_dir}/content"
+    elif [[ -d "/opt/dnscloak/tui/content" ]]; then
+        _CONTENT_DIR="/opt/dnscloak/tui/content"
+    else
+        # Fallback: data stays in theme.sh (backward compat)
+        return 1
+    fi
+
+    if type jq &>/dev/null; then
+        _load_icons_json
+        _load_protocols_json
+        _JSON_LOADED=1
+    fi
+}
+
+# Auto-load on source
+_load_json_data 2>/dev/null || true
+
+#===============================================================================
 # SECTION 1: Terminal Detection
 #===============================================================================
 
@@ -311,7 +497,7 @@ _build_sidebar() {
     _SIDEBAR_LINES+=("${dim_prefix}${C_ORANGE} Protocols${C_RST}")
     _SIDEBAR_LINES+=("")
 
-    # Protocol list
+    # Protocol list — icon BEFORE name
     local i=0
     for proto in "${PROTOCOL_IDS[@]}"; do
         local name="${PROTOCOL_SHORT[$proto]}"
@@ -340,7 +526,7 @@ _build_sidebar() {
             prefix="${C_GREEN}>${C_RST} "
             ncolor="${C_GREEN}${C_BOLD}"
         fi
-        _SIDEBAR_LINES+=("${prefix}${ncolor}${name}${C_RST} ${dot}")
+        _SIDEBAR_LINES+=("${prefix}${dot} ${ncolor}${name}${C_RST}")
         (( i++ ))
     done
 
@@ -366,6 +552,14 @@ _build_sidebar() {
         u_color="${C_GREEN}${C_BOLD}"
     fi
     _SIDEBAR_LINES+=("${u_prefix}${C_LGREEN}u${C_RST} ${u_color}Users${C_RST}")
+
+    local h_prefix="  "
+    local h_color="${dim_prefix}${C_TEXT}"
+    if [[ $_SIDEBAR_PAGE == "help" ]]; then
+        h_prefix="${C_GREEN}>${C_RST} "
+        h_color="${C_GREEN}${C_BOLD}"
+    fi
+    _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}?${C_RST} ${h_color}Help${C_RST}")
 }
 
 #-------------------------------------------------------------------------------
@@ -400,14 +594,20 @@ _build_status_text() {
         health_dot="$DOT_ON"
     fi
 
-    printf ' %bDNSCLOAK%b  %b  %b%s%b  %b|%b  %b%d%b svcs  %b|%b  %b%d%b users  %b|%b  %b%s%b' \
+    # Human-readable labels with singular/plural
+    local svc_label="services running"
+    (( svc_count == 1 )) && svc_label="service running"
+    local usr_label="users"
+    (( user_count == 1 )) && usr_label="user"
+
+    printf ' %bDNSCLOAK%b  %b  %b%s%b  %b│%b  %b%d %s%b  %b│%b  %b%d %s%b  %b│%b  %b%s%b' \
         "$C_GREEN" "$C_RST" \
         "$health_dot" \
         "$C_TEXT" "$ip" "$C_RST" \
         "$C_DGRAY" "$C_RST" \
-        "$C_TEXT" "$svc_count" "$C_RST" \
+        "$C_TEXT" "$svc_count" "$svc_label" "$C_RST" \
         "$C_DGRAY" "$C_RST" \
-        "$C_TEXT" "$user_count" "$C_RST" \
+        "$C_TEXT" "$user_count" "$usr_label" "$C_RST" \
         "$C_DGRAY" "$C_RST" \
         "$C_LGRAY" "$clock" "$C_RST"
 }
@@ -513,10 +713,24 @@ tui_render_frame() {
             # Row 3: Separator
             printf '%b%s%s%s%b\n' "$bc" "$BOX_ML" "$h_full" "$BOX_MR" "$C_RST"
 
+            # Compute scrolling
+            _compute_scroll_max
+
             # Content rows (full-width, no sidebar)
             local r=0
             while (( r < _CONTENT_H )); do
-                _print_full_row " ${FRAME_CONTENT[$r]:-}"
+                local ci=$(( r + _SCROLL_OFFSET ))
+                local line="${FRAME_CONTENT[$ci]:-}"
+                # Scroll indicators
+                if (( r == 0 && _SCROLL_OFFSET > 0 )); then
+                    local indicator="  ${C_DGRAY}▲ more${C_RST}"
+                    _print_full_row "$indicator"
+                elif (( r == _CONTENT_H - 1 && _SCROLL_MAX > 0 && _SCROLL_OFFSET < _SCROLL_MAX )); then
+                    local indicator="  ${C_DGRAY}▼ more${C_RST}"
+                    _print_full_row "$indicator"
+                else
+                    _print_full_row " ${line}"
+                fi
                 (( r++ ))
             done
 
@@ -526,10 +740,21 @@ tui_render_frame() {
             # Row 3: Split top (├──────┬──────┤)
             printf '%b%s%s%s%s%s%b\n' "$bc" "$BOX_ML" "$h_side" "$BOX_TJ" "$h_cont" "$BOX_MR" "$C_RST"
 
+            # Compute scrolling
+            _compute_scroll_max
+
             # Content rows (sidebar | content)
             local r=0
             while (( r < _CONTENT_H )); do
-                _print_split_row " ${_SIDEBAR_LINES[$r]:-}" " ${FRAME_CONTENT[$r]:-}"
+                local ci=$(( r + _SCROLL_OFFSET ))
+                local content_line="${FRAME_CONTENT[$ci]:-}"
+                # Scroll indicators on content side
+                if (( r == 0 && _SCROLL_OFFSET > 0 )); then
+                    content_line="  ${C_DGRAY}▲ more${C_RST}"
+                elif (( r == _CONTENT_H - 1 && _SCROLL_MAX > 0 && _SCROLL_OFFSET < _SCROLL_MAX )); then
+                    content_line="  ${C_DGRAY}▼ more${C_RST}"
+                fi
+                _print_split_row " ${_SIDEBAR_LINES[$r]:-}" " ${content_line}"
                 (( r++ ))
             done
 
@@ -543,6 +768,229 @@ tui_render_frame() {
         # Bottom border
         printf '%b%s%s%s%b\n' "$bc" "$BOX_BL" "$h_full" "$BOX_BR" "$C_RST"
     }
+}
+
+#===============================================================================
+# SECTION 5A: Content Scrolling System
+#===============================================================================
+
+_SCROLL_OFFSET=0
+_SCROLL_MAX=0
+
+tui_scroll_reset() {
+    _SCROLL_OFFSET=0
+    _SCROLL_MAX=0
+}
+
+tui_scroll_up() {
+    (( _SCROLL_OFFSET > 0 )) && (( _SCROLL_OFFSET-- ))
+}
+
+tui_scroll_down() {
+    (( _SCROLL_OFFSET < _SCROLL_MAX )) && (( _SCROLL_OFFSET++ ))
+}
+
+tui_scroll_page_up() {
+    local page=$(( _CONTENT_H - 2 ))
+    (( page < 1 )) && page=1
+    (( _SCROLL_OFFSET -= page ))
+    (( _SCROLL_OFFSET < 0 )) && _SCROLL_OFFSET=0
+}
+
+tui_scroll_page_down() {
+    local page=$(( _CONTENT_H - 2 ))
+    (( page < 1 )) && page=1
+    (( _SCROLL_OFFSET += page ))
+    (( _SCROLL_OFFSET > _SCROLL_MAX )) && _SCROLL_OFFSET=$_SCROLL_MAX
+}
+
+# Compute scroll max based on FRAME_CONTENT[] length
+_compute_scroll_max() {
+    local total=${#FRAME_CONTENT[@]}
+    if (( total > _CONTENT_H )); then
+        _SCROLL_MAX=$(( total - _CONTENT_H ))
+    else
+        _SCROLL_MAX=0
+    fi
+    # Clamp offset
+    (( _SCROLL_OFFSET > _SCROLL_MAX )) && _SCROLL_OFFSET=$_SCROLL_MAX
+    (( _SCROLL_OFFSET < 0 )) && _SCROLL_OFFSET=0
+}
+
+#===============================================================================
+# SECTION 5B: Table Renderer
+#===============================================================================
+
+# Render a table into FRAME_CONTENT[]
+# Usage: tui_render_table "title" headers_array rows_array [col_widths_array]
+#   headers: pipe-delimited "Col1|Col2|Col3"
+#   rows: array of pipe-delimited "val1|val2|val3"
+#   Appends to FRAME_CONTENT[] (does not clear it)
+
+tui_table_section() {
+    local title="$1"
+    local table_w="${2:-$(( _CONTENT_INNER_W - 2 ))}"
+    (( table_w < 20 )) && table_w=20
+
+    local inner=$(( table_w - 2 ))
+    local tlen
+    tlen=$(visible_len "$title")
+    local pad_after=$(( inner - tlen - 3 ))
+    (( pad_after < 0 )) && pad_after=0
+    FRAME_CONTENT+=("${C_DGRAY}${BOX_TL}${BOX_H} ${C_ORANGE}${title}${C_RST}${C_DGRAY} $(repeat_str "$BOX_H" "$pad_after")${BOX_TR}${C_RST}")
+}
+
+tui_render_table() {
+    local title="$1"
+    local -n _headers_ref=$2
+    local -n _rows_ref=$3
+    local table_w=$(( _CONTENT_INNER_W - 2 ))
+    (( table_w < 20 )) && table_w=20
+
+    local col_count=${#_headers_ref[@]}
+    (( col_count == 0 )) && return
+
+    # Calculate column widths
+    local -a col_widths=()
+    local i
+    for (( i = 0; i < col_count; i++ )); do
+        local hw
+        hw=$(visible_len "${_headers_ref[$i]}")
+        col_widths[$i]=$hw
+    done
+
+    # Measure row content
+    local row
+    for row in "${_rows_ref[@]}"; do
+        IFS='|' read -ra cells <<< "$row"
+        for (( i = 0; i < col_count; i++ )); do
+            local cw
+            cw=$(visible_len "${cells[$i]:-}")
+            (( cw > col_widths[$i] )) && col_widths[$i]=$cw
+        done
+    done
+
+    # Add padding to each column (1 space each side)
+    for (( i = 0; i < col_count; i++ )); do
+        (( col_widths[$i] += 2 ))
+    done
+
+    # Build horizontal rules
+    local h_rule=""
+    local h_top=""
+    local h_mid=""
+    local h_bot=""
+    for (( i = 0; i < col_count; i++ )); do
+        local seg
+        seg=$(repeat_str "$BOX_H" "${col_widths[$i]}")
+        if (( i == 0 )); then
+            h_top="${BOX_TL}${seg}"
+            h_mid="${BOX_ML}${seg}"
+            h_bot="${BOX_BL}${seg}"
+        else
+            h_top+="${BOX_TJ}${seg}"
+            h_mid+="${BOX_CJ}${seg}"
+            h_bot+="${BOX_BJ}${seg}"
+        fi
+    done
+    h_top+="${BOX_TR}"
+    h_mid+="${BOX_MR}"
+    h_bot+="${BOX_BR}"
+
+    # Title line
+    if [[ -n "$title" ]]; then
+        tui_table_section "$title" "$table_w"
+    else
+        FRAME_CONTENT+=("${C_DGRAY}${h_top}${C_RST}")
+    fi
+
+    # Header row
+    local hdr_line=""
+    for (( i = 0; i < col_count; i++ )); do
+        local cell=" ${C_ORANGE}$(pad_right "${_headers_ref[$i]}" $(( col_widths[$i] - 1 )))${C_RST}"
+        hdr_line+="${C_DGRAY}${BOX_V}${C_RST}${cell}"
+    done
+    hdr_line+="${C_DGRAY}${BOX_V}${C_RST}"
+    FRAME_CONTENT+=("$hdr_line")
+
+    # Header separator
+    FRAME_CONTENT+=("${C_DGRAY}${h_mid}${C_RST}")
+
+    # Data rows
+    for row in "${_rows_ref[@]}"; do
+        IFS='|' read -ra cells <<< "$row"
+        local row_line=""
+        for (( i = 0; i < col_count; i++ )); do
+            local cell_text="${cells[$i]:-}"
+            local cell=" $(pad_right "$cell_text" $(( col_widths[$i] - 1 )))"
+            row_line+="${C_DGRAY}${BOX_V}${C_RST}${cell}"
+        done
+        row_line+="${C_DGRAY}${BOX_V}${C_RST}"
+        FRAME_CONTENT+=("$row_line")
+    done
+
+    # Bottom border
+    FRAME_CONTENT+=("${C_DGRAY}${h_bot}${C_RST}")
+}
+
+#===============================================================================
+# SECTION 5C: Markdown Rendering
+#===============================================================================
+
+# Render a markdown file into FRAME_CONTENT[]
+# Uses glow if available, falls back to plain text with basic formatting
+tui_render_markdown() {
+    local md_file="$1"
+    local width="${2:-$(( _CONTENT_INNER_W - 2 ))}"
+
+    # Resolve relative paths from repo root
+    if [[ ! -f "$md_file" ]]; then
+        local script_dir
+        script_dir="$(dirname "${BASH_SOURCE[0]}")"
+        local repo_root="${script_dir}/.."
+        if [[ -f "${repo_root}/${md_file}" ]]; then
+            md_file="${repo_root}/${md_file}"
+        elif [[ -f "/opt/dnscloak/${md_file}" ]]; then
+            md_file="/opt/dnscloak/${md_file}"
+        else
+            FRAME_CONTENT+=("${C_DGRAY}Documentation not available.${C_RST}")
+            return 1
+        fi
+    fi
+
+    local output=""
+    if command -v glow &>/dev/null; then
+        output=$(glow -s dark -w "$width" "$md_file" 2>/dev/null)
+    fi
+
+    # Fallback: basic formatting
+    if [[ -z "$output" ]]; then
+        while IFS= read -r line; do
+            # Headings
+            if [[ "$line" =~ ^###\  ]]; then
+                FRAME_CONTENT+=("${C_LGRAY}${line#\#\#\# }${C_RST}")
+            elif [[ "$line" =~ ^##\  ]]; then
+                FRAME_CONTENT+=("${C_ORANGE}${line#\#\# }${C_RST}")
+            elif [[ "$line" =~ ^#\  ]]; then
+                FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}${line#\# }${C_RST}")
+            # Bullet points
+            elif [[ "$line" =~ ^[[:space:]]*[-*]\  ]]; then
+                FRAME_CONTENT+=("${C_TEXT}${line}${C_RST}")
+            # Code blocks (skip fences)
+            elif [[ "$line" =~ ^\`\`\` ]]; then
+                continue
+            # Empty lines
+            elif [[ -z "$line" ]]; then
+                FRAME_CONTENT+=("")
+            else
+                FRAME_CONTENT+=("${C_TEXT}${line}${C_RST}")
+            fi
+        done < "$md_file"
+    else
+        while IFS= read -r line; do
+            FRAME_CONTENT+=("$line")
+        done <<< "$output"
+    fi
 }
 
 #===============================================================================

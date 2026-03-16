@@ -1,0 +1,28 @@
+{
+  "status": {
+    "running":       { "icon": "◍", "color": "green" },
+    "stopped":       { "icon": "○", "color": "yellow" },
+    "not_installed": { "icon": "◌", "color": "dgray" },
+    "error":         { "icon": "◍", "color": "red" },
+    "recommended":   { "icon": "◍", "color": "blue" }
+  },
+  "badges": {
+    "running":       { "text": "running",       "color": "green" },
+    "stopped":       { "text": "stopped",       "color": "yellow" },
+    "installed":     { "text": "installed",     "color": "lgreen" },
+    "not_installed": { "text": "not installed", "color": "dgray" },
+    "recommended":   { "text": "recommended",  "color": "blue" },
+    "needs_domain":  { "text": "needs domain",  "color": "orange" },
+    "emergency":     { "text": "emergency",     "color": "red" },
+    "relay":         { "text": "relay",         "color": "purple" }
+  },
+  "markers": {
+    "arrow": ">",
+    "dot":   "*",
+    "check": "+",
+    "cross": "x",
+    "info":  "i",
+    "warn":  "!",
+    "step":  ">>>"
+  }
+}

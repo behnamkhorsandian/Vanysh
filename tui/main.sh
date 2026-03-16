@@ -55,6 +55,7 @@ if [[ -n "$SCRIPT_DIR" ]]; then
     source "$SCRIPT_DIR/pages/install_wizard.sh"
     source "$SCRIPT_DIR/pages/users.sh"
     source "$SCRIPT_DIR/pages/status.sh"
+    source "$SCRIPT_DIR/pages/help.sh"
 fi
 
 #-------------------------------------------------------------------------------
@@ -290,6 +291,9 @@ _run_navigation() {
                     _users)
                         current_page="users"
                         ;;
+                    _help)
+                        current_page="help"
+                        ;;
                     *)
                         current_proto="$SELECTED_PROTOCOL"
                         # Handle the action directly — no separate protocol page
@@ -403,6 +407,16 @@ _run_navigation() {
                 local urc=$?
                 if [[ $urc -ne 0 ]]; then
                     return 0  # quit from users
+                fi
+                current_page="main"
+                current_proto=""
+                ;;
+
+            help)
+                page_help
+                local hrc=$?
+                if [[ $hrc -ne 0 ]]; then
+                    return 0  # quit from help
                 fi
                 current_page="main"
                 current_proto=""

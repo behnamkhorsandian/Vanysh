@@ -1,0 +1,455 @@
+{
+  "order": ["reality", "wg", "ws", "mtp", "dnstt", "conduit", "vray", "sos"],
+  "protocols": {
+    "reality": {
+      "name": "VLESS + REALITY",
+      "short": "REALITY",
+      "description": "Advanced proxy with TLS camouflage.\nNo domain needed. Very fast.\nHides traffic as normal HTTPS.",
+      "description_md": "docs/protocols/reality.md",
+      "banner_file": "reality",
+      "banner_color": "green",
+      "tag": "recommended",
+      "port": "443",
+      "requirements": [
+        "Server with public IP",
+        "Port 443 open"
+      ],
+      "clients": {
+        "ios": "Hiddify",
+        "android": "Hiddify",
+        "windows": "Hiddify",
+        "macos": "Hiddify"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "VLESS + REALITY Setup",
+          "default": "",
+          "help": "This will install Xray-core and configure a REALITY proxy that disguises your traffic as normal HTTPS. No domain name is needed. Port 443 must be available.",
+          "options": ""
+        },
+        {
+          "type": "choice",
+          "var": "REALITY_TARGET_IDX",
+          "prompt": "Select camouflage target",
+          "default": "0",
+          "help": "Your server will impersonate this website. Censors will see what looks like traffic to this site. All options work well.",
+          "options": "www.google.com,www.microsoft.com,www.apple.com,www.cloudflare.com,www.mozilla.org,www.amazon.com"
+        },
+        {
+          "type": "confirm",
+          "var": "USE_DOMAIN",
+          "prompt": "Use a domain instead of IP in client links?",
+          "default": "n",
+          "help": "If you have a domain pointing to this server (Cloudflare proxy OFF), you can use it in connection links. Otherwise your server IP will be used.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "CONNECTION_DOMAIN",
+          "prompt": "Enter your domain",
+          "default": "proxy.example.com",
+          "help": "Create an A record pointing to your server IP. Make sure Cloudflare proxy is OFF (gray cloud). Leave empty to use server IP.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "FIRST_USERNAME",
+          "prompt": "Create first username",
+          "default": "user1",
+          "help": "This will be the first user who can connect. You can add more users later from the management menu.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing REALITY",
+          "default": "",
+          "help": "",
+          "options": "install_reality_automated",
+          "function": "install_reality_automated"
+        }
+      ],
+      "skip_conditions": {
+        "3": "USE_DOMAIN != y"
+      }
+    },
+    "wg": {
+      "name": "WireGuard",
+      "short": "WireGuard",
+      "description": "Fast VPN tunnel with native apps.\nFull device tunnel. Simple setup.\nBest for daily use.",
+      "description_md": "docs/protocols/wg.md",
+      "banner_file": "wireguard",
+      "banner_color": "blue",
+      "tag": "",
+      "port": "51820",
+      "requirements": [
+        "Server with public IP",
+        "UDP port 51820 open"
+      ],
+      "clients": {
+        "ios": "WireGuard",
+        "android": "WireGuard",
+        "windows": "WireGuard",
+        "macos": "WireGuard"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "WireGuard VPN Setup",
+          "default": "",
+          "help": "This will install WireGuard and create a VPN tunnel. All device traffic will be routed through your server. UDP port 51820 must be open.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "FIRST_USERNAME",
+          "prompt": "Create first username",
+          "default": "user1",
+          "help": "This will be the first VPN user. A config file and QR code will be generated for easy mobile setup.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing WireGuard",
+          "default": "",
+          "help": "",
+          "options": "install_wg_automated",
+          "function": "install_wg_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "ws": {
+      "name": "VLESS + WS + CDN",
+      "short": "WS + CDN",
+      "description": "Route through Cloudflare CDN.\nHides your server IP completely.\nRequires a domain name.",
+      "description_md": "docs/protocols/ws.md",
+      "banner_file": "ws",
+      "banner_color": "orange",
+      "tag": "needs_domain",
+      "port": "80",
+      "requirements": [
+        "Domain name",
+        "Cloudflare DNS (free)",
+        "Port 80 open"
+      ],
+      "clients": {
+        "ios": "Hiddify",
+        "android": "Hiddify",
+        "windows": "Hiddify",
+        "macos": "Hiddify"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "VLESS + WebSocket + CDN Setup",
+          "default": "",
+          "help": "This routes traffic through Cloudflare's CDN, hiding your server IP. You need a domain name on Cloudflare (free plan works). Set Cloudflare SSL mode to 'Flexible'.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "WS_DOMAIN",
+          "prompt": "Enter your domain",
+          "default": "ws.example.com",
+          "help": "Your domain must be on Cloudflare with the proxy enabled (orange cloud). SSL mode in Cloudflare must be set to 'Flexible'. The domain should resolve to your server IP.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "FIRST_USERNAME",
+          "prompt": "Create first username",
+          "default": "user1",
+          "help": "This will be the first user. Connection links will use your Cloudflare-proxied domain.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing WebSocket + CDN",
+          "default": "",
+          "help": "",
+          "options": "install_ws_automated",
+          "function": "install_ws_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "mtp": {
+      "name": "MTProto Proxy",
+      "short": "MTProto",
+      "description": "Telegram-specific proxy.\nBuilt into Telegram apps.\nNo extra client needed.",
+      "description_md": "docs/protocols/mtp.md",
+      "banner_file": "mtp",
+      "banner_color": "purple",
+      "tag": "",
+      "port": "443",
+      "requirements": [
+        "Server with public IP",
+        "Custom port open"
+      ],
+      "clients": {
+        "note": "Built into Telegram apps. Just click the proxy link!"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "MTProto Proxy Setup",
+          "default": "",
+          "help": "This installs a Telegram-specific proxy. Users won't need any extra apps - they just click a link in Telegram to connect.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "MTP_PORT",
+          "prompt": "Select port for MTProto proxy",
+          "default": "443",
+          "help": "Port 443 is recommended (looks like HTTPS). If 443 is in use, try 8443. Any port works but 443 is least likely to be blocked.",
+          "options": ""
+        },
+        {
+          "type": "choice",
+          "var": "MTP_MODE_IDX",
+          "prompt": "Select proxy mode",
+          "default": "0",
+          "help": "Fake-TLS makes traffic look like real HTTPS. Secure mode uses random padding. Fake-TLS is recommended for most cases.",
+          "options": "Fake-TLS (recommended),Secure (random padding)"
+        },
+        {
+          "type": "input",
+          "var": "MTP_TLS_DOMAIN",
+          "prompt": "TLS camouflage domain",
+          "default": "www.google.com",
+          "help": "When using Fake-TLS mode, traffic will look like HTTPS to this domain. Use a popular website for best results.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "FIRST_USERNAME",
+          "prompt": "Create first username",
+          "default": "user1",
+          "help": "A proxy link will be generated that users can click in Telegram to start using the proxy.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing MTProto",
+          "default": "",
+          "help": "",
+          "options": "install_mtp_automated",
+          "function": "install_mtp_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "dnstt": {
+      "name": "DNS Tunnel",
+      "short": "DNS Tunnel",
+      "description": "Emergency DNS tunnel.\nWorks during total blackouts.\nVery slow but unblockable.",
+      "description_md": "docs/protocols/dnstt.md",
+      "banner_file": "dnstt",
+      "banner_color": "red",
+      "tag": "emergency",
+      "port": "53",
+      "requirements": [
+        "Domain name",
+        "NS record configured",
+        "Port 53 open (or forwarded)"
+      ],
+      "clients": {
+        "note": "Requires dnstt-client binary. See docs for setup."
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "DNS Tunnel Setup",
+          "default": "",
+          "help": "DNSTT encodes traffic inside DNS queries. This is an EMERGENCY protocol - very slow (~50 KB/s) but nearly impossible to block. Use only when everything else fails.",
+          "options": ""
+        },
+        {
+          "type": "confirm",
+          "var": "DNSTT_CONTINUE",
+          "prompt": "This protocol is very slow. Continue?",
+          "default": "y",
+          "help": "DNSTT is designed for emergency situations where all other protocols are blocked. Normal browsing will be very slow. Consider installing Reality or WireGuard for daily use.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "DNSTT_DOMAIN",
+          "prompt": "Enter your domain",
+          "default": "example.com",
+          "help": "You need a domain where you can set DNS records. Required: 1) A record for ns1.domain -> your server IP. 2) NS record for t.domain -> ns1.domain. The domain must NOT be behind Cloudflare proxy.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing DNS Tunnel",
+          "default": "",
+          "help": "",
+          "options": "install_dnstt_automated",
+          "function": "install_dnstt_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "conduit": {
+      "name": "Conduit (Psiphon)",
+      "short": "Conduit",
+      "description": "Psiphon volunteer relay.\nHelp users in censored regions.\nNo client configuration needed.",
+      "description_md": "docs/protocols/conduit.md",
+      "banner_file": "conduit",
+      "banner_color": "purple",
+      "tag": "relay",
+      "port": "auto",
+      "requirements": [
+        "Docker installed",
+        "Any open port"
+      ],
+      "clients": {
+        "note": "No client needed. Users connect via Psiphon apps."
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "Conduit (Psiphon Relay) Setup",
+          "default": "",
+          "help": "This turns your server into a volunteer relay for the Psiphon network. You'll be helping users in censored regions access the internet. Docker will be installed if not present.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "CONDUIT_MAX_CLIENTS",
+          "prompt": "Maximum connected clients",
+          "default": "300",
+          "help": "How many simultaneous users can relay through your server. More clients = more bandwidth used. Recommended: 200-1000.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "CONDUIT_BW_LIMIT",
+          "prompt": "Bandwidth limit in Mbps (-1 = unlimited)",
+          "default": "-1",
+          "help": "Set a bandwidth cap to control costs. -1 means no limit. Set based on your VM's bandwidth allowance.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing Conduit",
+          "default": "",
+          "help": "",
+          "options": "install_conduit_automated",
+          "function": "install_conduit_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "vray": {
+      "name": "VLESS + TLS",
+      "short": "VLESS+TLS",
+      "description": "Classic V2Ray setup with TLS.\nRequires domain + certificate.\nGood compatibility.",
+      "description_md": "docs/protocols/vray.md",
+      "banner_file": "vray",
+      "banner_color": "lgreen",
+      "tag": "needs_domain",
+      "port": "443",
+      "requirements": [
+        "Domain name",
+        "Port 443 open",
+        "TLS certificate"
+      ],
+      "clients": {
+        "ios": "Hiddify",
+        "android": "Hiddify",
+        "windows": "Hiddify",
+        "macos": "Hiddify"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "VLESS + TLS Setup",
+          "default": "",
+          "help": "This is a classic V2Ray setup with real TLS certificates from Let's Encrypt. Requires a domain name pointing to your server.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "VRAY_DOMAIN",
+          "prompt": "Enter your domain",
+          "default": "proxy.example.com",
+          "help": "Your domain must have an A record pointing to this server. A free TLS certificate will be obtained from Let's Encrypt.",
+          "options": ""
+        },
+        {
+          "type": "input",
+          "var": "FIRST_USERNAME",
+          "prompt": "Create first username",
+          "default": "user1",
+          "help": "Connection links will use your domain with proper TLS encryption.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing VLESS + TLS",
+          "default": "",
+          "help": "",
+          "options": "install_vray_automated",
+          "function": "install_vray_automated"
+        }
+      ],
+      "skip_conditions": {}
+    },
+    "sos": {
+      "name": "SOS Emergency Chat",
+      "short": "SOS Chat",
+      "description": "Encrypted emergency chat.\nWorks over DNS tunnel.\nNo internet needed.",
+      "description_md": "docs/protocols/sos.md",
+      "banner_file": "sos",
+      "banner_color": "red",
+      "tag": "emergency",
+      "port": "8899",
+      "requirements": [
+        "DNSTT service running",
+        "Python 3.8+"
+      ],
+      "clients": {
+        "terminal": "pip install dnscloak-sos",
+        "browser": "Navigate to relay URL"
+      },
+      "wizard_steps": [
+        {
+          "type": "info",
+          "var": "",
+          "prompt": "SOS Emergency Chat Setup",
+          "default": "",
+          "help": "This installs the SOS relay daemon for encrypted emergency chat. Messages are encrypted end-to-end and travel through DNS tunnels. Requires DNSTT to be running first.",
+          "options": ""
+        },
+        {
+          "type": "action",
+          "var": "",
+          "prompt": "Installing SOS Relay",
+          "default": "",
+          "help": "",
+          "options": "install_sos_automated",
+          "function": "install_sos_automated"
+        }
+      ],
+      "skip_conditions": {}
+    }
+  }
+}
