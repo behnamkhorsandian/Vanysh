@@ -794,6 +794,17 @@ tui_scroll_down() {
     (( _SCROLL_OFFSET < _SCROLL_MAX )) && (( _SCROLL_OFFSET++ ))
 }
 
+# Scroll by chunk (5 lines) — for LEFT/RIGHT arrow keys
+tui_scroll_chunk_up() {
+    (( _SCROLL_OFFSET -= 5 ))
+    (( _SCROLL_OFFSET < 0 )) && _SCROLL_OFFSET=0
+}
+
+tui_scroll_chunk_down() {
+    (( _SCROLL_OFFSET += 5 ))
+    (( _SCROLL_OFFSET > _SCROLL_MAX )) && _SCROLL_OFFSET=$_SCROLL_MAX
+}
+
 tui_scroll_page_up() {
     local page=$(( _CONTENT_H - 2 ))
     (( page < 1 )) && page=1
@@ -806,6 +817,15 @@ tui_scroll_page_down() {
     (( page < 1 )) && page=1
     (( _SCROLL_OFFSET += page ))
     (( _SCROLL_OFFSET > _SCROLL_MAX )) && _SCROLL_OFFSET=$_SCROLL_MAX
+}
+
+# Jump to top/bottom — for Home/End keys
+tui_scroll_home() {
+    _SCROLL_OFFSET=0
+}
+
+tui_scroll_end() {
+    _SCROLL_OFFSET=$_SCROLL_MAX
 }
 
 # Compute scroll max based on FRAME_CONTENT[] length
@@ -1209,7 +1229,7 @@ draw_box_to_split_sep() {
 #===============================================================================
 
 tui_read_key() {
-    local c1 c2 c3
+    local c1 c2 c3 c4
 
     stty -echo -icanon min 1 time 0 <&3 2>/dev/null
     IFS= read -rsn1 c1 <&3
@@ -1220,13 +1240,31 @@ tui_read_key() {
         IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
         if [[ "$c2" == "[" ]]; then
             IFS= read -rsn1 -t 0.1 c3 <&3 2>/dev/null || true
-            stty echo icanon <&3 2>/dev/null
             case "$c3" in
-                A) echo "UP";    return ;;
-                B) echo "DOWN";  return ;;
-                C) echo "RIGHT"; return ;;
-                D) echo "LEFT";  return ;;
+                A) stty echo icanon <&3 2>/dev/null; echo "UP";    return ;;
+                B) stty echo icanon <&3 2>/dev/null; echo "DOWN";  return ;;
+                C) stty echo icanon <&3 2>/dev/null; echo "RIGHT"; return ;;
+                D) stty echo icanon <&3 2>/dev/null; echo "LEFT";  return ;;
+                H) stty echo icanon <&3 2>/dev/null; echo "HOME";  return ;;
+                F) stty echo icanon <&3 2>/dev/null; echo "END";   return ;;
+                5) # Page Up: ESC [ 5 ~
+                    IFS= read -rsn1 -t 0.1 c4 <&3 2>/dev/null || true
+                    stty echo icanon <&3 2>/dev/null
+                    echo "PGUP"; return ;;
+                6) # Page Down: ESC [ 6 ~
+                    IFS= read -rsn1 -t 0.1 c4 <&3 2>/dev/null || true
+                    stty echo icanon <&3 2>/dev/null
+                    echo "PGDN"; return ;;
+                1) # Home alt: ESC [ 1 ~
+                    IFS= read -rsn1 -t 0.1 c4 <&3 2>/dev/null || true
+                    stty echo icanon <&3 2>/dev/null
+                    echo "HOME"; return ;;
+                4) # End alt: ESC [ 4 ~
+                    IFS= read -rsn1 -t 0.1 c4 <&3 2>/dev/null || true
+                    stty echo icanon <&3 2>/dev/null
+                    echo "END"; return ;;
             esac
+            stty echo icanon <&3 2>/dev/null
             echo "ESC"; return
         fi
         stty echo icanon <&3 2>/dev/null

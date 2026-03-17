@@ -428,7 +428,7 @@ _show_user_links_inframe() {
 _show_single_proto_links() {
     local username="$1"
     local proto="$2"
-    local link_scroll=0
+    tui_scroll_reset
 
     while true; do
         tui_get_size
@@ -462,7 +462,6 @@ _show_single_proto_links() {
         fi
 
         # Apply scroll offset
-        _SCROLL_OFFSET=$link_scroll
         _compute_scroll_max
 
         FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} scroll${C_RST}  "
@@ -475,12 +474,12 @@ _show_single_proto_links() {
         key=$(tui_read_key)
 
         case "$key" in
-            UP|LEFT)
-                (( link_scroll > 0 )) && (( link_scroll-- ))
-                ;;
-            DOWN|RIGHT)
-                (( link_scroll < _SCROLL_MAX )) && (( link_scroll++ ))
-                ;;
+            UP|LEFT)    tui_scroll_chunk_up ;;
+            DOWN|RIGHT) tui_scroll_chunk_down ;;
+            PGUP)       tui_scroll_page_up ;;
+            PGDN)       tui_scroll_page_down ;;
+            HOME)       tui_scroll_home ;;
+            END)        tui_scroll_end ;;
             ESC|BACKSPACE|ENTER)
                 tui_scroll_reset
                 return 0

@@ -19,7 +19,7 @@ page_help() {
     FRAME_BANNER="logo"
     FRAME_BANNER_COLOR="$C_ORANGE"
 
-    local help_scroll=0
+    tui_scroll_reset
 
     while true; do
         tui_get_size
@@ -90,7 +90,6 @@ page_help() {
         FRAME_CONTENT+=("${C_DGRAY}DNSCloak v${DNSCLOAK_VERSION:-2.0.0}${C_RST}")
 
         # Apply scroll
-        _SCROLL_OFFSET=$help_scroll
         _compute_scroll_max
 
         FRAME_FOOTER="${C_DGRAY}^/v${C_RST}${C_DIM} scroll${C_RST}  "
@@ -103,12 +102,12 @@ page_help() {
         key=$(tui_read_key)
 
         case "$key" in
-            UP|LEFT)
-                (( help_scroll > 0 )) && (( help_scroll-- ))
-                ;;
-            DOWN|RIGHT)
-                (( help_scroll < _SCROLL_MAX )) && (( help_scroll++ ))
-                ;;
+            UP|LEFT)    tui_scroll_chunk_up ;;
+            DOWN|RIGHT) tui_scroll_chunk_down ;;
+            PGUP)       tui_scroll_page_up ;;
+            PGDN)       tui_scroll_page_down ;;
+            HOME)       tui_scroll_home ;;
+            END)        tui_scroll_end ;;
             ESC|BACKSPACE|ENTER)
                 tui_scroll_reset
                 return 0

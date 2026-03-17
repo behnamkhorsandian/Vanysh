@@ -140,10 +140,14 @@ page_status() {
 
         case "$key" in
             r|R)    continue ;;
-            UP)     tui_scroll_up ;;
-            DOWN)   tui_scroll_down ;;
-            LEFT)   tui_scroll_up ;;
-            RIGHT)  tui_scroll_down ;;
+            UP)     tui_scroll_chunk_up ;;
+            DOWN)   tui_scroll_chunk_down ;;
+            LEFT)   tui_scroll_chunk_up ;;
+            RIGHT)  tui_scroll_chunk_down ;;
+            PGUP)   tui_scroll_page_up ;;
+            PGDN)   tui_scroll_page_down ;;
+            HOME)   tui_scroll_home ;;
+            END)    tui_scroll_end ;;
             ESC|BACKSPACE)    return 0 ;;
             q|Q)    return 1 ;;
             *)      continue ;;
