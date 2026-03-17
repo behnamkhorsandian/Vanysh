@@ -836,12 +836,8 @@ tui_table_section() {
     local table_w="${2:-$(( _CONTENT_INNER_W - 2 ))}"
     (( table_w < 20 )) && table_w=20
 
-    local inner=$(( table_w - 2 ))
-    local tlen
-    tlen=$(visible_len "$title")
-    local pad_after=$(( inner - tlen - 3 ))
-    (( pad_after < 0 )) && pad_after=0
-    FRAME_CONTENT+=("${C_DGRAY}${BOX_TL}${BOX_H} ${C_ORANGE}${title}${C_RST}${C_DGRAY} $(repeat_str "$BOX_H" "$pad_after")${BOX_TR}${C_RST}")
+    # Standalone title line with background highlight
+    FRAME_CONTENT+=("${C_ORANGE}${C_BOLD}  ${title}${C_RST}")
 }
 
 tui_render_table() {
@@ -874,16 +870,13 @@ tui_render_table() {
         done
     done
 
-    # Add padding to each column (1 space each side)
+    # Column padding: 2 spaces each side
     for (( i = 0; i < col_count; i++ )); do
-        (( col_widths[$i] += 2 ))
+        (( col_widths[$i] += 4 ))
     done
 
     # Build horizontal rules
-    local h_rule=""
-    local h_top=""
-    local h_mid=""
-    local h_bot=""
+    local h_top="" h_mid="" h_bot=""
     for (( i = 0; i < col_count; i++ )); do
         local seg
         seg=$(repeat_str "$BOX_H" "${col_widths[$i]}")
@@ -901,32 +894,33 @@ tui_render_table() {
     h_mid+="${BOX_MR}"
     h_bot+="${BOX_BR}"
 
-    # Title line
+    # Title (standalone line above the table)
     if [[ -n "$title" ]]; then
         tui_table_section "$title" "$table_w"
-    else
-        FRAME_CONTENT+=("${C_DGRAY}${h_top}${C_RST}")
     fi
 
+    # Top border
+    FRAME_CONTENT+=("${C_DGRAY}  ${h_top}${C_RST}")
+
     # Header row
-    local hdr_line=""
+    local hdr_line="  "
     for (( i = 0; i < col_count; i++ )); do
-        local cell=" ${C_ORANGE}$(pad_right "${_headers_ref[$i]}" $(( col_widths[$i] - 1 )))${C_RST}"
+        local cell="  ${C_ORANGE}$(pad_right "${_headers_ref[$i]}" $(( col_widths[$i] - 2 )))${C_RST}"
         hdr_line+="${C_DGRAY}${BOX_V}${C_RST}${cell}"
     done
     hdr_line+="${C_DGRAY}${BOX_V}${C_RST}"
     FRAME_CONTENT+=("$hdr_line")
 
     # Header separator
-    FRAME_CONTENT+=("${C_DGRAY}${h_mid}${C_RST}")
+    FRAME_CONTENT+=("${C_DGRAY}  ${h_mid}${C_RST}")
 
     # Data rows
     for row in "${_rows_ref[@]}"; do
         IFS='|' read -ra cells <<< "$row"
-        local row_line=""
+        local row_line="  "
         for (( i = 0; i < col_count; i++ )); do
             local cell_text="${cells[$i]:-}"
-            local cell=" $(pad_right "$cell_text" $(( col_widths[$i] - 1 )))"
+            local cell="  $(pad_right "$cell_text" $(( col_widths[$i] - 2 )))"
             row_line+="${C_DGRAY}${BOX_V}${C_RST}${cell}"
         done
         row_line+="${C_DGRAY}${BOX_V}${C_RST}"
@@ -934,7 +928,7 @@ tui_render_table() {
     done
 
     # Bottom border
-    FRAME_CONTENT+=("${C_DGRAY}${h_bot}${C_RST}")
+    FRAME_CONTENT+=("${C_DGRAY}  ${h_bot}${C_RST}")
 }
 
 #===============================================================================

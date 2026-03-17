@@ -58,6 +58,7 @@ download_libs() {
 
 download_tui() {
     mkdir -p "$TUI_DL_DIR/pages"
+    mkdir -p "$TUI_DL_DIR/content/docs"
 
     local tui_files=(
         "tui/theme.sh"
@@ -68,6 +69,9 @@ download_tui() {
         "tui/pages/install_wizard.sh"
         "tui/pages/users.sh"
         "tui/pages/status.sh"
+        "tui/pages/help.sh"
+        "tui/content/protocols.json"
+        "tui/content/icons.json"
     )
 
     for f in "${tui_files[@]}"; do
@@ -83,6 +87,11 @@ download_tui() {
     mkdir -p "$TUI_DL_DIR/banners"
     for banner in logo menu setup reality ws wireguard dnstt mtp conduit sos lionsun; do
         curl -sfL "$GITHUB_RAW/banners/${banner}.txt" -o "$TUI_DL_DIR/banners/${banner}.txt" 2>/dev/null || true
+    done
+
+    # Download protocol doc files
+    for doc in reality wg ws mtp dnstt conduit vray sos; do
+        curl -sfL "$GITHUB_RAW/tui/content/docs/${doc}.txt" -o "$TUI_DL_DIR/content/docs/${doc}.txt" 2>/dev/null || true
     done
 
     return 0
