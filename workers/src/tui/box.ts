@@ -96,7 +96,7 @@ export function box(lines: string[], opts: BoxOpts = {}): string {
     rows.push(row);
   }
 
-  return [top, ...rows, bot].join("\n");
+  return [top, ...rows, bot].join("\r\n");
 }
 
 /** Horizontal rule full-width */

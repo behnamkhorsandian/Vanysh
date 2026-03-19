@@ -93,7 +93,7 @@ export function table(opts: TableOpts): string {
   // Bottom border
   out.push(hRule("└", "┴", "┘"));
 
-  return out.join("\n");
+  return out.join("\r\n");
 }
 
 /** Colorize a status string */

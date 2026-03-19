@@ -47,5 +47,5 @@ export function pageHelp(): string {
   lines.push(`    ${BLUE}https://github.com/behnamkhorsandian/Vanysh${RST}`);
   lines.push(`    ${BLUE}https://www.vany.sh${RST}`);
 
-  return lines.join("\n");
+  return lines.join("\r\n");
 }

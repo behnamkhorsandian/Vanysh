@@ -19,7 +19,7 @@ export function logo(width: number): string {
     const pad = Math.max(0, Math.floor((width - l.length) / 2));
     lines.push(`${repeat(" ", pad)}${GREEN}${l}${RST}`);
   }
-  return lines.join("\n");
+  return lines.join("\r\n");
 }
 
 /** Render a full splash screen with logo and tagline */
@@ -48,5 +48,5 @@ export function splash(cols: number, rows: number): string {
   const verPad = Math.max(0, Math.floor((width - ver.length) / 2));
   out.push(`${repeat(" ", verPad)}${DGRAY}${ver}${RST}`);
 
-  return out.join("\n");
+  return out.join("\r\n");
 }

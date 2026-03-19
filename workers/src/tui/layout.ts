@@ -7,13 +7,13 @@ import { visibleLen, repeat } from "./ansi.js";
 
 /** Left-pad every line of text with a prefix */
 export function lpad(text: string, prefix = "  "): string {
-  return text.split("\n").map((l) => prefix + l).join("\n");
+  return text.split(/\r?\n/).map((l) => prefix + l).join("\r\n");
 }
 
 /** Place two text blocks side by side with a gap */
 export function sideBySide(left: string, right: string, gap = 3): string {
-  const lLines = left.split("\n");
-  const rLines = right.split("\n");
+  const lLines = left.split(/\r?\n/);
+  const rLines = right.split(/\r?\n/);
   const lWidth = Math.max(...lLines.map(visibleLen), 0);
   const height = Math.max(lLines.length, rLines.length);
   const spacer = " ".repeat(gap);
@@ -24,7 +24,7 @@ export function sideBySide(left: string, right: string, gap = 3): string {
     const pad = lWidth - visibleLen(ll);
     merged.push(ll + repeat(" ", pad) + spacer + rl);
   }
-  return merged.join("\n");
+  return merged.join("\r\n");
 }
 
 /** Word-wrap text to maxWidth */

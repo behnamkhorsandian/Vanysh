@@ -20,6 +20,7 @@ STATE_FILE="\$VANY_DIR/state.json"
 USERS_FILE="\$VANY_DIR/users.json"
 CURRENT="protocols"
 STREAM_PID=""
+CR=\$'\\r'
 
 # -- Colors ----------------------------------------------------------------
 C_RST="\\033[0m"
@@ -71,10 +72,10 @@ cleanup() {
     [[ -n "\$OLD_STTY" ]] && stty "\$OLD_STTY" <&3 2>/dev/null
     printf "\\033[?25h"
     printf "\\033[?1049l"
-    printf "\\n\${C_GREEN}"
-    printf '%s\\n' '  Vany - vany.sh'
-    printf '%s\\n' '  Goodbye.'
-    printf "\${C_RST}\\n"
+    printf "\\r\\n"
+    printf "%b\\r\\n" "\${C_GREEN}  Vany - vany.sh"
+    printf "%b\\r\\n" "  Goodbye.\${C_RST}"
+    printf "\\r\\n"
     exec 3<&- 2>/dev/null
 }
 trap cleanup EXIT
@@ -82,9 +83,18 @@ trap 'cleanup; exit 130' INT TERM
 
 # -- Terminal setup --------------------------------------------------------
 OLD_STTY=\$(stty -g <&3 2>/dev/null || true)
-stty raw -echo <&3 2>/dev/null || true
+stty -icanon -echo <&3 2>/dev/null || true
 printf "\\033[?1049h"
 printf "\\033[?25l"
+
+# -- Output helper (safe for raw-ish mode) ---------------------------------
+# Prints a line with CR+LF to handle any terminal mode
+out() {
+    printf "%s\\r\\n" "\$1"
+}
+oute() {
+    printf "%b\\r\\n" "\$1"
+}
 
 # -- Terminal size ---------------------------------------------------------
 get_size() {
@@ -140,31 +150,36 @@ show_status() {
     printf "\\033[2J\\033[H"
     get_size
 
-    printf "\${C_GREEN}\${C_BOLD}  DOCKER STATUS\${C_RST}\\n\\n"
+    oute "\${C_GREEN}\${C_BOLD}  DOCKER STATUS\${C_RST}"
+    out ""
+
+    # Header and separator - format without ANSI, colorize separately
+    local hdr sep
+    hdr=\$(printf "  %-20s %-12s %-20s %-15s" "CONTAINER" "STATUS" "IMAGE" "UPTIME")
+    sep=\$(printf "  %-20s %-12s %-20s %-15s" "───────────────────" "────────────" "────────────────────" "───────────────")
+    oute "\${C_ORANGE}\${hdr}\${C_RST}"
+    oute "\${C_DGRAY}\${sep}\${C_RST}"
 
     local containers=("vany-xray" "vany-wireguard" "vany-dnstt" "vany-conduit" "vany-sos")
 
-    printf "  \${C_ORANGE}%-20s %-12s %-20s %-15s\${C_RST}\\n" "CONTAINER" "STATUS" "IMAGE" "UPTIME"
-    printf "  \${C_DGRAY}%-20s %-12s %-20s %-15s\${C_RST}\\n" "─────────────────" "──────────" "──────────────────" "─────────────"
-
     for c in "\${containers[@]}"; do
+        local status="--" image="--" uptime="--" color="\${C_DGRAY}"
         if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^\${c}\$"; then
-            local status image uptime
-            status=\$(docker inspect --format '{{.State.Status}}' "\$c" 2>/dev/null)
+            status=\$(docker inspect --format '{{.State.Status}}' "\$c" 2>/dev/null || echo "--")
             image=\$(docker inspect --format '{{.Config.Image}}' "\$c" 2>/dev/null | cut -d: -f1 | rev | cut -d/ -f1 | rev)
             uptime=\$(docker inspect --format '{{.State.StartedAt}}' "\$c" 2>/dev/null | cut -dT -f1)
-
-            local color="\${C_TEXT}"
             [[ "\$status" == "running" ]] && color="\${C_GREEN}"
             [[ "\$status" == "exited" ]] && color="\${C_RED}"
-
-            printf "  \${C_TEXT}%-20s \${color}%-12s\${C_RST} \${C_DIM}%-20s %-15s\${C_RST}\\n" "\$c" "\$status" "\$image" "\$uptime"
-        else
-            printf "  \${C_TEXT}%-20s \${C_DGRAY}%-12s %-20s %-15s\${C_RST}\\n" "\$c" "--" "--" "--"
         fi
+        # Format text first (no ANSI in printf format), then colorize
+        local line
+        line=\$(printf "  %-20s %-12s %-20s %-15s" "\$c" "\$status" "\$image" "\$uptime")
+        oute "\${color}\${line}\${C_RST}"
     done
 
-    printf "\\n  \${C_DIM}Press any key to go back\${C_RST}"
+    out ""
+    oute "  \${C_LGREEN}[p]\${C_RST} \${C_TEXT}Protocols\${C_RST}  \${C_LGREEN}[u]\${C_RST} \${C_TEXT}Users\${C_RST}  \${C_LGREEN}[i]\${C_RST} \${C_TEXT}Install\${C_RST}  \${C_LGREEN}[h]\${C_RST} \${C_TEXT}Help\${C_RST}  \${C_LGREEN}[q]\${C_RST} \${C_TEXT}Quit\${C_RST}"
+    oute "  \${C_DIM}Press any key to go back\${C_RST}"
 }
 
 # -- Local page: Users list ------------------------------------------------
@@ -173,11 +188,14 @@ show_users() {
     CURRENT="users"
     printf "\\033[2J\\033[H"
 
-    printf "\${C_GREEN}\${C_BOLD}  USERS\${C_RST}\\n\\n"
+    oute "\${C_GREEN}\${C_BOLD}  USERS\${C_RST}"
+    out ""
 
     if [[ ! -f "\$USERS_FILE" ]]; then
-        printf "  \${C_DIM}No users database found.\${C_RST}\\n"
-        printf "\\n  \${C_DIM}Press any key to go back\${C_RST}"
+        oute "  \${C_DIM}No users database found.\${C_RST}"
+        out ""
+        oute "  \${C_LGREEN}[p]\${C_RST} \${C_TEXT}Protocols\${C_RST}  \${C_LGREEN}[s]\${C_RST} \${C_TEXT}Status\${C_RST}  \${C_LGREEN}[h]\${C_RST} \${C_TEXT}Help\${C_RST}  \${C_LGREEN}[q]\${C_RST} \${C_TEXT}Quit\${C_RST}"
+        oute "  \${C_DIM}Press any key to go back\${C_RST}"
         return
     fi
 
@@ -185,19 +203,27 @@ show_users() {
     usercount=\$(jq '.users | length' "\$USERS_FILE" 2>/dev/null || echo 0)
 
     if [[ "\$usercount" -eq 0 ]]; then
-        printf "  \${C_DIM}No users configured.\${C_RST}\\n"
+        oute "  \${C_DIM}No users configured.\${C_RST}"
     else
-        printf "  \${C_ORANGE}%-20s %-15s %-30s\${C_RST}\\n" "USERNAME" "PROTOCOLS" "CREATED"
-        printf "  \${C_DGRAY}%-20s %-15s %-30s\${C_RST}\\n" "──────────────────" "─────────────" "────────────────────────────"
+        local hdr sep
+        hdr=\$(printf "  %-20s %-15s %-30s" "USERNAME" "PROTOCOLS" "CREATED")
+        sep=\$(printf "  %-20s %-15s %-30s" "───────────────────" "──────────────" "────────────────────────────")
+        oute "\${C_ORANGE}\${hdr}\${C_RST}"
+        oute "\${C_DGRAY}\${sep}\${C_RST}"
 
         jq -r '.users | to_entries[] | [.key, (.value.protocols | keys | join(",")), .value.created] | @tsv' "\$USERS_FILE" 2>/dev/null | \\
         while IFS=\$'\\t' read -r name protos created; do
-            printf "  \${C_TEXT}%-20s \${C_LGREEN}%-15s \${C_DIM}%-30s\${C_RST}\\n" "\$name" "\$protos" "\$created"
+            local line
+            line=\$(printf "  %-20s %-15s %-30s" "\$name" "\$protos" "\$created")
+            oute "\${C_TEXT}\${line}\${C_RST}"
         done
     fi
 
-    printf "\\n  \${C_TEXT}Total: \${C_GREEN}\$usercount\${C_RST} users"
-    printf "\\n\\n  \${C_DIM}Press any key to go back\${C_RST}"
+    out ""
+    oute "  \${C_TEXT}Total: \${C_GREEN}\$usercount\${C_RST} users"
+    out ""
+    oute "  \${C_LGREEN}[p]\${C_RST} \${C_TEXT}Protocols\${C_RST}  \${C_LGREEN}[s]\${C_RST} \${C_TEXT}Status\${C_RST}  \${C_LGREEN}[h]\${C_RST} \${C_TEXT}Help\${C_RST}  \${C_LGREEN}[q]\${C_RST} \${C_TEXT}Quit\${C_RST}"
+    oute "  \${C_DIM}Press any key to go back\${C_RST}"
 }
 
 # -- Worker-rendered pages -------------------------------------------------
@@ -230,19 +256,22 @@ handle_embedded_cmd() {
     fi
 
     printf "\\033[2J\\033[H"
-    printf "\${C_GREEN}\${C_BOLD}  EXECUTING\${C_RST}\\n\\n"
-    printf "  \${C_DIM}\$cmd\${C_RST}\\n\\n"
+    oute "\${C_GREEN}\${C_BOLD}  EXECUTING\${C_RST}"
+    out ""
+    oute "  \${C_DIM}\$cmd\${C_RST}"
+    out ""
 
     # Execute the command
     if eval "\$cmd" 2>&1 | while IFS= read -r line; do
-        printf "  %s\\n" "\$line"
+        out "  \$line"
     done; then
-        printf "\\n  \${C_GREEN}Done.\${C_RST}"
+        oute "\${C_GREEN}  Done.\${C_RST}"
     else
-        printf "\\n  \${C_RED}Failed.\${C_RST}"
+        oute "\${C_RED}  Failed.\${C_RST}"
     fi
 
-    printf "\\n  \${C_DIM}Press any key to continue\${C_RST}"
+    out ""
+    oute "  \${C_DIM}Press any key to continue\${C_RST}"
     IFS= read -rsn1 _ <&3
     navigate "protocols"
 }

@@ -66,7 +66,7 @@ export function frame(opts: FrameOpts): string {
 
   // ── Heading (optional, e.g. banner/splash) ──
   if (heading) {
-    const headLines = heading.split("\n");
+    const headLines = heading.split(/\r?\n/);
     for (const hl of headLines) {
       const pad = Math.max(0, IW - visibleLen(hl));
       out.push(`${MG}${BC}${V}${RST}${hl}${repeat(" ", pad)}${BC}${V}${RST}`);
@@ -75,11 +75,11 @@ export function frame(opts: FrameOpts): string {
   }
 
   // ── Content area ──
-  const contentLines = content.split("\n");
+  const contentLines = content.split(/\r?\n/);
 
   // Calculate available height for content
   const chromeLines = heading
-    ? 3 + heading.split("\n").length + (interactive ? 3 : 1) // header + heading + sep + footer + nav
+    ? 3 + heading.split(/\r?\n/).length + (interactive ? 3 : 1) // header + heading + sep + footer + nav
     : 2 + (interactive ? 3 : 1); // header + footer + nav
   const availableRows = Math.max(contentLines.length, rows - chromeLines);
 
@@ -108,5 +108,5 @@ export function frame(opts: FrameOpts): string {
     out.push(guide);
   }
 
-  return out.join("\n");
+  return out.join("\r\n");
 }

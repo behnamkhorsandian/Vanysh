@@ -104,7 +104,7 @@ export function pageInstall(
 
   const info = INSTALL_INFO[proto];
   if (!info) {
-    return `\n  ${RED}Unknown protocol: ${proto}${RST}\n\n  Available: ${Object.keys(INSTALL_INFO).join(", ")}`;
+    return `\r\n  ${RED}Unknown protocol: ${proto}${RST}\r\n\r\n  Available: ${Object.keys(INSTALL_INFO).join(", ")}`;
   }
 
   return installDetail(proto, info, state);
@@ -132,7 +132,7 @@ function installOverview(state: Record<string, unknown>): string {
   lines.push("");
   lines.push(`  ${keyHint("1-6", "select")}  ${keyHint("Esc", "back")}`);
 
-  return lines.join("\n");
+  return lines.join("\r\n");
 }
 
 function installDetail(
@@ -168,5 +168,5 @@ function installDetail(
 
   lines.push(`  ${keyHint("Enter", "start install")}  ${keyHint("Esc", "back")}`);
 
-  return lines.join("\n");
+  return lines.join("\r\n");
 }

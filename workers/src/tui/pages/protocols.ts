@@ -109,5 +109,5 @@ export function pageProtocols(state: Record<string, unknown> = {}): string {
     keyHint("Esc", "back"),
   ].join("  ");
 
-  return `${tbl}\n\n  ${hints}`;
+  return `${tbl}\r\n\r\n  ${hints}`;
 }
