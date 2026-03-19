@@ -4,9 +4,9 @@
 # Uses path filters to only deploy what changed.
 #
 # Required Secrets:
-#   CLOUDFLARE_API_TOKEN - CF API token with Workers/Pages/Cache Purge/Zone Read permissions
-#   CF_ACCOUNT_ID        - Cloudflare account ID (59c1b66d875ff34924700a8539597845)
-#   CF_ZONE_ID           - Cloudflare zone ID for vany.sh (b77748f1e24d18d80541aad32cb06b3a)
+#   CF_API_TOKEN  - CF API token with Workers/Pages/Cache Purge/Zone Read permissions
+#   CF_ACCOUNT_ID - Cloudflare account ID
+#   CF_ZONE_ID    - Cloudflare zone ID for vany.sh
 #
 name: Deploy
 
@@ -74,7 +74,7 @@ jobs:
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           workingDirectory: workers
 
@@ -93,7 +93,7 @@ jobs:
       - name: Create Pages project if needed
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages project create vany --production-branch=main
         continue-on-error: true
@@ -101,7 +101,7 @@ jobs:
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages deploy www --project-name=vany --branch=main --commit-dirty=true
 
@@ -121,7 +121,7 @@ jobs:
           echo "Purging Cloudflare CDN cache..."
           RESPONSE=$(curl -s -X POST \
             "https://api.cloudflare.com/client/v4/zones/${{ secrets.CF_ZONE_ID }}/purge_cache" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}')
           

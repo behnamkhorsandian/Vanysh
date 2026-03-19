@@ -136,7 +136,7 @@ npx wrangler deploy --profile accountB
 
 Option B: API tokens
 ```
-CLOUDFLARE_API_TOKEN=... npx wrangler deploy
+CF_API_TOKEN=... npx wrangler deploy
 ```
 
 ## Important Files
