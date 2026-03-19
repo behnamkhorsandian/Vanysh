@@ -20,7 +20,9 @@ STATE_FILE="\$VANY_DIR/state.json"
 USERS_FILE="\$VANY_DIR/users.json"
 CURRENT="protocols"
 STREAM_PID=""
-CR=\$'\\r'
+
+# Protocol map for install number keys (matches INSTALL_INFO order)
+PROTO_MAP=("reality" "ws" "wg" "dnstt" "conduit" "sos")
 
 # -- Colors ----------------------------------------------------------------
 C_RST="\\033[0m"
@@ -102,23 +104,10 @@ get_size() {
     rows=\$(tput lines <&3 2>/dev/null || echo 40)
 }
 
-# -- Encode state for Worker -----------------------------------------------
+# -- Encode state for Worker (fast — just base64 the state file) -----------
 encode_state() {
     if [[ -f "\$STATE_FILE" ]]; then
-        # Collect live Docker status into state
-        local state
-        state=\$(cat "\$STATE_FILE")
-
-        # Merge docker container statuses
-        for container in vany-xray vany-wireguard vany-dnstt vany-conduit vany-sos; do
-            local cstatus
-            cstatus=\$(docker inspect --format '{{.State.Status}}' "\$container" 2>/dev/null || echo "not_installed")
-            local proto="\${container#vany-}"
-            state=\$(echo "\$state" | jq --arg p "\$proto" --arg s "\$cstatus" \\
-                'if .protocols[\$p] then .protocols[\$p].status = \$s else . end' 2>/dev/null || echo "\$state")
-        done
-
-        echo "\$state" | base64 -w0 2>/dev/null || echo "\$state" | base64 2>/dev/null
+        cat "\$STATE_FILE" | base64 -w0 2>/dev/null || cat "\$STATE_FILE" | base64 2>/dev/null
     else
         echo "e30="
     fi
@@ -128,7 +117,7 @@ encode_state() {
 kill_stream() {
     if [[ -n "\$STREAM_PID" ]]; then
         kill "\$STREAM_PID" 2>/dev/null || true
-        wait "\$STREAM_PID" 2>/dev/null || true
+        disown "\$STREAM_PID" 2>/dev/null || true
         STREAM_PID=""
     fi
 }
@@ -136,6 +125,7 @@ kill_stream() {
 start_stream() {
     local endpoint="\$1"
     kill_stream
+    printf "\\033[2J\\033[H"
     get_size
     local state_b64
     state_b64=\$(encode_state)
@@ -233,14 +223,83 @@ show_worker_page() {
     start_stream "\$page"
 }
 
+# -- Install execution ------------------------------------------------------
+# Maps protocol name to install script URL, downloads and runs it
+declare -A INSTALL_SCRIPTS=(
+    [reality]="install-xray.sh"
+    [ws]="install-xray.sh"
+    [wg]="install-wireguard.sh"
+    [dnstt]="install-dnstt.sh"
+    [conduit]="install-conduit.sh"
+    [sos]="install-sos.sh"
+)
+
+run_install() {
+    local proto="\$1"
+    kill_stream
+    printf "\\033[2J\\033[H"
+
+    local script_name="\${INSTALL_SCRIPTS[\$proto]}"
+    if [[ -z "\$script_name" ]]; then
+        oute "\${C_RED}  Unknown protocol: \$proto\${C_RST}"
+        out ""
+        oute "  \${C_DIM}Press any key to continue\${C_RST}"
+        IFS= read -rsn1 _ <&3
+        navigate "install"
+        return
+    fi
+
+    oute "\${C_GREEN}\${C_BOLD}  INSTALLING: \$proto\${C_RST}"
+    out ""
+    oute "  \${C_DIM}Downloading \$script_name ...\${C_RST}"
+    out ""
+
+    local script_url="\${BASE}/scripts/protocols/\${script_name}"
+    local script
+    script=\$(curl -sf "\$script_url" 2>/dev/null || true)
+    if [[ -z "\$script" ]]; then
+        oute "  \${C_RED}Failed to download install script.\${C_RST}"
+        out ""
+        oute "  \${C_DIM}Press any key to continue\${C_RST}"
+        IFS= read -rsn1 _ <&3
+        navigate "install"
+        return
+    fi
+
+    # Save script locally so functions can source other local files
+    mkdir -p /opt/vany/scripts/protocols
+    echo "\$script" > "/opt/vany/scripts/protocols/\${script_name}"
+    chmod +x "/opt/vany/scripts/protocols/\${script_name}"
+
+    oute "  \${C_LGREEN}Running installer ...\${C_RST}"
+    out ""
+
+    # Execute via bash
+    if bash "/opt/vany/scripts/protocols/\${script_name}" 2>&1 | while IFS= read -r line; do
+        out "  \$line"
+    done; then
+        oute ""
+        oute "\${C_GREEN}  Installation complete.\${C_RST}"
+    else
+        oute ""
+        oute "\${C_RED}  Installation failed (exit code: \${PIPESTATUS[0]}).\${C_RST}"
+    fi
+
+    out ""
+    oute "  \${C_DIM}Press any key to continue\${C_RST}"
+    IFS= read -rsn1 _ <&3
+    navigate "protocols"
+}
+
 # -- Navigate --------------------------------------------------------------
 navigate() {
     case "\$1" in
-        protocols) show_worker_page "protocols" ;;
-        status)    show_status ;;
-        users)     show_users ;;
-        install)   show_worker_page "install" ;;
-        help)      show_worker_page "help" ;;
+        protocols)     show_worker_page "protocols" ;;
+        status)        show_status ;;
+        users)         show_users ;;
+        install)       show_worker_page "install" ;;
+        install/*)     show_worker_page "\$1" ;;
+        help)          show_worker_page "help" ;;
     esac
 }
 
@@ -315,6 +374,29 @@ handle_key() {
         r|R) navigate "\$CURRENT"  ;;
         q|Q) exit 0               ;;
         TICK) ;;
+        # Number keys on install page select a protocol
+        [1-6])
+            if [[ "\$CURRENT" == "install" ]]; then
+                local idx=\$(( key - 1 ))
+                local proto="\${PROTO_MAP[\$idx]}"
+                navigate "install/\$proto"
+            fi
+            ;;
+        ENTER)
+            # On install detail page, run the install
+            if [[ "\$CURRENT" == install/* ]]; then
+                local proto="\${CURRENT#install/}"
+                run_install "\$proto"
+            fi
+            ;;
+        ESC)
+            # ESC goes back: install detail -> install overview, else -> protocols
+            if [[ "\$CURRENT" == install/* ]]; then
+                navigate "install"
+            else
+                navigate "protocols"
+            fi
+            ;;
         *)
             # On local pages, any key goes back to protocols
             if [[ "\$CURRENT" == "status" || "\$CURRENT" == "users" ]]; then
