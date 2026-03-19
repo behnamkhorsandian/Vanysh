@@ -163,6 +163,25 @@ export default {
         if (tuiResponse) return tuiResponse;
       }
 
+      // Scripts proxy: /scripts/* → GitHub raw (for bootstrap + protocol scripts)
+      if (url.pathname.startsWith('/scripts/')) {
+        const scriptPath = url.pathname.slice(1); // "scripts/docker-bootstrap.sh"
+        const scriptUrl = `${GITHUB_RAW}/${scriptPath}`;
+        try {
+          const resp = await fetch(scriptUrl);
+          if (!resp.ok) return new Response('Script not found', { status: 404 });
+          return new Response(resp.body, {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+          });
+        } catch {
+          return new Response('Error fetching script', { status: 502 });
+        }
+      }
+
       const segments = url.pathname.slice(1).split('/').filter(Boolean);
       const firstSegment = segments[0] || '';
       const config = SERVICES[firstSegment];
@@ -201,16 +220,21 @@ export default {
         }, { headers: corsHeaders });
       }
 
-      // CLI tools: serve thin TUI client (new) or start.sh for protocol shortcuts
+      // CLI tools: serve thin TUI client or protocol-specific start.sh
       const ua = (request.headers.get('User-Agent') || '').toLowerCase();
       const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
       if (isCli) {
-        // Root path: serve TUI client; protocol paths: serve start.sh with protocol
-        if (!config && !firstSegment) {
+        // Root path: serve TUI client
+        if (!firstSegment) {
           const tuiClient = await handleTuiRequest(request, env, '/tui/client', url);
           if (tuiClient) return tuiClient;
         }
-        return serveStartScript(config ? firstSegment : undefined);
+        // Known protocol: serve start.sh with that protocol
+        if (config) {
+          return serveStartScript(firstSegment);
+        }
+        // Unknown path: 404 (don't fall back to start.sh)
+        return new Response('Not found', { status: 404 });
       }
 
       // Browsers: redirect to www
