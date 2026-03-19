@@ -2,7 +2,7 @@
 #===============================================================================
 # Vany - Service Selector
 # Detects domain availability and recommends appropriate services
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #===============================================================================
 
 # Get script directory

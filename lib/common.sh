@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - Common Functions Library
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #===============================================================================
 
 # Version
@@ -11,7 +11,7 @@ VANY_VERSION="2.0.0"
 VANY_DIR="${VANY_DIR:-/opt/vany}"
 VANY_USERS="${VANY_USERS:-$VANY_DIR/users.json}"
 VANY_BIN="${VANY_BIN:-/usr/local/bin/vany}"
-GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main"
+GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 
 #-------------------------------------------------------------------------------
 # Colors (No emojis - ASCII only)

@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - DNSTT (DNS Tunnel) Service Installer
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #
 # Usage: curl vany.sh/dnstt | sudo bash
 #
@@ -17,7 +17,7 @@ rm -rf /tmp/vany-lib /tmp/vany* 2>/dev/null || true
 # Download and source libraries
 LIB_DIR="/tmp/vany-lib"
 mkdir -p "$LIB_DIR"
-GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main"
+GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 
 echo "Downloading libraries..."
 

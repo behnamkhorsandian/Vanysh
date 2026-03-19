@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - Unified VPN Protocol Setup
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #
 # Usage:
 #   curl vany.sh | sudo bash              # Interactive menu
@@ -36,7 +36,7 @@ done
 
 LIB_DIR="/tmp/vany-lib"
 TUI_DL_DIR="/tmp/vany-tui"
-GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main"
+GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 
 download_libs() {
     mkdir -p "$LIB_DIR"

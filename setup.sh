@@ -10,7 +10,7 @@
 #                           PROXY SETUP SCRIPT
 #
 #   MTProto Proxy with Fake-TLS Support
-#   https://github.com/behnamkhorsandian/Vanyshsh
+#   https://github.com/behnamkhorsandian/Vanysh
 #   https://vany.sh
 #
 #===============================================================================

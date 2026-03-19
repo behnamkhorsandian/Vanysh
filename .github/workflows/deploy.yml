@@ -137,6 +137,6 @@ jobs:
             "tui/theme.sh"
           )
           for f in "${FILES[@]}"; do
-            curl -s "https://purge.jsdelivr.net/gh/behnamkhorsandian/Vanyshsh@main/$f" || true
+            curl -s "https://purge.jsdelivr.net/gh/behnamkhorsandian/Vanysh@main/$f" || true
           done
           echo "* jsDelivr cache purged"

@@ -667,7 +667,7 @@ _source_protocol() {
     local dl_dir="/tmp/vany-services/$proto"
     rm -rf "$dl_dir"
     mkdir -p "$dl_dir"
-    local base_url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main}/services/$proto"
+    local base_url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}/services/$proto"
 
     # Try functions.sh first (preferred — non-interactive)
     if curl -sfL "$base_url/functions.sh" -o "$dl_dir/functions.sh" 2>/dev/null; then

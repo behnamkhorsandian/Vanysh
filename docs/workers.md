@@ -68,7 +68,7 @@ npm init -y
 Create `src/index.ts`:
 
 ```typescript
-const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 const SERVICE = 'reality';
 
 export default {
@@ -137,7 +137,7 @@ function getInfoHTML(): string {
   </ul>
   
   <h2>Source</h2>
-  <p><a href="https://github.com/behnamkhorsandian/Vanyshsh">GitHub</a></p>
+  <p><a href="https://github.com/behnamkhorsandian/Vanysh">GitHub</a></p>
 </body>
 </html>`;
 }

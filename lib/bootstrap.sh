@@ -2,7 +2,7 @@
 #===============================================================================
 # Vany - Bootstrap Script
 # First-time VM setup: updates, prerequisites, Xray installation
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #===============================================================================
 
 set -e

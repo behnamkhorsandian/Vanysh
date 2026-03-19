@@ -1,5 +1,5 @@
 # Vany
-[![Build SOS Binaries](https://github.com/behnamkhorsandian/Vanyshsh/actions/workflows/sos-build.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanyshsh/actions/workflows/sos-build.yml)
+[![Build SOS Binaries](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/sos-build.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/sos-build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&up_color=green&up_message=online&url=https%3A%2F%2Fvany.sh)](https://www.vany.sh)
 

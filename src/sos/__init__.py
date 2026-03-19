@@ -1,6 +1,6 @@
 """
 SOS - Emergency Secure Chat over DNS Tunnel
-https://github.com/behnamkhorsandian/Vanyshsh
+https://github.com/behnamkhorsandian/Vanysh
 
 One-liner emergency chat: curl -sSL sos.vany.sh | sudo bash
 """

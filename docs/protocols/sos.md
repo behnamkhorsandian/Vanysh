@@ -93,7 +93,7 @@ For maximum reliability, download the binary **before** an internet blackout:
 | **Linux** (64-bit) | `sos-linux-amd64` |
 | **Linux** (ARM64) | `sos-linux-arm64` |
 
-Download from: [GitHub Releases](https://github.com/behnamkhorsandian/Vanyshsh/releases)
+Download from: [GitHub Releases](https://github.com/behnamkhorsandian/Vanysh/releases)
 
 **macOS Users**: Run this to bypass Gatekeeper:
 ```bash
@@ -471,7 +471,7 @@ SOS works because DNS often remains functional when HTTP/HTTPS is blocked:
 
 SOS is part of the Vany project:
 
-- **Repository**: https://github.com/behnamkhorsandian/Vanyshsh
+- **Repository**: https://github.com/behnamkhorsandian/Vanysh
 - **Issues**: Report bugs or request features
 - **Pull requests**: Welcome!
 

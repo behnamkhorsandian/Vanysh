@@ -282,7 +282,7 @@ _load_frame_banner() {
         banner_text=$(cat "${script_dir}/../banners/${bfile}")
     else
         mkdir -p /tmp/vany-banners
-        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main}/banners/${bfile}"
+        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}/banners/${bfile}"
         if curl -sL "$url" -o "/tmp/vany-banners/${bfile}" 2>/dev/null; then
             banner_text=$(cat "/tmp/vany-banners/${bfile}")
         fi
@@ -1508,7 +1508,7 @@ render_banner() {
         banner_text=$(cat "$(dirname "${BASH_SOURCE[0]}")/../banners/${bfile}")
     else
         mkdir -p /tmp/vany-banners
-        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main}/banners/${bfile}"
+        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}/banners/${bfile}"
         if curl -sL "$url" -o "/tmp/vany-banners/${bfile}" 2>/dev/null; then
             banner_text=$(cat "/tmp/vany-banners/${bfile}")
         fi

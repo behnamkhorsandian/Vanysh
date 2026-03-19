@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - Cloud Provider Detection and Firewall Configuration
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #===============================================================================
 
 # Detect cloud provider via metadata endpoints

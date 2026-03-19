@@ -105,7 +105,7 @@ _render_doc_file() {
     else
         # Fetch from GitHub
         mkdir -p /tmp/vany-docs
-        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main}/tui/content/docs/${dfile}"
+        local url="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}/tui/content/docs/${dfile}"
         if curl -sL "$url" -o "/tmp/vany-docs/${dfile}" 2>/dev/null; then
             doc_text=$(cat "/tmp/vany-docs/${dfile}")
         fi

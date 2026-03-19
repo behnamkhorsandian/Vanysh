@@ -22,7 +22,7 @@ export class SosRelay implements DurableObject {
   async fetch() { return new Response('gone', { status: 410 }); }
 }
 
-const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 
 // Environment bindings
 interface Env {
@@ -197,7 +197,7 @@ export default {
       if (config && segments[1] === 'version') {
         return Response.json({
           service: firstSegment, name: config.name,
-          repo: 'https://github.com/behnamkhorsandian/Vanyshsh',
+          repo: 'https://github.com/behnamkhorsandian/Vanysh',
         }, { headers: corsHeaders });
       }
 
@@ -265,7 +265,7 @@ export default {
       return Response.json({
         service: subdomain,
         name: config.name,
-        repo: 'https://github.com/behnamkhorsandian/Vanyshsh',
+        repo: 'https://github.com/behnamkhorsandian/Vanysh',
       }, { headers: corsHeaders });
     }
 
@@ -473,8 +473,8 @@ function getInfoPage(service: string, config: ServiceConfig): string {
     
     <div class="footer">
       <p>
-        <a href="https://github.com/behnamkhorsandian/Vanyshsh">GitHub</a> |
-        <a href="https://github.com/behnamkhorsandian/Vanyshsh/blob/main/docs/protocols/${service}.md">Documentation</a>
+        <a href="https://github.com/behnamkhorsandian/Vanysh">GitHub</a> |
+        <a href="https://github.com/behnamkhorsandian/Vanysh/blob/main/docs/protocols/${service}.md">Documentation</a>
       </p>
     </div>
   </div>

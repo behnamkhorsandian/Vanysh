@@ -16,7 +16,7 @@
 VANY_VERSION="2.0.0"
 VANY_DIR="/opt/vany"
 VANY_USERS="${VANY_DIR}/users.json"
-GITHUB_RAW="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main}"
+GITHUB_RAW="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}"
 
 #-------------------------------------------------------------------------------
 # Resolve script directory (works when sourced or concatenated by worker)

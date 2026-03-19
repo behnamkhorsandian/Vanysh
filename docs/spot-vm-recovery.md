@@ -83,7 +83,7 @@ cat ~/github-gcp-key.json
 
 ### 2. Add Secret to GitHub
 
-1. Go to your repo: https://github.com/behnamkhorsandian/Vanyshsh/settings/secrets/actions
+1. Go to your repo: https://github.com/behnamkhorsandian/Vanysh/settings/secrets/actions
 2. Click **New repository secret**
 3. Name: `GCP_SA_KEY`
 4. Value: Paste the entire JSON key from step 1

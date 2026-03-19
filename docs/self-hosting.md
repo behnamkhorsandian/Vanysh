@@ -27,7 +27,7 @@ User's VM                 Cloudflare Worker              GitHub
 
 ## Step 1: Fork the Repository
 
-1. Go to https://github.com/behnamkhorsandian/Vanyshsh
+1. Go to https://github.com/behnamkhorsandian/Vanysh
 2. Click "Fork"
 3. Clone your fork locally:
    ```bash

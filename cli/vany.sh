@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - Unified Management CLI
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #
 # Usage:
 #   vany                         - Interactive TUI menu
@@ -31,7 +31,7 @@ VANY_USERS="${VANY_USERS:-$VANY_DIR/users.json}"
 LIB_DIR="${LIB_DIR:-$VANY_DIR/lib}"
 SERVICES_DIR="${SERVICES_DIR:-$VANY_DIR/services}"
 BANNERS_DIR="${BANNERS_DIR:-$VANY_DIR/banners}"
-GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main"
+GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 
 # Version
 VERSION="2.1.0"

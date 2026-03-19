@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - SOS Emergency Secure Chat
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #
 # USAGE:
 #   Client (users): curl vany.sh/sos | bash
@@ -61,7 +61,7 @@ fi
 # Use jsDelivr CDN (auto-purges on new commits, more reliable than raw.githubusercontent)
 # Add timestamp for cache busting
 CACHE_BUST="?t=$(date +%s)"
-GITHUB_RAW="https://cdn.jsdelivr.net/gh/behnamkhorsandian/Vanyshsh@main"
+GITHUB_RAW="https://cdn.jsdelivr.net/gh/behnamkhorsandian/Vanysh@main"
 PYTHON_MIN_VERSION="3.8"
 
 # Relay server configuration
@@ -443,7 +443,7 @@ create_update_script() {
 set -e
 
 SOS_DIR="/opt/vany/sos"
-CDN="https://cdn.jsdelivr.net/gh/behnamkhorsandian/Vanyshsh@main"
+CDN="https://cdn.jsdelivr.net/gh/behnamkhorsandian/Vanysh@main"
 BUST="?t=$(date +%s)"
 LOG_FILE="/var/log/sos-update.log"
 CHANGED=false

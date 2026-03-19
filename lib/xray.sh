@@ -2,7 +2,7 @@
 #===============================================================================
 # Vany - Xray Configuration Manager
 # Manages multi-inbound Xray config with SNI/path routing
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #===============================================================================
 
 # Get script directory

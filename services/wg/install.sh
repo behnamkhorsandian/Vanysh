@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 # Vany - WireGuard VPN Service Installer
-# https://github.com/behnamkhorsandian/Vanyshsh
+# https://github.com/behnamkhorsandian/Vanysh
 #
 # Usage: curl vany.sh/wg | sudo bash
 #===============================================================================
@@ -16,7 +16,7 @@ else
     # Piped execution - download libs
     LIB_DIR="/tmp/vany-lib"
     mkdir -p "$LIB_DIR"
-    GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanyshsh/main"
+    GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
     curl -sL "$GITHUB_RAW/lib/common.sh" -o "$LIB_DIR/common.sh"
     curl -sL "$GITHUB_RAW/lib/cloud.sh" -o "$LIB_DIR/cloud.sh"
     curl -sL "$GITHUB_RAW/lib/bootstrap.sh" -o "$LIB_DIR/bootstrap.sh"
