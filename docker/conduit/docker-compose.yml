@@ -1,0 +1,13 @@
+services:
+  conduit:
+    image: ghcr.io/nickolasburr/conduit:latest
+    container_name: vany-conduit
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/vany/conduit:/config:rw
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

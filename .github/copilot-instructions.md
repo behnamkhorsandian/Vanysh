@@ -2,33 +2,60 @@
 
 ## Project Overview
 
-Vany is a multi-protocol censorship bypass platform. Each protocol runs as an independent service, all managed via the unified `vany` CLI with a shared user database.
+Vany is a multi-protocol censorship bypass platform. All protocols run in Docker containers, managed via a JS Cloudflare Worker TUI (server-rendered ANSI) and local bash scripts. `curl vany.sh | sudo bash` serves a thin bash client that streams UI from the Worker and executes Docker commands locally.
 
 ## Implementation Checklist
 
-### Phase 1: Core Libraries [COMPLETE - v2.0.0]
+### Phase 1: Core Libraries [LEGACY]
 - [x] `lib/cloud.sh` - Cloud provider detection and firewall auto-config
-- [x] `lib/bootstrap.sh` - VM setup, prerequisites, Xray-core install
+- [x] `lib/bootstrap.sh` - VM setup, prerequisites (superseded by docker-bootstrap.sh)
 - [x] `lib/common.sh` - Shared utilities, colors, user CRUD on users.json
 - [x] `lib/xray.sh` - Multi-inbound config manager for shared Xray instance
 - [x] `lib/selector.sh` - Domain detection and service recommendation
 
-### Phase 2: Services [COMPLETE]
-- [x] `services/reality/install.sh` - VLESS+REALITY (no domain needed) ✅ TESTED
-- [x] `services/ws/install.sh` - VLESS+WebSocket+CDN (Cloudflare) ✅ TESTED
-- [x] `services/dnstt/install.sh` - DNS tunnel (emergency backup) ✅ TESTED
-- [x] `services/wg/install.sh` - WireGuard VPN ✅ CREATED
-- [x] `services/conduit/install.sh` - Psiphon relay node ✅ TESTED
-- [x] `services/sos/install.sh` - Emergency secure chat over DNSTT ✅ TESTED
-- [ ] `services/mtp/install.sh` - Refactor existing MTProto
-- [ ] `services/vray/install.sh` - VLESS+TCP+TLS (requires domain)
+### Phase 2A: Docker Infrastructure [v3.0.0]
+- [x] `docker/xray/` - Shared Xray container (Reality+WS+VRAY)
+- [x] `docker/wireguard/` - WireGuard container
+- [x] `docker/dnstt/` - DNSTT server (built from source)
+- [x] `docker/conduit/` - Conduit Psiphon relay
+- [x] `docker/sos/` - SOS relay daemon
+- [x] `scripts/docker-bootstrap.sh` - Docker install, sysctl, cloud detection, state init
+- [x] `scripts/protocols/install-xray.sh` - Xray container + Reality/WS inbounds
+- [x] `scripts/protocols/install-wireguard.sh` - WireGuard container + peer management
+- [x] `scripts/protocols/install-dnstt.sh` - DNSTT container
+- [x] `scripts/protocols/install-conduit.sh` - Conduit container
+- [x] `scripts/protocols/install-sos.sh` - SOS relay container
+- [x] `scripts/protocols/update-container.sh` - Generic container update
+- [x] `scripts/protocols/remove-container.sh` - Generic container removal
+- [x] `scripts/protocols/status-containers.sh` - Container status (JSON)
 
-### Phase 3: CLI and Workers [COMPLETE]
+### Phase 2B: Worker TUI [v3.0.0]
+- [x] `workers/src/tui/theme.ts` - Vany color palette (green #2eb787)
+- [x] `workers/src/tui/ansi.ts` - ANSI utilities (stripAnsi, visibleLen, etc.)
+- [x] `workers/src/tui/box.ts` - Unicode box drawing
+- [x] `workers/src/tui/table.ts` - Table renderer
+- [x] `workers/src/tui/layout.ts` - Layout helpers (sideBySide, wordWrap, etc.)
+- [x] `workers/src/tui/frame.ts` - Page frame (header, content, nav bar)
+- [x] `workers/src/tui/splash.ts` - Logo splash screen
+- [x] `workers/src/tui/x-client.ts` - Thin bash client script
+- [x] `workers/src/tui/index.ts` - TUI route handler (/tui/*)
+- [x] `workers/src/tui/pages/protocols.ts` - Protocol catalog table
+- [x] `workers/src/tui/pages/install.ts` - Install wizard
+- [x] `workers/src/tui/pages/help.ts` - Help page
+
+### Phase 3: Services [LEGACY - being migrated to Docker]
+- [x] `services/reality/install.sh` - VLESS+REALITY ✅ TESTED
+- [x] `services/ws/install.sh` - VLESS+WebSocket+CDN ✅ TESTED
+- [x] `services/dnstt/install.sh` - DNS tunnel ✅ TESTED
+- [x] `services/wg/install.sh` - WireGuard VPN ✅ CREATED
+- [x] `services/conduit/install.sh` - Psiphon relay ✅ TESTED
+- [x] `services/sos/install.sh` - Emergency chat ✅ TESTED
+
+### Phase 4: CLI and Workers [COMPLETE]
 - [x] `cli/vany.sh` - Unified management CLI ✅ CREATED
-- [x] `workers/` - Unified Cloudflare Worker for all services ✅ DEPLOYED
-  - Routes: mtp, reality, wg, vray, ws, dnstt, sos subdomains
-  - DNSTT client setup: /client, /setup/linux, /setup/macos, /setup/windows
-  - SOS: TUI emergency chat launcher
+- [x] `workers/` - Unified Cloudflare Worker ✅ DEPLOYED
+  - TUI routes: /tui/client, /tui/protocols, /tui/install, /tui/help, /tui/splash
+  - Legacy routes: protocol subdomains, DNSTT setup, SOS, stats
 - [x] `www/` - Landing page on Cloudflare Pages
 
 ### Phase 4: Documentation [COMPLETE]
@@ -58,55 +85,79 @@ Vany is a multi-protocol censorship bypass platform. Each protocol runs as an in
 
 ### Directory Structure (Repository)
 ```
+docker/
+  xray/             # Shared Xray container (Reality+WS+VRAY)
+    Dockerfile
+    entrypoint.sh
+    docker-compose.yml
+  wireguard/        # WireGuard container
+    Dockerfile
+    docker-compose.yml
+  dnstt/            # DNSTT server (Go build from source)
+    Dockerfile
+    entrypoint.sh
+    docker-compose.yml
+  conduit/          # Conduit Psiphon relay
+    docker-compose.yml
+  sos/              # SOS relay daemon
+    Dockerfile
+    docker-compose.yml
+scripts/
+  docker-bootstrap.sh       # VPS bootstrap: Docker, sysctl, cloud detection, state init
+  protocols/
+    install-xray.sh         # Xray container + Reality/WS inbound management
+    install-wireguard.sh    # WireGuard container + peer management
+    install-dnstt.sh        # DNSTT container
+    install-conduit.sh      # Conduit container
+    install-sos.sh          # SOS relay container
+    update-container.sh     # Generic pull/rebuild + restart
+    remove-container.sh     # Stop + remove + firewall cleanup
+    status-containers.sh    # JSON status for all containers
+workers/
+  src/
+    index.ts                # Main Worker router
+    tui/
+      index.ts              # TUI route handler (/tui/*)
+      ansi.ts               # ANSI utilities
+      box.ts                # Unicode box drawing
+      table.ts              # Table renderer
+      theme.ts              # Color palette
+      layout.ts             # Layout helpers
+      frame.ts              # Page frame renderer
+      splash.ts             # Logo splash
+      x-client.ts           # Thin bash client script
+      pages/
+        protocols.ts        # Protocol catalog table
+        install.ts          # Install wizard
+        help.ts             # Help page
 lib/
-  cloud.sh          # Provider detection, firewall APIs
-  bootstrap.sh      # VM prep, prerequisites
+  cloud.sh          # Provider detection, firewall APIs (legacy, ported to docker-bootstrap.sh)
+  bootstrap.sh      # VM prep (legacy, superseded by docker-bootstrap.sh)
   common.sh         # Shared functions, user management
-  xray.sh           # Xray config management
-  selector.sh       # Service recommendation
-services/
-  reality/install.sh
-  wg/install.sh
-  mtp/install.sh
-  vray/install.sh
-  ws/install.sh
-  dnstt/install.sh
-  conduit/install.sh
-  sos/install.sh
+  xray.sh           # Xray config management (legacy, ported to install-xray.sh)
+services/           # Legacy service scripts (being migrated to Docker)
 src/
   sos/              # Python TUI client for emergency chat
-    app.py          # Textual app with WelcomeScreen, ChatRoomScreen
-    room.py         # Emoji OTP input, room state
-    transport.py    # DNSTT SOCKS5 polling
-    crypto.py       # NaCl encryption, Argon2id key derivation
-    relay.py        # Server-side relay daemon
 cli/
-  vany.sh       # Unified CLI
-workers/
-  reality/
-  wg/
-  mtp/
-  vray/
-  ws/
-  dnstt/
-docs/
-  firewall.md
-  dns.md
-  workers.md
-  protocols/
+  vany.sh           # Unified CLI
+www/                # Landing page (Cloudflare Pages)
+docs/               # Documentation
 ```
 
 ### Directory Structure (Runtime on VM)
 ```
 /opt/vany/
+  state.json        # VPS identity: machine_id, IP, provider, protocols
   users.json        # Unified user database
+  docker/           # Docker compose files (downloaded by bootstrap)
+    xray/
+    wireguard/
+    dnstt/
+    conduit/
+    sos/
+  scripts/          # Protocol management scripts (downloaded by bootstrap)
   xray/
     config.json     # Merged Xray config (reality + vray + ws)
-    access.log
-    error.log
-  mtp/
-    config.py
-    proxy_data.sh
   wg/
     wg0.conf
     peers/
@@ -114,10 +165,6 @@ docs/
     server.key
     server.pub
   sos/
-    relay.py        # Chat relay daemon (runs alongside DNSTT)
-/usr/local/bin/
-  vany          # CLI symlink
-  xray              # Shared Xray binary
 ```
 
 ## Coding Standards
@@ -158,8 +205,9 @@ docs/
 ### Xray Config Management
 - Single config at `/opt/vany/xray/config.json`
 - Multiple inbounds share port 443 via SNI/path routing
-- Functions in `lib/xray.sh` to add/remove inbounds and clients
-- Reload via `systemctl reload xray` after changes
+- Functions in `scripts/protocols/install-xray.sh` to add/remove inbounds and clients
+- Reload via `docker exec vany-xray kill -HUP 1` after changes
+- Xray runs in shared Docker container `vany-xray` (Reality+WS+VRAY)
 
 ### Cloud Provider Detection Order
 1. AWS: `curl -s http://169.254.169.254/latest/meta-data/`

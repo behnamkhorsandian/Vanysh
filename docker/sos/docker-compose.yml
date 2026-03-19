@@ -1,0 +1,16 @@
+services:
+  sos:
+    build:
+      context: ../../src/sos
+      dockerfile: ../../docker/sos/Dockerfile
+    image: vany-sos:latest
+    container_name: vany-sos
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/vany/sos:/etc/sos:rw
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

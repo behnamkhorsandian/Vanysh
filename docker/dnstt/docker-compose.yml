@@ -1,0 +1,17 @@
+services:
+  dnstt:
+    build: .
+    image: vany-dnstt:latest
+    container_name: vany-dnstt
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/vany/dnstt:/etc/dnstt:rw
+    environment:
+      - DNSTT_DOMAIN=${DNSTT_DOMAIN:-t.example.com}
+      - DNSTT_FORWARD=${DNSTT_FORWARD:-127.0.0.1:10800}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

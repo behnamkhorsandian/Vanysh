@@ -1,0 +1,22 @@
+services:
+  xray:
+    build:
+      context: .
+      args:
+        XRAY_VERSION: "1.8.24"
+    image: vany-xray:latest
+    container_name: vany-xray
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/vany/xray:/etc/xray:rw
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

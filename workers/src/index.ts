@@ -2,13 +2,16 @@
  * Vany - Unified Cloudflare Worker
  *
  * Path-based routing (primary):
- *   curl vany.sh            -> start.sh (interactive menu)
+ *   curl vany.sh            -> Thin TUI client (x-client)
  *   curl vany.sh/reality    -> start.sh with VANY_PROTOCOL="reality"
+ *   curl vany.sh/tui/*      -> Server-rendered ANSI TUI pages
  *   curl vany.sh/dnstt/setup/linux -> DNSTT client setup script
  *
  * Subdomain routing (backward compat):
  *   curl reality.vany.sh    -> same as vany.sh/reality
  */
+
+import { handleTuiRequest } from './tui/index.js';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 
@@ -154,6 +157,12 @@ export default {
         return Response.json({ status: 'ok', timestamp: Date.now() }, { headers: corsHeaders });
       }
 
+      // TUI routes: /tui/*
+      if (url.pathname.startsWith('/tui/') || url.pathname === '/tui') {
+        const tuiResponse = await handleTuiRequest(request, env, url.pathname, url);
+        if (tuiResponse) return tuiResponse;
+      }
+
       const segments = url.pathname.slice(1).split('/').filter(Boolean);
       const firstSegment = segments[0] || '';
       const config = SERVICES[firstSegment];
@@ -192,10 +201,15 @@ export default {
         }, { headers: corsHeaders });
       }
 
-      // CLI tools: serve start.sh
+      // CLI tools: serve thin TUI client (new) or start.sh for protocol shortcuts
       const ua = (request.headers.get('User-Agent') || '').toLowerCase();
       const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
       if (isCli) {
+        // Root path: serve TUI client; protocol paths: serve start.sh with protocol
+        if (!config && !firstSegment) {
+          const tuiClient = await handleTuiRequest(request, env, '/tui/client', url);
+          if (tuiClient) return tuiClient;
+        }
         return serveStartScript(config ? firstSegment : undefined);
       }
 
