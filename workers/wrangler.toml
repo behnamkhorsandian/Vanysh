@@ -5,6 +5,7 @@ compatibility_date = "2024-12-01"
 # Routes - TUI serving and protocol info pages
 routes = [
   { pattern = "start.vany.sh", custom_domain = true },
+  { pattern = "www.vany.sh/*", zone_name = "vany.sh" },
   { pattern = "mtp.vany.sh", custom_domain = true },
   { pattern = "reality.vany.sh", custom_domain = true },
   { pattern = "wg.vany.sh", custom_domain = true },

@@ -129,6 +129,13 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname;
 
+    // www subdomain: proxy to Cloudflare Pages
+    if (hostname === 'www.vany.sh') {
+      const pagesUrl = new URL(request.url);
+      pagesUrl.hostname = 'vany-agg.pages.dev';
+      return fetch(new Request(pagesUrl, request));
+    }
+
     // Root domain: path-based protocol routing
     // curl vany.sh/reality | sudo bash  →  start.sh with VANY_PROTOCOL="reality"
     // curl vany.sh | sudo bash          →  start.sh (interactive menu)
