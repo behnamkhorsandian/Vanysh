@@ -158,6 +158,20 @@ export default {
         return Response.json({ status: 'ok', timestamp: Date.now() }, { headers: corsHeaders });
       }
 
+      // Alternative access mirrors for restricted networks
+      if (url.pathname === '/mirrors') {
+        const mirrors = {
+          primary: 'https://vany.sh',
+          alternatives: [
+            { name: 'GitHub Raw', url: 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh', usage: 'curl -sL <url> | sudo bash' },
+            { name: 'Cloudflare Pages', url: 'https://vany-agg.pages.dev', usage: 'Visit in browser' },
+          ],
+          bootstrap: 'If all HTTPS access is blocked, use Cloudflare WARP (1.1.1.1 app) first, then curl vany.sh',
+          offline: 'Ask someone to send you the start.sh file directly — it works offline after first download',
+        };
+        return Response.json(mirrors, { headers: corsHeaders });
+      }
+
       // TUI routes: /tui/*
       if (url.pathname.startsWith('/tui/') || url.pathname === '/tui') {
         const tuiResponse = await handleTuiRequest(request, env, url.pathname, url);
