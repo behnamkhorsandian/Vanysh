@@ -16,6 +16,7 @@
 import { pageProtocols } from "./pages/protocols.js";
 import { pageInstall } from "./pages/install.js";
 import { pageHelp } from "./pages/help.js";
+import { pageLanding } from "./pages/landing.js";
 import { splash } from "./splash.js";
 import { CLEAR, HIDE_CURSOR, SHOW_CURSOR, HOME } from "./ansi.js";
 import { frame } from "./frame.js";
@@ -67,6 +68,11 @@ export async function handleTuiRequest(
   url: URL,
 ): Promise<Response | null> {
   const { cols, rows, stream, interactive, state } = parseParams(url);
+
+  // /tui/landing — static ANSI landing page (logo + endpoint table)
+  if (path === "/tui/landing") {
+    return new Response(pageLanding(), { headers: TEXT_HEADERS });
+  }
 
   // /tui/client — serve the bash client script
   if (path === "/tui/client" || path === "/tui/x") {

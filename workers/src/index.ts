@@ -2,7 +2,8 @@
  * Vany - Unified Cloudflare Worker
  *
  * Path-based routing (primary):
- *   curl vany.sh            -> Thin TUI client (x-client)
+ *   curl vany.sh            -> Static landing page (logo + endpoints)
+ *   curl vany.sh | sudo bash -> Thin TUI client (via /tui/client)
  *   curl vany.sh/reality    -> start.sh with VANY_PROTOCOL="reality"
  *   curl vany.sh/tui/*      -> Server-rendered ANSI TUI pages
  *   curl vany.sh/dnstt/setup/linux -> DNSTT client setup script
@@ -224,10 +225,10 @@ export default {
       const ua = (request.headers.get('User-Agent') || '').toLowerCase();
       const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
       if (isCli) {
-        // Root path: serve TUI client
+        // Root path: serve static landing page (logo + endpoints)
         if (!firstSegment) {
-          const tuiClient = await handleTuiRequest(request, env, '/tui/client', url);
-          if (tuiClient) return tuiClient;
+          const landing = await handleTuiRequest(request, env, '/tui/landing', url);
+          if (landing) return landing;
         }
         // Known protocol: serve start.sh with that protocol
         if (config) {
