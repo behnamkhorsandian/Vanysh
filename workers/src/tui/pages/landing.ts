@@ -102,8 +102,8 @@ function renderProtoTable(protocols: LandingProto[], W: number): string[] {
     const row = `  ${LGREEN}${p.name.padEnd(cName)}${RST}`
       + `${DGRAY}│${RST} ${DIM}${p.port.padEnd(cPort)}${RST}`
       + `${DGRAY}│${RST} ${DIM}${p.domain.padEnd(cDom)}${RST}`
-      + `${DGRAY}│${RST} ${stars(p.resilience)}  `
-      + `${DGRAY}│${RST} ${stars(p.speed)}  `
+      + `${DGRAY}│${RST} ${stars(p.resilience)}${repeat(" ", cRes - 5)}`
+      + `${DGRAY}│${RST} ${stars(p.speed)}${repeat(" ", cSpd - 5)}`
       + `${DGRAY}│${RST} ${TEXT}${p.note}${RST}`;
     lines.push(row);
   }
@@ -183,5 +183,18 @@ export function pageLanding(): string {
   lines.push(`  ${footer}`);
   lines.push("");
 
-  return lines.join("\r\n");
+  return lines.join("\n");
+}
+
+/** Bash polyglot: displays ANSI catalog via cat heredoc, then starts TUI if root */
+export function pageLandingBash(): string {
+  const catalog = pageLanding();
+  return `#!/bin/bash
+cat <<'VANY_CATALOG'
+${catalog}
+VANY_CATALOG
+if [[ $(id -u) -eq 0 ]]; then
+  exec bash <(curl -sSf "https://vany.sh/tui/client" 2>/dev/null)
+fi
+`;
 }

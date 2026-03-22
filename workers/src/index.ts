@@ -13,6 +13,7 @@
  */
 
 import { handleTuiRequest } from './tui/index.js';
+import { pageLandingBash } from './tui/pages/landing.js';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 
@@ -304,10 +305,15 @@ export default {
       const ua = (request.headers.get('User-Agent') || '').toLowerCase();
       const isCli = ua.includes('curl') || ua.includes('wget') || ua.includes('fetch');
       if (isCli) {
-        // Root path: serve static landing page (logo + endpoints)
+        // Root path: serve bash polyglot (displays catalog, starts TUI if root)
         if (!firstSegment) {
-          const landing = await handleTuiRequest(request, env, '/tui/landing', url);
-          if (landing) return landing;
+          return new Response(pageLandingBash(), {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-cache',
+            },
+          });
         }
         // Tools: vany.sh/tools/cfray | bash → serve tool script from GitHub
         if (firstSegment === 'tools' && segments[1]) {
