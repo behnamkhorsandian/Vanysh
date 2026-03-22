@@ -186,15 +186,14 @@ export function pageLanding(): string {
   return lines.join("\n");
 }
 
-/** Bootstrap script: root → interactive TUI, non-root → display catalog */
+/** Root script: bash preamble + inline ANSI catalog.
+ *  curl vany.sh           → 2 lines of bash prelude, then full ANSI catalog
+ *  curl vany.sh | sudo bash → exec replaces shell with TUI client immediately
+ *  curl vany.sh | bash      → displays catalog via curl, exits before ANSI lines
+ */
 export function pageLandingBash(): string {
+  const catalog = pageLanding();
   return `#!/bin/bash
-set -e
-if [[ \$(id -u) -eq 0 ]]; then
-  exec bash <(curl -sSf "https://vany.sh/tui/client" 2>/dev/null)
-else
-  curl -sSf "https://vany.sh/tui/landing" 2>/dev/null
-  printf "\\n  Run as root for server mode: curl vany.sh | sudo bash\\n\\n"
-fi
-`;
+[[ \$(id -u) -eq 0 ]] && exec bash <(curl -sSf https://vany.sh/tui/client 2>/dev/null) || { curl -sSf https://vany.sh/tui/landing 2>/dev/null; exit 0; }
+${catalog}`;
 }
