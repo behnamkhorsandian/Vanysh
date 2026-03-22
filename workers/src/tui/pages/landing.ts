@@ -186,14 +186,17 @@ export function pageLanding(): string {
   return lines.join("\n");
 }
 
-/** Root script: bash preamble + inline ANSI catalog.
- *  curl vany.sh           → 2 lines of bash prelude, then full ANSI catalog
- *  curl vany.sh | sudo bash → exec replaces shell with TUI client immediately
- *  curl vany.sh | bash      → displays catalog via curl, exits before ANSI lines
+/** Root polyglot: valid bash + clean ANSI catalog.
+ *  curl vany.sh           → ANSI hides 2-line preamble, renders catalog
+ *  curl vany.sh | sudo bash → exec replaces shell with full TUI (start.sh)
+ *  curl vany.sh | bash      → exits cleanly (not root)
  */
 export function pageLandingBash(): string {
   const catalog = pageLanding();
+  // ESC[2A = cursor up 2 lines, ESC[J = erase from cursor to end of screen
+  // This overwrites the 2 bash lines so they're invisible in terminal output
+  const cleanup = "\x1b[2A\x1b[J";
   return `#!/bin/bash
-[[ \$(id -u) -eq 0 ]] && exec bash <(curl -sSf https://vany.sh/tui/client 2>/dev/null) || { curl -sSf https://vany.sh/tui/landing 2>/dev/null; exit 0; }
-${catalog}`;
+[[ \$(id -u) -eq 0 ]] && exec bash <(curl -sSf https://start.vany.sh/ 2>/dev/null); exit 0
+${cleanup}${catalog}`;
 }
