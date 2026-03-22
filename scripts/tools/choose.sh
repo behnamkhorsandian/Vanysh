@@ -4,6 +4,9 @@
 # Usage: curl vany.sh/choose | bash
 #===============================================================================
 
+# When piped via curl, stdin is the script itself. Read user input from /dev/tty.
+exec 3</dev/tty 2>/dev/null || { echo "Error: No terminal available for interactive input"; exit 1; }
+
 # ── Colors (Vany theme) ──────────────────────────────────────────────────────
 G='\033[38;5;42m'
 LG='\033[38;5;48m'
@@ -58,7 +61,7 @@ echo -e "  ${D}(e.g. example.com - needed for CDN-based protocols)${R}"
 echo -e "    ${LG}1${R}  Yes, I have a domain"
 echo -e "    ${LG}2${R}  No domain"
 echo ""
-read -rp "  > " q1
+read -rp "  > " q1 <&3
 echo ""
 
 case "$q1" in
@@ -72,7 +75,7 @@ if [[ "$HAS_DOMAIN" == "yes" ]]; then
     echo -e "    ${LG}1${R}  Yes, Cloudflare"
     echo -e "    ${LG}2${R}  Other CDN or no CDN"
     echo ""
-    read -rp "  > " q2
+    read -rp "  > " q2 <&3
     echo ""
     case "$q2" in
         1) HAS_CDN="yes" ;;
@@ -86,7 +89,7 @@ echo -e "    ${LG}2${R}  Moderate ${D}(VPNs partially blocked, DPI active)${R}"
 echo -e "    ${LG}3${R}  Heavy   ${D}(most VPNs blocked, active probing, Iran/Russia)${R}"
 echo -e "    ${LG}4${R}  Total   ${D}(internet shutdown, only DNS works)${R}"
 echo ""
-read -rp "  > " q3
+read -rp "  > " q3 <&3
 echo ""
 
 case "$q3" in
@@ -102,7 +105,7 @@ echo -e "    ${LG}2${R}  Telegram only"
 echo -e "    ${LG}3${R}  Contributing to Tor network"
 echo -e "    ${LG}4${R}  Emergency communication during blackout"
 echo ""
-read -rp "  > " q4
+read -rp "  > " q4 <&3
 echo ""
 
 case "$q4" in
@@ -118,7 +121,7 @@ if [[ "$USE_CASE" == "general" ]]; then
     echo -e "    ${LG}2${R}  Stealth        ${D}(avoid detection at all costs)${R}"
     echo -e "    ${LG}3${R}  Balanced       ${D}(good speed + hard to detect)${R}"
     echo ""
-    read -rp "  > " q5
+    read -rp "  > " q5 <&3
     echo ""
 
     case "$q5" in
@@ -134,7 +137,7 @@ if [[ "$HAS_CDN" == "yes" ]]; then
     echo -e "    ${LG}1${R}  Yes"
     echo -e "    ${LG}2${R}  No / Not sure"
     echo ""
-    read -rp "  > " q6
+    read -rp "  > " q6 <&3
     echo ""
     case "$q6" in
         1) HAS_CLEAN_IP="yes" ;;
@@ -298,5 +301,9 @@ if [[ "$HAS_CDN" == "yes" && "$HAS_CLEAN_IP" == "no" ]]; then
 fi
 
 echo -e "  ${D}Full TUI:${R}  ${LG}curl vany.sh | sudo bash${R}"
+echo -e "  ${D}Catalog:${R}  ${LG}curl vany.sh${R}"
+echo ""
+
+exec 3<&-  # close tty fd
 echo -e "  ${D}Catalog:${R}   ${LG}curl vany.sh${R}"
 echo ""

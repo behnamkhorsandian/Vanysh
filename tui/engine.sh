@@ -562,6 +562,14 @@ _build_sidebar() {
         h_color="${C_GREEN}${C_BOLD}"
     fi
     _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}h${C_RST} ${h_color}Help${C_RST}")
+
+    local c_prefix="  "
+    local c_color="${dim_prefix}${C_TEXT}"
+    if [[ $_SIDEBAR_PAGE == "choose" ]]; then
+        c_prefix="${C_GREEN}>${C_RST} "
+        c_color="${C_GREEN}${C_BOLD}"
+    fi
+    _SIDEBAR_LINES+=("${c_prefix}${C_LGREEN}c${C_RST} ${c_color}Choose${C_RST}")
 }
 
 #-------------------------------------------------------------------------------

@@ -42,12 +42,24 @@ download_libs() {
     mkdir -p "$LIB_DIR"
 
     local libs="common.sh cloud.sh bootstrap.sh xray.sh selector.sh"
+    local pids=()
     for lib in $libs; do
-        if ! curl -sfL "$GITHUB_RAW/lib/$lib" -o "$LIB_DIR/$lib" 2>/dev/null; then
-            echo "ERROR: Failed to download $lib"
-            exit 1
+        curl -sfL "$GITHUB_RAW/lib/$lib" -o "$LIB_DIR/$lib" 2>/dev/null &
+        pids+=($!)
+    done
+
+    # Wait for all downloads
+    local failed=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            ((failed++))
         fi
     done
+
+    if [[ $failed -gt 0 ]]; then
+        echo "ERROR: Failed to download some library files"
+        exit 1
+    fi
 
     # Source libraries
     for lib in $libs; do
@@ -59,7 +71,11 @@ download_libs() {
 download_tui() {
     mkdir -p "$TUI_DL_DIR/pages"
     mkdir -p "$TUI_DL_DIR/content/docs"
+    mkdir -p "$TUI_DL_DIR/banners"
 
+    local pids=()
+
+    # Core TUI files
     local tui_files=(
         "tui/theme.sh"
         "tui/engine.sh"
@@ -77,22 +93,33 @@ download_tui() {
     for f in "${tui_files[@]}"; do
         local basename="${f#tui/}"
         local dest="$TUI_DL_DIR/$basename"
-        if ! curl -sfL "$GITHUB_RAW/$f" -o "$dest" 2>/dev/null; then
-            echo "ERROR: Failed to download $f"
-            return 1
-        fi
+        curl -sfL "$GITHUB_RAW/$f" -o "$dest" 2>/dev/null &
+        pids+=($!)
     done
 
-    # Download banners
-    mkdir -p "$TUI_DL_DIR/banners"
+    # Banners (parallel)
     for banner in logo menu setup reality ws wireguard dnstt mtp conduit sos lionsun; do
-        curl -sfL "$GITHUB_RAW/banners/${banner}.txt" -o "$TUI_DL_DIR/banners/${banner}.txt" 2>/dev/null || true
+        curl -sfL "$GITHUB_RAW/banners/${banner}.txt" -o "$TUI_DL_DIR/banners/${banner}.txt" 2>/dev/null &
+        pids+=($!)
     done
 
-    # Download protocol doc files
+    # Protocol docs (parallel)
     for doc in reality wg ws mtp dnstt conduit vray sos; do
-        curl -sfL "$GITHUB_RAW/tui/content/docs/${doc}.txt" -o "$TUI_DL_DIR/content/docs/${doc}.txt" 2>/dev/null || true
+        curl -sfL "$GITHUB_RAW/tui/content/docs/${doc}.txt" -o "$TUI_DL_DIR/content/docs/${doc}.txt" 2>/dev/null &
+        pids+=($!)
     done
+
+    # Wait for all downloads
+    local failed=0
+    for pid in "${pids[@]}"; do
+        wait "$pid" || ((failed++))
+    done
+
+    # Verify critical files exist
+    if [[ ! -f "$TUI_DL_DIR/main.sh" || ! -f "$TUI_DL_DIR/engine.sh" || ! -f "$TUI_DL_DIR/theme.sh" ]]; then
+        echo "ERROR: Failed to download critical TUI files"
+        return 1
+    fi
 
     return 0
 }

@@ -144,39 +144,60 @@ echo ""
 echo -e "  ${O}${B}DNS Resolver${R}"
 echo -e "  ${D}────────────────────────────────────────${R}"
 
-# Auto-install dig if missing
+# Auto-install dig if missing (silently — don't clutter output)
 if ! command -v dig &>/dev/null && ! command -v nslookup &>/dev/null; then
-    echo -e "  ${D}Installing DNS tools...${R}"
-    if command -v apt-get &>/dev/null; then
-        sudo apt-get install -y -qq dnsutils 2>/dev/null || apt-get install -y -qq dnsutils 2>/dev/null || true
-    elif command -v yum &>/dev/null; then
-        sudo yum install -y -q bind-utils 2>/dev/null || yum install -y -q bind-utils 2>/dev/null || true
-    elif command -v apk &>/dev/null; then
-        sudo apk add --quiet bind-tools 2>/dev/null || apk add --quiet bind-tools 2>/dev/null || true
-    elif command -v brew &>/dev/null; then
-        brew install --quiet bind 2>/dev/null || true
-    elif command -v pacman &>/dev/null; then
-        sudo pacman -S --noconfirm bind-tools 2>/dev/null || pacman -S --noconfirm bind-tools 2>/dev/null || true
+    # Only attempt install if we can get root without a password prompt
+    can_install=false
+    if [[ $EUID -eq 0 ]]; then
+        can_install=true
+    elif command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
+        can_install=true
+    fi
+
+    if $can_install; then
+        SUDO=""
+        [[ $EUID -ne 0 ]] && SUDO="sudo"
+        if command -v apt-get &>/dev/null; then
+            $SUDO apt-get install -y -qq dnsutils &>/dev/null || true
+        elif command -v yum &>/dev/null; then
+            $SUDO yum install -y -q bind-utils &>/dev/null || true
+        elif command -v apk &>/dev/null; then
+            $SUDO apk add --quiet bind-tools &>/dev/null || true
+        elif command -v brew &>/dev/null; then
+            brew install --quiet bind &>/dev/null || true
+        elif command -v pacman &>/dev/null; then
+            $SUDO pacman -S --noconfirm bind-tools &>/dev/null || true
+        fi
     fi
 fi
 
 if command -v dig &>/dev/null; then
-    DNS_IP=$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null | head -1) || DNS_IP=""
-    if [[ -n "$DNS_IP" ]]; then
+    DNS_IP=$(dig +short +timeout=3 myip.opendns.com @resolver1.opendns.com 2>/dev/null | head -1) || DNS_IP=""
+    if [[ -z "$DNS_IP" ]]; then
+        # Fallback: try whoami.akamai.net
+        DNS_IP=$(dig +short +timeout=3 whoami.akamai.net @ns1-1.akamaitech.net 2>/dev/null | head -1) || DNS_IP=""
+    fi
+    if [[ -z "$DNS_IP" ]]; then
+        # Fallback: just show the system's configured DNS server
+        DNS_SERVER=$(dig +timeout=3 example.com 2>/dev/null | grep "SERVER:" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1) || DNS_SERVER=""
+        if [[ -n "$DNS_SERVER" ]]; then
+            printf "  %-16s %s\n" "DNS Server:" "$DNS_SERVER"
+        else
+            echo -e "  ${D}Could not determine DNS resolver${R}"
+        fi
+    else
         printf "  %-16s %s\n" "DNS Exit IP:" "$DNS_IP"
         if [[ "$DNS_IP" == "$IP" ]]; then
             echo -e "  ${D}DNS resolves through same IP (no leak)${R}"
         else
             echo -e "  ${RED}DNS exits through different IP - possible leak${R}"
         fi
-    else
-        echo -e "  ${D}Could not determine DNS resolver${R}"
     fi
 elif command -v nslookup &>/dev/null; then
     DNS_SERVER=$(nslookup example.com 2>/dev/null | grep "Server:" | awk '{print $2}' | head -1) || DNS_SERVER=""
     [[ -n "$DNS_SERVER" ]] && printf "  %-16s %s\n" "DNS Server:" "$DNS_SERVER"
 else
-    echo -e "  ${D}Install 'dig' or 'nslookup' for DNS leak detection${R}"
+    echo -e "  ${D}Install 'dig' for DNS leak detection: sudo apt install dnsutils${R}"
 fi
 
 # Save/compare mode

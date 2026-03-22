@@ -7,6 +7,9 @@
 
 set -e
 
+# When piped via curl, stdin is the script itself. Read user input from /dev/tty.
+exec 3</dev/tty 2>/dev/null || { echo "Error: No terminal available for interactive input"; exit 1; }
+
 PROTOCOL="${VANY_PROTOCOL:-}"
 VANY_DIR="/opt/vany"
 STATE_FILE="$VANY_DIR/state.json"
@@ -353,7 +356,7 @@ do_install() {
         ws)
             install_xray
             # WS inbound needs domain
-            read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain
+            read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain <&3
             if [[ -n "$ws_domain" ]]; then
                 add_ws_inbound "$ws_domain"
             fi
@@ -390,14 +393,14 @@ do_install() {
             ;;
         http-obfs)
             install_xray
-            read -rp "  Enter CDN domain: " cdn_domain
+            read -rp "  Enter CDN domain: " cdn_domain <&3
             if [[ -n "$cdn_domain" ]]; then
                 add_http_obfs_inbound "$cdn_domain"
             fi
             ;;
         vray)
             install_xray
-            read -rp "  Enter your domain: " vray_domain
+            read -rp "  Enter your domain: " vray_domain <&3
             if [[ -n "$vray_domain" ]]; then
                 add_vray_inbound "$vray_domain"
             fi
@@ -424,7 +427,7 @@ do_install() {
 
 do_add_user() {
     section "Add User"
-    read -rp "  Username: " username
+    read -rp "  Username: " username <&3
     [[ -z "$username" ]] && { err "Username required"; return; }
 
     do_download_script
@@ -440,7 +443,7 @@ do_add_user() {
 
 do_remove_user() {
     section "Remove User"
-    read -rp "  Username to remove: " username
+    read -rp "  Username to remove: " username <&3
     [[ -z "$username" ]] && { err "Username required"; return; }
 
     do_download_script
@@ -519,7 +522,7 @@ do_restart() {
 do_uninstall() {
     section "Uninstall ${name}"
     echo -e "  ${RED}This will stop and remove the container.${R}"
-    read -rp "  Are you sure? (y/N): " confirm
+    read -rp "  Are you sure? (y/N): " confirm <&3
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         if [[ -n "$container_name" ]]; then
             docker stop "$container_name" 2>/dev/null || true
@@ -548,7 +551,7 @@ do_uninstall() {
 
 while true; do
     show_menu
-    read -rp "  > " choice
+    read -rp "  > " choice <&3
     echo ""
 
     case "$choice" in

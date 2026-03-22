@@ -294,6 +294,9 @@ _run_navigation() {
                     _help)
                         current_page="help"
                         ;;
+                    _choose)
+                        current_page="choose"
+                        ;;
                     *)
                         current_proto="$SELECTED_PROTOCOL"
                         # Handle the action directly — no separate protocol page
@@ -418,6 +421,24 @@ _run_navigation() {
                 if [[ $hrc -ne 0 ]]; then
                     return 0  # quit from help
                 fi
+                current_page="main"
+                current_proto=""
+                ;;
+
+            choose)
+                # Run the interactive protocol chooser
+                printf '\033[?25h'  # show cursor
+                clear_screen
+                local choose_script="/tmp/vany-choose.sh"
+                if curl -sfL "$GITHUB_RAW/scripts/tools/choose.sh" -o "$choose_script" 2>/dev/null; then
+                    bash "$choose_script" </dev/tty
+                else
+                    echo "  Failed to download protocol chooser"
+                fi
+                echo ""
+                echo -e "  ${C_DIM}Press any key to return to TUI...${C_RST}"
+                read -rsn1 </dev/tty
+                printf '\033[?25l'  # hide cursor
                 current_page="main"
                 current_proto=""
                 ;;
