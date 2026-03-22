@@ -1,4 +1,4 @@
-# Vany
+# Vanysh
 [![Build SOS Binaries](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/sos-build.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/sos-build.yml)
 [![Deploy](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/deploy.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -6,7 +6,7 @@
 
 Multi-protocol censorship bypass toolkit. Deploy proxy services on any VM, connect from restricted networks, and scan for clean routes -- all from the terminal.
 
-**Website:** [vany.sh](https://www.vany.sh)
+[![Screenshot of Vany TUI](https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/github.png)](https://www.vany.sh)
 
 ## Three Entry Points
 
@@ -46,7 +46,7 @@ curl vany.sh/tools/cfray | bash     # Client tools: scanners & diagnostics
 | Conduit | Psiphon relay | No | `curl vany.sh/conduit \| sudo bash` |
 | Tor Bridge | obfs4 bridge | No | `curl vany.sh/tor-bridge \| sudo bash` |
 | Snowflake | Tor relay proxy | No | `curl vany.sh/snowflake \| sudo bash` |
-| SOS | Emergency chat | Yes (NS) | `curl vany.sh/sos \| bash` |
+| SafeBox | Encrypted dead-drop | No | [vany.sh/box](https://vany.sh/box) |
 
 ### Client Tools (run from restricted network)
 
@@ -144,7 +144,7 @@ Port 22 (TCP)                  -> SSH Tunnel (SOCKS5)
 - [DNS Setup](docs/dns.md)
 - [Workers Deployment](docs/workers.md)
 - [Spot VM Recovery](docs/spot-vm-recovery.md)
-- Protocol Guides: [Reality](docs/protocols/reality.md) | [WS+CDN](docs/protocols/ws.md) | [WireGuard](docs/protocols/wg.md) | [DNSTT](docs/protocols/dnstt.md) | [V2Ray](docs/protocols/vray.md) | [MTP](docs/protocols/mtp.md) | [Conduit](docs/protocols/conduit.md) | [SOS](docs/protocols/sos.md)
+- Protocol Guides: [Reality](docs/protocols/reality.md) | [WS+CDN](docs/protocols/ws.md) | [WireGuard](docs/protocols/wg.md) | [DNSTT](docs/protocols/dnstt.md) | [V2Ray](docs/protocols/vray.md) | [MTP](docs/protocols/mtp.md) | [Conduit](docs/protocols/conduit.md)
 
 ## License
 
