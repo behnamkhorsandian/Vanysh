@@ -186,15 +186,15 @@ export function pageLanding(): string {
   return lines.join("\n");
 }
 
-/** Bash polyglot: displays ANSI catalog via cat heredoc, then starts TUI if root */
+/** Bootstrap script: root → interactive TUI, non-root → display catalog */
 export function pageLandingBash(): string {
-  const catalog = pageLanding();
   return `#!/bin/bash
-cat <<'VANY_CATALOG'
-${catalog}
-VANY_CATALOG
-if [[ $(id -u) -eq 0 ]]; then
+set -e
+if [[ \$(id -u) -eq 0 ]]; then
   exec bash <(curl -sSf "https://vany.sh/tui/client" 2>/dev/null)
+else
+  curl -sSf "https://vany.sh/tui/landing" 2>/dev/null
+  printf "\\n  Run as root for server mode: curl vany.sh | sudo bash\\n\\n"
 fi
 `;
 }
