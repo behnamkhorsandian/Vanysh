@@ -268,7 +268,7 @@ while IFS='|' read -r score proto; do
         top_proto="$proto"
     fi
 
-    printf "  ${LG}%-6s${R}%-21s${G}%-7s${R}${D}curl vany.sh/%-12s| sudo bash${R}%s\n" \
+    printf "  ${LG}%-6s${R}%-21s${G}%-7s${R}${D}curl vany.sh/%-12s| sudo bash${R}%b\n" \
         "#$rank" "$name" "$score" "$proto " "$marker"
 
     if [[ -n "$reason" ]]; then
@@ -301,9 +301,7 @@ if [[ "$HAS_CDN" == "yes" && "$HAS_CLEAN_IP" == "no" ]]; then
 fi
 
 echo -e "  ${D}Full TUI:${R}  ${LG}curl vany.sh | sudo bash${R}"
-echo -e "  ${D}Catalog:${R}  ${LG}curl vany.sh${R}"
+echo -e "  ${D}Catalog:${R}   ${LG}curl vany.sh${R}"
 echo ""
 
 exec 3<&-  # close tty fd
-echo -e "  ${D}Catalog:${R}   ${LG}curl vany.sh${R}"
-echo ""

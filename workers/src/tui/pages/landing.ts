@@ -44,27 +44,27 @@ interface LandingProto {
 }
 
 const SERVER_PROTOCOLS: LandingProto[] = [
-  { name: "VLESS+REALITY",   slug: "reality",    desc: "TLS camouflage proxy",      port: "443",    domain: "No",  resilience: 4, speed: 5 },
-  { name: "VLESS+WS+CDN",    slug: "ws",         desc: "WebSocket behind CDN",      port: "80",     domain: "Yes", resilience: 5, speed: 4 },
-  { name: "Hysteria v2",     slug: "hysteria",    desc: "QUIC, fast on lossy nets",  port: "UDP",    domain: "No",  resilience: 3, speed: 5 },
-  { name: "WireGuard",       slug: "wg",          desc: "Kernel-level VPN",          port: "51820",  domain: "No",  resilience: 2, speed: 5 },
-  { name: "VLESS+TLS",       slug: "vray",        desc: "V2Ray with real TLS",       port: "443",    domain: "Yes", resilience: 4, speed: 5 },
-  { name: "HTTP Obfuscation",slug: "http-obfs",   desc: "CDN host header spoof",     port: "80",     domain: "CDN", resilience: 5, speed: 4 },
-  { name: "MTProto",         slug: "mtp",         desc: "Telegram-only proxy",       port: "443",    domain: "No",  resilience: 3, speed: 4 },
-  { name: "SSH Tunnel",      slug: "ssh-tunnel",  desc: "SOCKS5 over SSH",           port: "22",     domain: "No",  resilience: 2, speed: 3 },
+  { name: "VLESS+REALITY",   slug: "reality",    desc: "TLS camouflage, borrows certs",  port: "443",    domain: "No",  resilience: 4, speed: 5 },
+  { name: "VLESS+WS+CDN",    slug: "ws",         desc: "WebSocket behind Cloudflare",    port: "80",     domain: "Yes", resilience: 5, speed: 4 },
+  { name: "Hysteria v2",     slug: "hysteria",    desc: "QUIC, fast on lossy networks",   port: "UDP",    domain: "No",  resilience: 3, speed: 5 },
+  { name: "WireGuard",       slug: "wg",          desc: "Kernel-level full-device VPN",   port: "51820",  domain: "No",  resilience: 2, speed: 5 },
+  { name: "VLESS+TLS",       slug: "vray",        desc: "V2Ray with real TLS certs",      port: "443",    domain: "Yes", resilience: 4, speed: 5 },
+  { name: "HTTP Obfuscation",slug: "http-obfs",   desc: "CDN host header spoofing",       port: "80",     domain: "CDN", resilience: 5, speed: 4 },
+  { name: "MTProto",         slug: "mtp",         desc: "Telegram-only, Fake-TLS",        port: "443",    domain: "No",  resilience: 3, speed: 4 },
+  { name: "SSH Tunnel",      slug: "ssh-tunnel",  desc: "Basic SOCKS5 over SSH",          port: "22",     domain: "No",  resilience: 2, speed: 3 },
 ];
 
 const EMERGENCY_PROTOCOLS: LandingProto[] = [
-  { name: "DNSTT",           slug: "dnstt",       desc: "DNS tunnel, last resort",   port: "53",     domain: "Yes", resilience: 5, speed: 1 },
-  { name: "Slipstream",      slug: "slipstream",  desc: "Fast DNS tunnel",           port: "53",     domain: "Yes", resilience: 5, speed: 2 },
-  { name: "NoizDNS",         slug: "noizdns",     desc: "DPI-resistant DNS",         port: "53",     domain: "Yes", resilience: 5, speed: 2 },
+  { name: "DNSTT",           slug: "dnstt",       desc: "DNS tunnel, works in shutdowns", port: "53",     domain: "Yes", resilience: 5, speed: 1 },
+  { name: "Slipstream",      slug: "slipstream",  desc: "Fast DNS tunnel with QUIC",      port: "53",     domain: "Yes", resilience: 5, speed: 2 },
+  { name: "NoizDNS",         slug: "noizdns",     desc: "DPI-resistant DNS tunnel",       port: "53",     domain: "Yes", resilience: 5, speed: 2 },
 ];
 
 const RELAY_PROTOCOLS: LandingProto[] = [
-  { name: "Conduit",         slug: "conduit",     desc: "Psiphon relay",             port: "auto",   domain: "No",  resilience: 5, speed: 4 },
-  { name: "Tor Bridge",      slug: "tor-bridge",  desc: "obfs4 Tor bridge",          port: "9001",   domain: "No",  resilience: 4, speed: 2 },
-  { name: "Snowflake",       slug: "snowflake",   desc: "WebRTC Tor relay",          port: "--",     domain: "No",  resilience: 4, speed: 2 },
-  { name: "SOS Chat",        slug: "sos",         desc: "E2E encrypted chat",        port: "8899",   domain: "Yes", resilience: 5, speed: 1 },
+  { name: "Conduit",         slug: "conduit",     desc: "Psiphon relay, auto-config",     port: "auto",   domain: "No",  resilience: 5, speed: 4 },
+  { name: "Tor Bridge",      slug: "tor-bridge",  desc: "obfs4 bridge for Tor network",   port: "9001",   domain: "No",  resilience: 4, speed: 2 },
+  { name: "Snowflake",       slug: "snowflake",   desc: "WebRTC Tor relay, zero conf",    port: "--",     domain: "No",  resilience: 4, speed: 2 },
+  { name: "SOS Chat",        slug: "sos",         desc: "E2E encrypted chat over DNS",    port: "8899",   domain: "Yes", resilience: 5, speed: 1 },
 ];
 
 interface ToolDef {
@@ -82,7 +82,7 @@ const CLIENT_TOOLS: ToolDef[] = [
 
 function renderProtoTable(protocols: LandingProto[], W: number): string[] {
   const lines: string[] = [];
-  const cName = 16, cDesc = 24, cPort = 6, cDom = 4, cRes = 7, cSpd = 7;
+  const cName = 18, cDesc = 30, cPort = 7, cDom = 5, cRes = 7, cSpd = 7;
 
   // Header
   lines.push(`  ${ORANGE}${BOLD}${"Protocol".padEnd(cName)}${"Description".padEnd(cDesc)}${"Port".padEnd(cPort)} ${"Dom".padEnd(cDom)}${"Res".padEnd(cRes)}${"Spd".padEnd(cSpd)}${RST}${ORANGE}${BOLD}Install${RST}`);
@@ -92,7 +92,7 @@ function renderProtoTable(protocols: LandingProto[], W: number): string[] {
     const dom = p.domain === "No" ? "-" : p.domain;
     const cmd = `curl vany.sh/${p.slug} | sudo bash`;
     const row = `  ${LGREEN}${p.name.padEnd(cName)}${RST}`
-      + `${DIM}${p.desc.substring(0, cDesc - 1).padEnd(cDesc)}${RST}`
+      + `${DIM}${p.desc.padEnd(cDesc)}${RST}`
       + `${TEXT}${p.port.padEnd(cPort)}${RST} `
       + `${TEXT}${dom.padEnd(cDom)}${RST}`
       + `${stars(p.resilience)} `
