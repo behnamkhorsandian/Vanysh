@@ -408,7 +408,7 @@ exit 1
         return new Response('Not found', { status: 404 });
       }
 
-      // Network Faucet: /faucet/relay → WebSocket relay mesh for SafeBox traffic
+      // Network Faucet: /faucet/relay → WebSocket relay mesh + VPN reward
       if (url.pathname === '/faucet/relay') {
         const upgradeHeader = request.headers.get('Upgrade');
         if (!upgradeHeader || upgradeHeader.toLowerCase() !== 'websocket') {
@@ -419,12 +419,37 @@ exit 1
         (server as WebSocket).accept();
         incrStat(env.SAFEBOX, 'stats:connects', ctx);
 
+        // Generate ephemeral UUID for this relay session
+        const uuid = crypto.randomUUID();
+        const kvKey = `faucet:client:${uuid}`;
+
         (server as WebSocket).addEventListener('message', (event: MessageEvent) => {
           try {
             const msg = JSON.parse(typeof event.data === 'string' ? event.data : '');
             if (msg.type === 'register') {
-              (server as WebSocket).send(JSON.stringify({ type: 'welcome', node: msg.node }));
+              // Store UUID in KV with 2-min TTL (heartbeats refresh it)
+              const meta = JSON.stringify({ node: msg.node, created: Date.now() });
+              ctx.waitUntil(env.SAFEBOX.put(kvKey, meta, { expirationTtl: 120 }));
+
+              // Build VLESS+WS link as reward
+              const cfgRaw = env.SAFEBOX.get('faucet:config');
+              ctx.waitUntil(cfgRaw.then(raw => {
+                const cfg = raw ? JSON.parse(raw) : { domain: 'ws-origin.vany.sh', path: '/ws' };
+                const encodedPath = cfg.path.replace(/\//g, '%2F');
+                const link = `vless://${uuid}@${cfg.domain}:443?type=ws&security=tls&path=${encodedPath}&host=${cfg.domain}&sni=${cfg.domain}#faucet-${msg.node}`;
+                (server as WebSocket).send(JSON.stringify({
+                  type: 'welcome',
+                  node: msg.node,
+                  vpn: { link, uuid, ttl: 120 },
+                }));
+              }).catch(() => {
+                (server as WebSocket).send(JSON.stringify({ type: 'welcome', node: msg.node }));
+              }));
             } else if (msg.type === 'ping') {
+              // Refresh KV TTL — keep VPN alive as long as faucet is open
+              ctx.waitUntil(env.SAFEBOX.get(kvKey).then(v => {
+                if (v) env.SAFEBOX.put(kvKey, v, { expirationTtl: 120 });
+              }));
               (server as WebSocket).send(JSON.stringify({ type: 'pong' }));
             } else if (msg.type === 'ack') {
               // Relay acknowledgement from node
@@ -432,9 +457,23 @@ exit 1
           } catch { /* ignore malformed */ }
         });
 
-        (server as WebSocket).addEventListener('close', () => { /* cleanup */ });
+        (server as WebSocket).addEventListener('close', () => {
+          // KV entry will auto-expire in ~2 min, VPN access dies with it
+        });
 
         return new Response(null, { status: 101, webSocket: client });
+      }
+
+      // Faucet active clients: /faucet/active → JSON list of active UUIDs (for VPS Xray sync)
+      if (url.pathname === '/faucet/active') {
+        const corsJson = { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' };
+        if (request.method === 'OPTIONS') {
+          return new Response(null, { headers: corsJson });
+        }
+        // List all active faucet client keys
+        const list = await env.SAFEBOX.list({ prefix: 'faucet:client:' });
+        const uuids = list.keys.map(k => k.name.replace('faucet:client:', ''));
+        return Response.json({ count: uuids.length, uuids }, { headers: corsJson });
       }
 
       // Faucet CLI script: /faucet → bash script for terminal relay
@@ -695,10 +734,16 @@ WSPID=""
 cleanup() {
   echo ""
   [[ -n "\$WSPID" ]] && kill "\$WSPID" 2>/dev/null || true
+  [[ -p "\$FIFO" ]] && rm -f "\$FIFO" 2>/dev/null || true
+  [[ -f "\$OUTFILE" ]] && rm -f "\$OUTFILE" 2>/dev/null || true
+  exec 3>&- 2>/dev/null || true
   ELAPSED=\$((\$(date +%s) - START_TIME))
   MINS=\$((ELAPSED / 60))
   SECS=\$((ELAPSED % 60))
   echo -e "  \${DIM}Session ended. Relayed \${RELAYED} packets in \${MINS}m\${SECS}s.\${RST}"
+  if [[ -n "\$VPN_LINK" ]]; then
+    echo -e "  \${DIM}VPN link expired. Open Faucet again to get a new one.\${RST}"
+  fi
   exit 0
 }
 
@@ -712,9 +757,9 @@ echo ""
 echo -e "  \${DIM}Node ID:    \${RST}\${LGREEN}node-\${NODE_ID}\${RST}"
 echo -e "  \${DIM}Relay URL:  \${RST}\${BLUE}\${RELAY_URL}\${RST}"
 echo ""
-echo -e "  \${DIM}This is NOT a VPN. Your own traffic is unchanged.\${RST}"
-echo -e "  \${DIM}You are donating bandwidth so SafeBox messages\${RST}"
-echo -e "  \${DIM}can reach people in censored regions.\${RST}"
+echo -e "  \${DIM}You relay SafeBox packets for censored regions.\${RST}"
+echo -e "  \${DIM}In exchange, you get a free VPN link while the\${RST}"
+echo -e "  \${DIM}Faucet is open.\${RST}"
 echo ""
 echo -e "  \${DIM}Content is end-to-end encrypted \u2014 never visible to relays.\${RST}"
 echo -e "  \${DIM}Your IP is not exposed to SafeBox users.\${RST}"
@@ -751,12 +796,31 @@ mkfifo "\$FIFO"
 # Keep the FIFO open for writing (fd 3) so websocat doesn't get EOF
 exec 3>"\$FIFO"
 
-# Start websocat in background, reading from FIFO
-websocat "\${RELAY_URL}" < "\$FIFO" 2>/dev/null &
+# Start websocat in background, reading from FIFO, output to temp file
+OUTFILE=\$(mktemp /tmp/vany-faucet-out-XXXXXX)
+websocat "\${RELAY_URL}" < "\$FIFO" > "\$OUTFILE" 2>/dev/null &
 WSPID=\$!
 
 # Send registration
 echo '{"type":"register","node":"'"\${NODE_ID}"'"}' >&3
+
+# Wait briefly for welcome response with VPN link
+sleep 2
+VPN_LINK=""
+if [[ -f "\$OUTFILE" ]] && grep -q '"vpn"' "\$OUTFILE" 2>/dev/null; then
+  # Extract the VPN link from the welcome message
+  VPN_LINK=\$(grep -o '"link":"[^"]*"' "\$OUTFILE" | head -1 | cut -d'"' -f4)
+fi
+
+if [[ -n "\$VPN_LINK" ]]; then
+  echo -e "  \${GREEN}\${BOLD}FREE VPN EARNED\${RST}"
+  echo -e "  \${DIM}Active while your Faucet is running. Import into v2rayNG/Hiddify/Streisand.\${RST}"
+  echo ""
+  echo -e "  \${LGREEN}\${VPN_LINK}\${RST}"
+  echo ""
+  echo -e "  \${DIM}Expires ~2 min after you close the Faucet.\${RST}"
+  echo ""
+fi
 
 # Keep connection alive with heartbeat pings
 while kill -0 \$WSPID 2>/dev/null; do

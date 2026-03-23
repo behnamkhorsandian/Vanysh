@@ -166,11 +166,11 @@ export function pageLanding(): string {
   // Free services
   lines.push(divider("FREE SERVICES", W));
   lines.push("");
-  lines.push(`  ${ORANGE}${BOLD}Network Faucet (Relay Node)${RST}  ${DIM}Become a relay for SafeBox encrypted traffic.${RST}`);
+  lines.push(`  ${ORANGE}${BOLD}Network Faucet (Relay + Free VPN)${RST}  ${DIM}Relay SafeBox traffic, get a free VPN in return.${RST}`);
   lines.push(`    ${LGREEN}Browser:${RST}  ${TEXT}Open ${BLUE}https://vany.sh${RST} ${DIM}and click${RST} ${LGREEN}Faucet${RST}`);
-  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/faucet | bash${RST}   ${TEXT}(run a relay node from your terminal)${RST}`);
-  lines.push(`    ${DIM}Your browser relays opaque ciphertext — you never see the content.${RST}`);
-  lines.push(`    ${DIM}Each relay makes SafeBox harder to block and censorship-resistant.${RST}`);
+  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/faucet | bash${RST}   ${TEXT}(relay from your terminal)${RST}`);
+  lines.push(`    ${DIM}You relay encrypted SafeBox packets. In exchange, you get a VLESS+WS${RST}`);
+  lines.push(`    ${DIM}proxy link active as long as your Faucet is open.${RST}`);
   lines.push("");
   lines.push(`  ${ORANGE}${BOLD}SafeBox (Encrypted Dead-Drop)${RST}  ${DIM}Share secrets with a 6-char box ID + password. 24h TTL.${RST}`);
   lines.push(`    ${LGREEN}Browser:${RST}  ${TEXT}Open ${BLUE}https://vany.sh${RST} ${DIM}and click the${RST} ${PURPLE}lock icon${RST}`);

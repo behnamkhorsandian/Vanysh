@@ -694,6 +694,70 @@
       color: var(--accent-green);
     }
     
+    .fc-reward {
+      display: none;
+      margin-top: 12px;
+      padding: 14px;
+      background: rgba(46, 183, 135, 0.08);
+      border: 1px solid var(--accent-green);
+      border-radius: 4px;
+    }
+    .fc-reward.active { display: block; }
+    .fc-reward-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-green);
+      margin-bottom: 8px;
+    }
+    .fc-reward-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .fc-reward-link {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .fc-reward-link input {
+      flex: 1;
+      background: var(--bg-deepest);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-family: monospace;
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 3px;
+      outline: none;
+    }
+    .fc-reward-link button {
+      background: var(--accent-green);
+      color: #000;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .fc-reward-link button:hover { opacity: 0.85; }
+    .fc-reward-qr {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .fc-reward-qr canvas { border-radius: 3px; }
+    .fc-reward-hint {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      text-align: center;
+    }
+
     /* SafeBox Popup */
     .sb-popup-overlay {
       position: fixed;
@@ -2353,7 +2417,7 @@
       <div class="fc-popup-body">
         <div class="fc-banner">
           <span class="material-symbols-outlined">hub</span>
-          <span><strong>Become a relay node.</strong> Your browser forwards encrypted SafeBox packets for others. This is not a VPN &mdash; your own traffic is unchanged.</span>
+          <span><strong>Relay &amp; get free VPN.</strong> Your browser forwards encrypted SafeBox packets. In exchange, you get a free VLESS proxy link active while your Faucet is open.</span>
         </div>
         
         <div class="fc-status-panel">
@@ -2388,6 +2452,22 @@
               <div class="fc-stat-label">Data Forwarded</div>
             </div>
           </div>
+        </div>
+        
+        <div class="fc-reward" id="fc-reward">
+          <div class="fc-reward-title">
+            <span class="material-symbols-outlined" style="font-size:16px;">vpn_lock</span>
+            Free VPN &mdash; Active While Faucet Is Open
+          </div>
+          <div class="fc-reward-desc">
+            As a thank you for relaying, here's a VLESS+WS proxy link. Import it into <strong>v2rayNG</strong>, <strong>Hiddify</strong>, or <strong>Streisand</strong>. It stays active as long as your Faucet is running.
+          </div>
+          <div class="fc-reward-link">
+            <input type="text" id="fc-vpn-link" readonly value="" />
+            <button onclick="copyFCVpn()">Copy</button>
+          </div>
+          <div class="fc-reward-qr" id="fc-vpn-qr"></div>
+          <div class="fc-reward-hint">Connection expires ~2 min after you close the Faucet</div>
         </div>
         
         <div class="fc-info">
@@ -2667,7 +2747,9 @@
         fcSocket.onmessage = function(e) {
           try {
             const msg = JSON.parse(e.data);
-            if (msg.type === 'relay') {
+            if (msg.type === 'welcome' && msg.vpn && msg.vpn.link) {
+              showFCReward(msg.vpn.link);
+            } else if (msg.type === 'relay') {
               fcRelayed++;
               fcBytes += (msg.size || 0);
               fcSocket.send(JSON.stringify({ type: 'ack', id: msg.id }));
@@ -2723,6 +2805,36 @@
       fixedBtn.classList.remove('active');
       document.getElementById('fc-stats').style.display = 'none';
       document.getElementById('fc-node-id').textContent = '--';
+      hideFCReward();
+    }
+
+    function showFCReward(link) {
+      const el = document.getElementById('fc-reward');
+      document.getElementById('fc-vpn-link').value = link;
+      el.classList.add('active');
+      // Generate QR code
+      const qrEl = document.getElementById('fc-vpn-qr');
+      qrEl.innerHTML = '';
+      try {
+        const qr = new QRious({ value: link, size: 160, backgroundAlpha: 0, foreground: '#2eb787' });
+        qrEl.appendChild(qr.canvas || qr.image());
+      } catch (_) {}
+    }
+
+    function hideFCReward() {
+      const el = document.getElementById('fc-reward');
+      el.classList.remove('active');
+      document.getElementById('fc-vpn-link').value = '';
+      document.getElementById('fc-vpn-qr').innerHTML = '';
+    }
+
+    function copyFCVpn() {
+      const input = document.getElementById('fc-vpn-link');
+      navigator.clipboard.writeText(input.value).then(() => {
+        const btn = input.nextElementSibling;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+      });
     }
 
     function showFCPopup() {
