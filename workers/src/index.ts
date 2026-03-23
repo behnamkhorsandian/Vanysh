@@ -15,6 +15,7 @@
 import { handleTuiRequest } from './tui/index.js';
 import { pageLandingBash } from './tui/pages/landing.js';
 import { handleBoxCreate, handleBoxFetch, handleBoxPage } from './safebox.js';
+import { handleVless } from './vless.js';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 
@@ -408,6 +409,11 @@ exit 1
         return new Response('Not found', { status: 404 });
       }
 
+      // VLESS-over-WebSocket proxy: /vless → handled entirely in-Worker (no VPS)
+      if (url.pathname === '/vless') {
+        return handleVless(request, env);
+      }
+
       // Network Faucet: /faucet/relay → WebSocket relay mesh + VPN reward
       if (url.pathname === '/faucet/relay') {
         const upgradeHeader = request.headers.get('Upgrade');
@@ -426,39 +432,27 @@ exit 1
           try {
             const msg = JSON.parse(typeof event.data === 'string' ? event.data : '');
             if (msg.type === 'register') {
-              // Build VLESS+WS link as reward
-              const cfgRaw = env.SAFEBOX.get('faucet:config');
-              ctx.waitUntil(cfgRaw.then(raw => {
-                const cfg = raw ? JSON.parse(raw) : { domain: 'ws-origin.vany.sh', path: '/ws' };
-                // Use shared UUID from config if set, else generate per-session
-                const uuid = cfg.uuid || crypto.randomUUID();
-                const kvKey = `faucet:client:${uuid}`;
-                const meta = JSON.stringify({ node: msg.node, session: sessionId, created: Date.now() });
-                env.SAFEBOX.put(kvKey, meta, { expirationTtl: 120 });
+              // Build VLESS+WS link as reward (proxied by this Worker, no VPS needed)
+              const uuid = crypto.randomUUID();
+              const kvKey = `faucet:client:${uuid}`;
+              const meta = JSON.stringify({ node: msg.node, session: sessionId, created: Date.now() });
+              ctx.waitUntil(env.SAFEBOX.put(kvKey, meta, { expirationTtl: 120 }));
 
-                const encodedPath = cfg.path.replace(/\//g, '%2F');
-                const link = `vless://${uuid}@${cfg.domain}:443?type=ws&security=tls&path=${encodedPath}&host=${cfg.domain}&sni=${cfg.domain}#faucet-${msg.node}`;
-                (server as WebSocket).send(JSON.stringify({
-                  type: 'welcome',
-                  node: msg.node,
-                  vpn: { link, uuid, ttl: 120 },
-                }));
-              }).catch(() => {
-                (server as WebSocket).send(JSON.stringify({ type: 'welcome', node: msg.node }));
+              const domain = url.hostname;
+              const link = `vless://${uuid}@${domain}:443?type=ws&security=tls&path=%2Fvless&host=${domain}&sni=${domain}#faucet-${msg.node}`;
+              (server as WebSocket).send(JSON.stringify({
+                type: 'welcome',
+                node: msg.node,
+                vpn: { link, uuid, ttl: 120 },
               }));
             } else if (msg.type === 'ping') {
               // Refresh KV TTL — keep VPN alive as long as faucet is open
-              const cfgRaw = env.SAFEBOX.get('faucet:config');
-              ctx.waitUntil(cfgRaw.then(raw => {
-                const cfg = raw ? JSON.parse(raw) : {};
-                const uuid = cfg.uuid || msg.uuid;
-                if (uuid) {
-                  const kvKey = `faucet:client:${uuid}`;
-                  env.SAFEBOX.get(kvKey).then(v => {
-                    if (v) env.SAFEBOX.put(kvKey, v, { expirationTtl: 120 });
-                  });
-                }
-              }));
+              if (msg.uuid) {
+                const kvKey = `faucet:client:${msg.uuid}`;
+                ctx.waitUntil(env.SAFEBOX.get(kvKey).then(v => {
+                  if (v) env.SAFEBOX.put(kvKey, v, { expirationTtl: 120 });
+                }));
+              }
               (server as WebSocket).send(JSON.stringify({ type: 'pong' }));
             } else if (msg.type === 'ack') {
               // Relay acknowledgement from node
