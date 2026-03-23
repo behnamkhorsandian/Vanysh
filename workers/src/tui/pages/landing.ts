@@ -120,11 +120,14 @@ export function pageLanding(): string {
   const tagPad = Math.max(0, Math.floor((W - tagline.length) / 2));
   lines.push(`${repeat(" ", tagPad)}${DIM}${tagline}${RST}`);
   lines.push("");
+  lines.push("");
 
   // Usage
   lines.push(`  ${BOLD}${ORANGE}USAGE${RST}`);
+  lines.push("");
   lines.push(`    ${LGREEN}curl vany.sh | sudo bash${RST}   ${TEXT}Server mode - install protocols on your VPS${RST}`);
   lines.push(`    ${LGREEN}curl vany.sh | bash${RST}        ${TEXT}Client mode - connect to VPN from terminal${RST}`);
+  lines.push("");
   lines.push("");
 
   // Server protocols
@@ -132,17 +135,20 @@ export function pageLanding(): string {
   lines.push("");
   lines.push(...renderProtoTable(SERVER_PROTOCOLS, W));
   lines.push("");
+  lines.push("");
 
   // Emergency / DNS tunnels
   lines.push(divider("EMERGENCY / DNS TUNNELS", W));
   lines.push("");
   lines.push(...renderProtoTable(EMERGENCY_PROTOCOLS, W));
   lines.push("");
+  lines.push("");
 
   // Relay / community
   lines.push(divider("RELAY / COMMUNITY", W));
   lines.push("");
   lines.push(...renderProtoTable(RELAY_PROTOCOLS, W));
+  lines.push("");
   lines.push("");
 
   // Client tools
@@ -156,41 +162,62 @@ export function pageLanding(): string {
     lines.push(`  ${LGREEN}${t.name.padEnd(tName)}${RST}${DGRAY}│${RST} ${TEXT}${t.purpose.padEnd(tPurp)}${RST}${DGRAY}│${RST} ${DIM}${cmd}${RST}`);
   }
   lines.push("");
+  lines.push("");
 
   // Help choosing
   lines.push(divider("NEED HELP CHOOSING?", W));
   lines.push("");
   lines.push(`    ${LGREEN}curl vany.sh/choose | bash${RST}   ${DIM}Interactive questionnaire to pick the right protocol${RST}`);
   lines.push("");
+  lines.push("");
 
   // Free services
   lines.push(divider("FREE SERVICES", W));
   lines.push("");
-  lines.push(`  ${ORANGE}${BOLD}Network Faucet (Relay + Free VPN)${RST}  ${DIM}Relay SafeBox traffic, get a free VPN in return.${RST}`);
-  lines.push(`    ${LGREEN}Browser:${RST}  ${TEXT}Open ${BLUE}https://vany.sh${RST} ${DIM}and click${RST} ${LGREEN}Faucet${RST}`);
-  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/faucet | bash${RST}   ${TEXT}(relay from your terminal)${RST}`);
-  lines.push(`    ${DIM}You relay encrypted SafeBox packets. In exchange, you get a VLESS+WS${RST}`);
-  lines.push(`    ${DIM}proxy link active as long as your Faucet is open.${RST}`);
+  lines.push(`  ${ORANGE}${BOLD}Network Faucet${RST}  ${DIM}Relay SafeBox traffic, get a free VLESS+WS VPN in return.${RST}`);
   lines.push("");
-  lines.push(`  ${ORANGE}${BOLD}SafeBox (Encrypted Dead-Drop)${RST}  ${DIM}Share secrets with a 6-char box ID + password. 24h TTL.${RST}`);
+  lines.push(`    ${LGREEN}Browser:${RST}  ${TEXT}Open ${BLUE}https://vany.sh${RST} ${DIM}and click${RST} ${LGREEN}Faucet${RST}`);
+  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/faucet | bash${RST}`);
+  lines.push("");
+  lines.push(`  ${ORANGE}${BOLD}SafeBox${RST}  ${DIM}Encrypted dead-drop. Share secrets via 8-char ID + password. 24h TTL.${RST}`);
+  lines.push("");
   lines.push(`    ${LGREEN}Browser:${RST}  ${TEXT}Open ${BLUE}https://vany.sh${RST} ${DIM}and click the${RST} ${PURPLE}lock icon${RST}`);
-  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/box | bash${RST}   ${TEXT}(view help and create/open boxes)${RST}`);
+  lines.push(`    ${LGREEN}CLI:${RST}      ${DIM}curl -s vany.sh/box | bash${RST}`);
+  lines.push("");
   lines.push("");
 
   // Rating legend
   lines.push(`  ${DIM}Ratings: ${GREEN}■${RST}${DIM} = capability level out of 5    Resist. = censorship resilience    Speed = throughput${RST}`);
   lines.push("");
+  lines.push("");
+
+  // DNS-over-HTTPS access
+  lines.push(divider("DNS BLOCKED? USE 1.1.1.1", W));
+  lines.push("");
+  lines.push(`  ${DIM}If your ISP blocks DNS resolution of ${RST}${BLUE}vany.sh${RST}${DIM}, use Cloudflare DoH to bypass it.${RST}`);
+  lines.push(`  ${DIM}This works for ${RST}${TEXT}every${RST}${DIM} command above — just add the DoH flag:${RST}`);
+  lines.push("");
+  lines.push(`    ${LGREEN}curl --doh-url https://1.1.1.1/dns-query vany.sh | sudo bash${RST}`);
+  lines.push(`    ${LGREEN}curl --doh-url https://1.1.1.1/dns-query vany.sh/faucet | bash${RST}`);
+  lines.push(`    ${LGREEN}curl --doh-url https://1.1.1.1/dns-query vany.sh/box | bash${RST}`);
+  lines.push("");
+  lines.push(`  ${DIM}Or install the ${RST}${LGREEN}1.1.1.1 WARP${RST}${DIM} app (free) to bypass DNS censorship system-wide.${RST}`);
+  lines.push("");
+  lines.push("");
 
   // Unstoppable access
-  lines.push(divider("CAN'T CONNECT?", W));
+  lines.push(divider("NOTHING WORKS?", W));
   lines.push("");
   lines.push(`  ${ORANGE}${BOLD}Rescue bootstrap${RST}  ${DIM}Tries all access methods automatically:${RST}`);
+  lines.push("");
   lines.push(`    ${LGREEN}curl -m5 vany.sh/bootstrap | sudo bash${RST}`);
   lines.push("");
-  lines.push(`  ${ORANGE}${BOLD}Manual fallbacks${RST}  ${DIM}(try in order if above fails):${RST}`);
+  lines.push(`  ${ORANGE}${BOLD}Manual fallbacks${RST}  ${DIM}(try in order if bootstrap fails):${RST}`);
+  lines.push("");
   lines.push(`    ${LGREEN}1.${RST} ${DIM}curl --doh-url https://1.1.1.1/dns-query vany.sh | sudo bash${RST}   ${TEXT}(DNS-over-HTTPS)${RST}`);
   lines.push(`    ${LGREEN}2.${RST} ${DIM}curl vany-agg.pages.dev | sudo bash${RST}                           ${TEXT}(shared CF domain)${RST}`);
   lines.push(`    ${LGREEN}3.${RST} ${DIM}Install 1.1.1.1 app (WARP), enable, then curl vany.sh${RST}         ${TEXT}(free CF VPN)${RST}`);
+  lines.push("");
   lines.push("");
 
   // Footer
