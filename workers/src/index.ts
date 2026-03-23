@@ -789,14 +789,16 @@ echo -e "  \${DIM}Connecting...\${RST}"
 # Create FIFO for sending to websocat
 FIFO=\$(mktemp -u /tmp/vany-fc-XXXXXX)
 mkfifo "\$FIFO"
-exec 3>"\$FIFO"
 
 # Output file for receiving from websocat
 OUTFILE=\$(mktemp /tmp/vany-fc-out-XXXXXX)
 
-# Start websocat in background
+# Start websocat in background (opens FIFO for reading)
 websocat -t --ping-interval 25 "\${RELAY_URL}" < "\$FIFO" > "\$OUTFILE" 2>/dev/null &
 WSPID=\$!
+
+# Now open write end — unblocks websocat's read end
+exec 3>"\$FIFO"
 sleep 1
 
 # Verify connection
@@ -869,7 +871,7 @@ while kill -0 \$WSPID 2>/dev/null; do
   SECS=\$((ELAPSED % 60))
   MSGS=\$(wc -l < "\$OUTFILE" 2>/dev/null | tr -d ' ' || echo 0)
   printf "\\r  \${GREEN}*\${RST} \${LGREEN}Relaying\${RST} \${DIM}|\${RST} \${CYAN}\${MINS}m\${SECS}s\${RST} \${DIM}|\${RST} \${CYAN}\${MSGS}\${RST} \${DIM}msgs |\${RST} \${CYAN}\${PING_COUNT}\${RST} \${DIM}pings\${RST}    "
-  echo '{"type":"ping"}' >&3 2>/dev/null || break
+  echo '{"type":"ping","uuid":"'"\${VPN_UUID}"'"}' >&3 2>/dev/null || break
   PING_COUNT=\$((PING_COUNT + 1))
   sleep 30
 done
