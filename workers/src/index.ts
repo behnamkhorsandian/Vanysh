@@ -408,25 +408,38 @@ exit 1
         return new Response('Not found', { status: 404 });
       }
 
-      // WS+CDN Quick Connect: /ws/connect → ephemeral VLESS+WS link
-      if (url.pathname === '/ws/connect') {
-        const corsJson = { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' };
-        if (request.method === 'OPTIONS') {
-          return new Response(null, { headers: corsJson });
+      // Network Faucet: /faucet/relay → WebSocket relay mesh for SafeBox traffic
+      if (url.pathname === '/faucet/relay') {
+        const upgradeHeader = request.headers.get('Upgrade');
+        if (!upgradeHeader || upgradeHeader.toLowerCase() !== 'websocket') {
+          return new Response('Expected WebSocket', { status: 426 });
         }
-        // Try to get active config from KV
+        const pair = new WebSocketPair();
+        const [client, server] = Object.values(pair);
+        (server as WebSocket).accept();
         incrStat(env.SAFEBOX, 'stats:connects', ctx);
-        const raw = await env.SAFEBOX.get('ws:quickconnect');
-        if (raw) {
+
+        (server as WebSocket).addEventListener('message', (event: MessageEvent) => {
           try {
-            const cfg = JSON.parse(raw);
-            return Response.json(cfg, { headers: corsJson });
-          } catch { /* fall through */ }
-        }
-        return Response.json({
-          link: null,
-          message: 'Service is starting up. Check back soon.',
-        }, { headers: corsJson });
+            const msg = JSON.parse(typeof event.data === 'string' ? event.data : '');
+            if (msg.type === 'register') {
+              (server as WebSocket).send(JSON.stringify({ type: 'welcome', node: msg.node }));
+            } else if (msg.type === 'ack') {
+              // Relay acknowledgement from node — no-op for now
+            }
+          } catch { /* ignore malformed */ }
+        });
+
+        (server as WebSocket).addEventListener('close', () => { /* cleanup */ });
+
+        return new Response(null, { status: 101, webSocket: client });
+      }
+
+      // Faucet CLI script: /faucet → bash script for terminal relay
+      if (url.pathname === '/faucet') {
+        return new Response(faucetCliScript(), {
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', ...corsHeaders },
+        });
       }
 
       // Scripts proxy: /scripts/* → GitHub raw (for bootstrap + protocol scripts)
@@ -652,6 +665,94 @@ exit 1
     return new Response(`Unknown service: ${subdomain}`, { status: 404 });
   },
 };
+
+function faucetCliScript(): string {
+  return `#!/bin/bash
+# Vany Network Faucet - Terminal Relay Node
+# Become a relay for SafeBox encrypted traffic
+# Usage: curl -s vany.sh/faucet | bash
+
+set -e
+
+GREEN="\\033[38;5;35m"
+LGREEN="\\033[38;5;114m"
+DIM="\\033[2m"
+BOLD="\\033[1m"
+RST="\\033[0m"
+RED="\\033[38;5;167m"
+YELLOW="\\033[38;5;185m"
+BLUE="\\033[38;5;68m"
+
+RELAY_URL="wss://vany.sh/faucet/relay"
+NODE_ID=$(head -c 4 /dev/urandom | od -An -tx1 | tr -d ' \\n')
+RELAYED=0
+BYTES=0
+START_TIME=$(date +%s)
+
+cleanup() {
+  echo ""
+  ELAPSED=$(($(date +%s) - START_TIME))
+  MINS=$((ELAPSED / 60))
+  SECS=$((ELAPSED % 60))
+  echo -e "\${DIM}Session ended. Relayed \${RELAYED} packets in \${MINS}m\${SECS}s.\${RST}"
+  exit 0
+}
+
+trap cleanup INT TERM
+
+clear
+echo ""
+echo -e "  \${GREEN}\${BOLD}VANY NETWORK FAUCET\${RST}"
+echo -e "  \${DIM}SafeBox Relay Node\${RST}"
+echo ""
+echo -e "  \${DIM}Node ID:    \${RST}\${LGREEN}node-\${NODE_ID}\${RST}"
+echo -e "  \${DIM}Relay URL:  \${RST}\${BLUE}\${RELAY_URL}\${RST}"
+echo ""
+echo -e "  \${DIM}You are relaying opaque encrypted SafeBox traffic.\${RST}"
+echo -e "  \${DIM}Content is end-to-end encrypted \u2014 never visible to relays.\${RST}"
+echo -e "  \${DIM}Your IP is not exposed to SafeBox users.\${RST}"
+echo ""
+echo -e "  \${YELLOW}Press Ctrl+C to stop.\${RST}"
+echo ""
+echo -e "  \${DIM}Connecting...\${RST}"
+
+if ! command -v websocat &>/dev/null; then
+  echo ""
+  echo -e "  \${RED}websocat not found.\${RST}"
+  echo -e "  \${DIM}Install it to run a CLI relay node:\${RST}"
+  echo ""
+  if [[ "\$(uname)" == "Darwin" ]]; then
+    echo -e "    \${LGREEN}brew install websocat\${RST}"
+  else
+    echo -e "    \${LGREEN}# Debian/Ubuntu:\${RST}"
+    echo -e "    \${DIM}wget -qO /usr/local/bin/websocat https://github.com/vi/websocat/releases/latest/download/websocat.x86_64-unknown-linux-musl\${RST}"
+    echo -e "    \${DIM}chmod +x /usr/local/bin/websocat\${RST}"
+  fi
+  echo ""
+  echo -e "  \${DIM}Or open \${BLUE}https://vany.sh\${RST} \${DIM}and click\${RST} \${LGREEN}Faucet\${RST} \${DIM}to relay from your browser.\${RST}"
+  echo ""
+  exit 1
+fi
+
+echo -e "  \${GREEN}Connected.\${RST} Relay active."
+echo ""
+
+# Send registration and relay traffic
+echo "{\\"type\\":\\"register\\",\\"node\\":\\"\${NODE_ID}\\"}" | websocat -n1 "\${RELAY_URL}" 2>/dev/null &
+WSPID=\$!
+
+# Keep connection alive and show heartbeat
+while kill -0 \$WSPID 2>/dev/null; do
+  ELAPSED=$(($(date +%s) - START_TIME))
+  MINS=$((ELAPSED / 60))
+  SECS=$((ELAPSED % 60))
+  printf "\\r  \${GREEN}*\${RST} \${DIM}Relaying... \${MINS}m\${SECS}s elapsed\${RST}    "
+  sleep 5
+done
+
+cleanup
+`;
+}
 
 function getInfoPage(service: string, config: ServiceConfig): string {
   const appLinks = Object.entries(config.clientApps)
