@@ -54,10 +54,12 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               labels: 'ci-failure',
-              per_page: 20,
+              per_page: 100,
             });
 
-            const duplicate = existing.data.find(i => i.title.startsWith(`CI failure: ${run.name}`));
+            const prefix = `CI failure: ${run.name}`;
+            const branchTag = `on \`${run.head_branch}\``;
+            const duplicate = existing.data.find(i => i.title.startsWith(prefix) && i.title.includes(branchTag));
             if (duplicate) {
               // Add a comment to the existing issue instead of creating a new one
               await github.rest.issues.createComment({
