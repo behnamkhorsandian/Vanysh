@@ -291,7 +291,7 @@ export default {
             { name: 'GitHub Raw', url: 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh', usage: 'curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash', note: 'Fastly CDN — completely different network than Cloudflare' },
             { name: 'Cloudflare Pages', url: 'https://vany-agg.pages.dev', usage: 'curl -sL https://vany-agg.pages.dev | sudo bash', note: '*.pages.dev shared domain — very hard to block' },
           ],
-          rescue: 'curl -m5 vany.sh||curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh||curl vany-agg.pages.dev',
+          rescue: 'curl -sL -m5 vany.sh||curl -sL -m10 https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh||curl -sL -m5 vany-agg.pages.dev',
           access_methods: [
             { name: 'Direct', cmd: 'curl vany.sh | sudo bash', note: 'Works unless domain is blocked' },
             { name: 'GitHub Raw', cmd: 'curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash', note: 'Fastly CDN — NOT Cloudflare, often works when CF is fully blocked' },

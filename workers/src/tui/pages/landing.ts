@@ -197,8 +197,6 @@ export function pageLanding(): string {
   lines.push(`  ${DIM}If ${RST}${RED}DNS is blocked${RST}${DIM}, ${RST}${RED}Cloudflare is blocked${RST}${DIM}, or ${RST}${RED}everything is filtered${RST}${DIM} — try these in order:${RST}`);
   lines.push("");
   lines.push(`  ${ORANGE}${BOLD}1. GitHub Raw${RST}  ${DIM}(uses Fastly CDN — different network than Cloudflare)${RST}`);
-  lines.push(`    ${LGREEN}curl -sL git.io/vany | sudo bash${RST}`);
-  lines.push(`    ${DIM}or full URL:${RST}`);
   lines.push(`    ${LGREEN}curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash${RST}`);
   lines.push("");
   lines.push(`  ${ORANGE}${BOLD}2. Direct IP${RST}  ${DIM}(skip DNS — connect to Cloudflare IPs directly)${RST}`);
