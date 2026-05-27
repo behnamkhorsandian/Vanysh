@@ -1,148 +1,84 @@
 # Vany Project Overview
 
-## Concept
-Vany is a multi-protocol censorship bypass toolkit. It serves both VPS owners (protocol installation) and clients in restricted countries (VPN connection + network scanners) -- all from the terminal.
+Vany is a multi-protocol censorship-bypass platform for nontechnical VPS owners. A user should be able to buy a server, SSH into it, choose a protocol on the website, and run one command:
 
-Three entry points:
-- `curl vany.sh` -- browse protocol catalog (static ANSI page)
-- `curl vany.sh | sudo bash` -- server TUI for installing and managing protocols
-- `curl vany.sh/tools/cfray | bash` -- client tools for scanning and diagnostics
-
-15 protocols across four categories:
-- **Server Protocols:** Reality, WS+CDN, Hysteria v2, WireGuard, V2Ray, HTTP Obfs, MTProto, SSH Tunnel
-- **DNS Tunnels:** DNSTT, Slipstream, NoizDNS
-- **Relay/Community:** Conduit, Tor Bridge, Snowflake, SOS
-
-## Architecture
-
-### 1) Delivery Layer (Cloudflare Workers)
-- `workers/src/index.ts` routes requests by path or subdomain.
-- Protocol routes (`/reality`, `/hysteria`, etc.) fetch install scripts from GitHub raw.
-- Tool routes (`/tools/cfray`, `/tools/findns`, etc.) serve client scanner scripts.
-- TUI routes (`/tui/*`) serve ANSI pages to the bash client.
-- Static route (`curl vany.sh` without pipe) returns the landing page catalog.
-
-### 2) Installation Layer (Docker containers + bash scripts)
-- Each protocol has an install script in `scripts/protocols/install-<name>.sh`.
-- Docker compose files live in `docker/<protocol>/`.
-- `scripts/docker-bootstrap.sh` handles Docker setup, sysctl, cloud detection, state init.
-- Shared Xray container serves Reality, WS+CDN, V2Ray, and HTTP Obfs together.
-- DNS tunnels (DNSTT, Slipstream, NoizDNS) share port 53 -- only one at a time.
-
-### 3) Runtime Layer (Containers on VPS)
-- All protocols run in Docker containers under `/opt/vany/docker/`.
-- State tracked in `/opt/vany/state.json`, users in `/opt/vany/users.json`.
-- Containers: vany-xray, vany-wireguard, vany-dnstt, vany-hysteria, vany-slipstream, vany-noizdns, vany-conduit, vany-tor-bridge, vany-snowflake, vany-sos.
-- SSH tunnel is the only non-container protocol (creates restricted OS user).
-
-### 4) Management Layer (CLI + TUI)
-- `cli/vany.sh` manages users, links, service status locally.
-- Worker TUI provides 7-tab navigation: Protocols, Status, Users, Install, Help, Connect, Tools.
-
-### 5) Client Tools Layer
-- Scripts in `scripts/tools/` run on the client machine (restricted country).
-- CFRay: scans for clean Cloudflare IPs for HTTP Obfuscation.
-- FindNS: discovers accessible DNS resolvers for DNS tunnel transport.
-- Tracer: detects ISP, ASN, VPN leaks.
-- Speed Test: bandwidth test via Cloudflare.
-
-## Flow
-
-### Server Install Flow
-```
-VPS owner runs: curl vany.sh/reality | sudo bash
-    -> Cloudflare Worker fetches scripts/protocols/install-xray.sh
-    -> Script sources docker-bootstrap.sh (Docker, sysctl, cloud detect)
-    -> Creates Docker container, configures protocol
-    -> Updates /opt/vany/state.json
-    -> Outputs connection link
+```bash
+curl vany.sh/reality | sudo bash
 ```
 
-### Client Connection Flow
-```
-User in restricted country:
-    1. curl vany.sh/tools/cfray | bash    # Find clean CF IPs
-    2. Gets connection link from VPS owner
-    3. Imports link into Hiddify/v2rayNG/WireGuard
-    4. Uses clean IP as address (for HTTP Obfs)
-```
+The same protocol command is also the management entry point for update/repair, users, connection configs, logs, restart, and uninstall.
 
-### Port Map
-```
-Port 443 (TCP)   -> Xray (Reality, V2Ray, WS+CDN, HTTP Obfs)
-Port 8443 (UDP)  -> Hysteria v2 (QUIC)
-Port 51820 (UDP) -> WireGuard
-Port 53 (UDP)    -> DNS Tunnels (DNSTT/Slipstream/NoizDNS, one at a time)
-Port 9001 (TCP)  -> Tor Bridge (obfs4)
-Port 22 (TCP)    -> SSH Tunnel (SOCKS5)
-Port 8899 (TCP)  -> SOS Relay
-```
+## Entry Points
 
-## Project Map
+- `curl vany.sh` - ANSI protocol catalog for terminal users.
+- `curl vany.sh/<protocol> | sudo bash` - guided installer/manager for one protocol.
+- `curl vany.sh/tools/<tool> | bash` - client-side network scanner or diagnostic tool.
+- `https://www.vany.sh` - Cloudflare Pages website.
 
-### Docker configs
-- `docker/xray/` - Shared Xray (Reality+WS+VRAY+HTTP-Obfs)
-- `docker/hysteria/` - Hysteria v2 (QUIC)
-- `docker/wireguard/` - WireGuard
-- `docker/dnstt/` - DNSTT server (Go build)
-- `docker/slipstream/` - Slipstream DNS tunnel (Go build)
-- `docker/noizdns/` - NoizDNS (DPI-resistant DNSTT fork)
-- `docker/conduit/` - Conduit Psiphon relay
-- `docker/tor-bridge/` - Tor Bridge (obfs4)
-- `docker/snowflake/` - Snowflake Proxy
-- `docker/sos/` - SOS relay daemon
+## Delivery Layer
 
-### Install scripts
-- `scripts/protocols/install-xray.sh` - Xray + Reality/WS/HTTP-Obfs
-- `scripts/protocols/install-hysteria.sh` - Hysteria v2
-- `scripts/protocols/install-wireguard.sh` - WireGuard
-- `scripts/protocols/install-dnstt.sh` - DNSTT
-- `scripts/protocols/install-slipstream.sh` - Slipstream
-- `scripts/protocols/install-noizdns.sh` - NoizDNS
-- `scripts/protocols/install-http-obfs.sh` - HTTP Obfuscation
-- `scripts/protocols/install-ssh-tunnel.sh` - SSH Tunnel
-- `scripts/protocols/install-conduit.sh` - Conduit
-- `scripts/protocols/install-tor-bridge.sh` - Tor Bridge
-- `scripts/protocols/install-snowflake.sh` - Snowflake
-- `scripts/protocols/install-sos.sh` - SOS
-- `scripts/protocols/status-containers.sh` - JSON status for all containers
-- `scripts/protocols/remove-container.sh` - Container removal + firewall cleanup
+- `workers/src/index.ts` is the unified Cloudflare Worker router.
+- Known protocol routes return `scripts/direct-install.sh` with `VANY_PROTOCOL=<protocol>` prepended.
+- Tool routes proxy scripts from `scripts/tools/`.
+- TUI routes under `/tui/*` return server-rendered ANSI pages.
+- Browser requests to `vany.sh` redirect to `www.vany.sh`; CLI requests receive plain text scripts or ANSI output.
 
-### Client tools
-- `scripts/tools/cfray.sh` - Cloudflare clean IP scanner
-- `scripts/tools/findns.sh` - DNS resolver scanner
-- `scripts/tools/tracer.sh` - IP/ISP/ASN tracer
-- `scripts/tools/speedtest.sh` - Bandwidth test
+## Installer Layer
 
-### Worker TUI pages
-- `workers/src/tui/pages/landing.ts` - Static catalog (curl vany.sh)
-- `workers/src/tui/pages/protocols.ts` - Protocol list with live status
-- `workers/src/tui/pages/install.ts` - Install wizard (15 protocols)
-- `workers/src/tui/pages/help.ts` - Help with protocol comparison tables
-- `workers/src/tui/pages/client.ts` - Client connection guide
-- `workers/src/tui/pages/tools.ts` - Network scanner tools
+- `scripts/direct-install.sh` is the canonical guided protocol manager.
+- `scripts/lib/protocol-registry.sh` stores protocol metadata: runtime, container, ports, state key, feature key, installer script, user hooks, and uninstall hooks.
+- `scripts/docker-bootstrap.sh` prepares the VPS and downloads Docker compose files, protocol scripts, the protocol registry, and runtime assets into `/opt/vany`.
+- `scripts/protocols/install-*.sh` own protocol-specific lifecycle behavior.
 
-### Core libraries (legacy, ported to Docker scripts)
-- `lib/common.sh` - constants, IO helpers, shared paths
-- `lib/bootstrap.sh` - OS prep, dependencies
-- `lib/cloud.sh` - provider detection, firewall helpers
-- `lib/xray.sh` - config management
+## Runtime Layer
 
-### Workers and web
-- `workers/src/index.ts` - Cloudflare Worker router (15 protocols + tools)
-- `www/` - Landing page (Cloudflare Pages)
+- Runtime state: `/opt/vany/state.json`.
+- User database: `/opt/vany/users.json`.
+- Docker compose files: `/opt/vany/docker/<runtime>/`.
+- Protocol data: `/opt/vany/<runtime-or-protocol>/`.
+- Docker owns service uptime through container restart policies.
+- tmux is available for operator sessions, logs, and management visibility.
 
-### Docs
-- `docs/protocols/*.md` - Protocol-specific guides
-- `docs/dns.md` / `docs/firewall.md` - DNS and firewall setup
-- `docs/self-hosting.md` - Self-hosting guide
-- `docs/spot-vm-recovery.md` - Spot VM auto-recovery
-- `tui/content/docs/` - Protocol descriptions for TUI
+## Shared Runtime Rules
 
-## Suggested First-Time Path
-1. Start with Reality (no domain needed, strongest DPI bypass).
-2. Add WS+CDN with Cloudflare if IP hiding needed.
-3. Use HTTP Obfuscation + CFRay scanner for advanced CDN bypass.
-4. Keep DNSTT as emergency fallback during blackouts.
-5. Use Hysteria v2 for maximum speed on lossy networks.
-6. Run Conduit/Tor Bridge/Snowflake to contribute to the community.
+- `vany-xray` is the shared runtime for Reality, WS+CDN, HTTP Obfs, and future Xray-family protocols.
+- Individual Xray features are tracked under `.protocols.xray.<feature>`.
+- Removing one Xray feature must not stop `vany-xray` while another feature remains active.
+- DNS tunnel protocols currently compete for port 53. Installers should block or explain conflicts until a DNS multiplexer is implemented.
+- WireGuard uses host networking and iptables. Test it last and use a recovery plan.
+
+## Repository Map
+
+- `.github/workflows/` - remote CI, deploy, release, and VM watchdog workflows.
+- `workers/` - Cloudflare Worker source, TUI renderer, Worker tests, Wrangler config.
+- `www/` - Cloudflare Pages static website.
+- `scripts/lib/` - shared Bash registry and helper libraries.
+- `scripts/protocols/` - protocol lifecycle modules.
+- `scripts/tools/` - user tools plus CI helper scripts.
+- `docker/` - protocol runtime compose files and Dockerfiles.
+- `docs/` - deployment, DNS, firewall, self-hosting, recovery, and protocol guides.
+- `lib/` and `services/` - legacy implementation surfaces used as migration references.
+- `cli/` - legacy local management CLI.
+- `cloak/` and `build/` - offline Cloak client packaging.
+- `src/sos/` - SOS emergency chat client and relay code.
+
+## Workflows
+
+- `deploy.yml` - deploys Workers and Pages on pushes to `main` when relevant files change.
+- `protocol-smoke.yml` - checks Bash syntax, protocol registry drift, and Docker compose config.
+- `spot-vm-watchdog.yml` - restarts the GCP Spot VM if preempted.
+- `cloak-build.yml` - builds Cloak release archives on `cloak-v*` tags or manual dispatch.
+- `sos-build.yml` - builds SOS binaries on `sos-v*` tags or manual dispatch.
+
+## Testing Model
+
+- Local checks should stay lightweight: shell syntax, diff checks, and diagnostics.
+- GitHub Actions performs Worker tests and protocol smoke checks.
+- Disposable VM E2E tests are required before calling a protocol production-ready because containers cannot fully simulate public networking, UDP, low ports, DNS delegation, Cloudflare CDN behavior, TUN, or iptables.
+
+## Current Protocol Groups
+
+- Xray family: `reality`, `ws`, `http-obfs`, `vray`, `mtp`.
+- Standalone VPN/proxy: `hysteria`, `wg`, `ssh-tunnel`.
+- DNS tunnels: `dnstt`, `slipstream`, `noizdns`.
+- Relay/community: `conduit`, `tor-bridge`, `snowflake`, `sos`.

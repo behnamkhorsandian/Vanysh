@@ -32,6 +32,38 @@ print_info()    { echo -e "  ${DIM}  $1${RESET}"; }
 print_warning() { echo -e "  ${YELLOW}~ ${RESET}$1"; }
 
 #-------------------------------------------------------------------------------
+# Protocol Registry
+#-------------------------------------------------------------------------------
+
+load_protocol_registry() {
+    if [[ -n "${VANY_PROTOCOL_REGISTRY_LOADED:-}" ]]; then
+        return 0
+    fi
+
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local candidate
+    for candidate in \
+        "$script_dir/lib/protocol-registry.sh" \
+        "$script_dir/../lib/protocol-registry.sh" \
+        "$VANY_DIR/scripts/lib/protocol-registry.sh"; do
+        if [[ -f "$candidate" ]]; then
+            source "$candidate"
+            return 0
+        fi
+    done
+
+    local registry_file="/tmp/vany-protocol-registry.sh"
+    if curl -sfL "$GITHUB_RAW/scripts/lib/protocol-registry.sh" -o "$registry_file"; then
+        source "$registry_file"
+        return 0
+    fi
+
+    print_error "Failed to load protocol registry"
+    return 1
+}
+
+#-------------------------------------------------------------------------------
 # Pre-checks
 #-------------------------------------------------------------------------------
 
@@ -91,7 +123,7 @@ system_update() {
 
 install_prerequisites() {
     print_step "Installing prerequisites"
-    local packages=(curl wget jq qrencode openssl xxd ca-certificates gnupg lsb-release unzip iptables)
+    local packages=(curl wget jq qrencode openssl xxd ca-certificates gnupg lsb-release unzip iptables tmux)
     apt-get install -y -qq "${packages[@]}"
     print_success "Prerequisites installed"
 }
@@ -175,7 +207,16 @@ EOF
 
 create_directories() {
     print_step "Creating directory structure"
-    mkdir -p "$VANY_DIR"/{xray,wg,dnstt,conduit,sos,certs}
+    load_protocol_registry
+
+    mkdir -p "$VANY_DIR"/{certs,scripts/lib}
+
+    local protocol data_dir
+    for protocol in "${VANY_PROTOCOLS[@]}"; do
+        data_dir=$(vany_protocol_data_dir "$protocol")
+        [[ -n "$data_dir" ]] && mkdir -p "$VANY_DIR/$data_dir"
+    done
+
     chmod 700 "$VANY_DIR"
     print_success "Directories created at $VANY_DIR"
 }
@@ -364,16 +405,24 @@ EOF
 
 download_docker_files() {
     print_step "Downloading Docker configurations"
+    load_protocol_registry
 
     local docker_dir="$VANY_DIR/docker"
     mkdir -p "$docker_dir"
 
-    for proto in xray wireguard dnstt conduit sos; do
-        mkdir -p "$docker_dir/$proto"
-        curl -sfL "$GITHUB_RAW/docker/$proto/docker-compose.yml" -o "$docker_dir/$proto/docker-compose.yml" || true
-        if [[ "$proto" != "conduit" ]]; then
-            curl -sfL "$GITHUB_RAW/docker/$proto/Dockerfile" -o "$docker_dir/$proto/Dockerfile" 2>/dev/null || true
-            curl -sfL "$GITHUB_RAW/docker/$proto/entrypoint.sh" -o "$docker_dir/$proto/entrypoint.sh" 2>/dev/null || true
+    local runtime protocol
+    local seen=" "
+    for protocol in "${VANY_PROTOCOLS[@]}"; do
+        runtime=$(vany_protocol_runtime "$protocol")
+        [[ -z "$runtime" || "$runtime" == "host" ]] && continue
+        [[ "$seen" == *" $runtime "* ]] && continue
+        seen+="$runtime "
+
+        mkdir -p "$docker_dir/$runtime"
+        curl -sfL "$GITHUB_RAW/docker/$runtime/docker-compose.yml" -o "$docker_dir/$runtime/docker-compose.yml" || true
+        if [[ -f "$docker_dir/$runtime/docker-compose.yml" ]]; then
+            curl -sfL "$GITHUB_RAW/docker/$runtime/Dockerfile" -o "$docker_dir/$runtime/Dockerfile" 2>/dev/null || true
+            curl -sfL "$GITHUB_RAW/docker/$runtime/entrypoint.sh" -o "$docker_dir/$runtime/entrypoint.sh" 2>/dev/null || true
         fi
     done
 
@@ -386,16 +435,31 @@ download_docker_files() {
 
 download_protocol_scripts() {
     print_step "Downloading protocol management scripts"
+    load_protocol_registry
 
     local scripts_dir="$VANY_DIR/scripts"
-    mkdir -p "$scripts_dir"
+    mkdir -p "$scripts_dir/lib"
 
-    for action in install update remove status; do
-        for proto in xray wireguard dnstt conduit sos; do
-            curl -sfL "$GITHUB_RAW/scripts/protocols/${action}-${proto}.sh" \
-                -o "$scripts_dir/${action}-${proto}.sh" 2>/dev/null || true
-            [[ -f "$scripts_dir/${action}-${proto}.sh" ]] && chmod +x "$scripts_dir/${action}-${proto}.sh"
-        done
+    curl -sfL "$GITHUB_RAW/scripts/docker-bootstrap.sh" -o "$scripts_dir/docker-bootstrap.sh" 2>/dev/null || true
+    [[ -f "$scripts_dir/docker-bootstrap.sh" ]] && chmod +x "$scripts_dir/docker-bootstrap.sh"
+
+    curl -sfL "$GITHUB_RAW/scripts/lib/protocol-registry.sh" -o "$scripts_dir/lib/protocol-registry.sh" 2>/dev/null || true
+    [[ -f "$scripts_dir/lib/protocol-registry.sh" ]] && chmod +x "$scripts_dir/lib/protocol-registry.sh"
+
+    for script in update-container.sh remove-container.sh status-containers.sh; do
+        curl -sfL "$GITHUB_RAW/scripts/protocols/$script" -o "$scripts_dir/$script" 2>/dev/null || true
+        [[ -f "$scripts_dir/$script" ]] && chmod +x "$scripts_dir/$script"
+    done
+
+    local protocol script seen=" "
+    for protocol in "${VANY_PROTOCOLS[@]}"; do
+        script="$(vany_protocol_script "$protocol")"
+        [[ -z "$script" ]] && continue
+        [[ "$seen" == *" $script "* ]] && continue
+        seen+="$script "
+
+        curl -sfL "$GITHUB_RAW/scripts/protocols/$script" -o "$scripts_dir/$script" 2>/dev/null || true
+        [[ -f "$scripts_dir/$script" ]] && chmod +x "$scripts_dir/$script"
     done
 
     print_success "Protocol scripts downloaded"

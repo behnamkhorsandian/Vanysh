@@ -1,278 +1,108 @@
-# Cloudflare Workers Deployment
+# Cloudflare Workers And Pages Deployment
 
-Each Vany service has its own Cloudflare Worker that serves the installation script.
+Vany uses one unified Cloudflare Worker for installer, tool, TUI, SafeBox, and stats routes. The public website is deployed separately to Cloudflare Pages from `www/`.
 
-## Worker Architecture
-
-```text
-User runs: curl vany.sh/reality | sudo bash
-                         |
-                         v
-            Cloudflare Worker (reality)
-                         |
-                         v
-    Fetches from GitHub: raw/.../services/reality/install.sh
-                         |
-                         v
-            Returns script to user's terminal
-```
-
-## Subdomains
-
-| Subdomain | Worker Name | Script Path |
-|-----------|-------------|-------------|
-| vany.sh/reality | vany-reality | services/reality/install.sh |
-| vany.sh/wg | vany-wg | services/wg/install.sh |
-| vany.sh/mtp | vany-mtp | services/mtp/install.sh |
-| vany.sh/vray | vany-vray | services/vray/install.sh |
-| vany.sh/ws | vany-ws | services/ws/install.sh |
-| vany.sh/dnstt | vany-dnstt | services/dnstt/install.sh |
-
-## Worker Endpoints
-
-Each worker responds to:
-
-| Path | Response |
-|------|----------|
-| `/` | Installation script (bash) |
-| `/info` | HTML page with service info and client app links |
-| `/health` | Health check (returns "ok") |
-
-## Setup Steps
-
-### 1. Prerequisites
-
-- Cloudflare account with vany.sh domain
-- Node.js 18+ installed locally
-- Wrangler CLI: `npm install -g wrangler`
-
-### 2. Authenticate Wrangler
-
-```bash
-wrangler login
-```
-
-### 3. Create Worker
-
-For each service, create a worker directory:
-
-```bash
-cd workers
-mkdir reality
-cd reality
-npm init -y
-```
-
-### 4. Worker Code Template
-
-Create `src/index.ts`:
-
-```typescript
-const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
-const SERVICE = 'reality';
-
-export default {
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    
-    // Health check
-    if (url.pathname === '/health') {
-      return new Response('ok', { status: 200 });
-    }
-    
-    // Info page
-    if (url.pathname === '/info') {
-      return new Response(getInfoHTML(), {
-        headers: { 'Content-Type': 'text/html' },
-      });
-    }
-    
-    // Serve installation script
-    try {
-      const scriptUrl = `${GITHUB_RAW}/services/${SERVICE}/install.sh`;
-      const response = await fetch(scriptUrl);
-      
-      if (!response.ok) {
-        return new Response('Script not found', { status: 404 });
-      }
-      
-      const script = await response.text();
-      return new Response(script, {
-        headers: {
-          'Content-Type': 'text/plain',
-          'Cache-Control': 'no-cache',
-        },
-      });
-    } catch (error) {
-      return new Response('Error fetching script', { status: 500 });
-    }
-  },
-};
-
-function getInfoHTML(): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <title>Vany - Reality</title>
-  <style>
-    body { font-family: system-ui; max-width: 600px; margin: 50px auto; padding: 20px; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
-    pre { background: #1a1a1a; color: #fff; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    a { color: #0066cc; }
-  </style>
-</head>
-<body>
-  <h1>Vany - Reality</h1>
-  <p>VLESS + REALITY proxy. No domain required.</p>
-  
-  <h2>Install</h2>
-  <pre>curl vany.sh/reality | sudo bash</pre>
-  
-  <h2>Client Apps</h2>
-  <ul>
-    <li><strong>iOS:</strong> <a href="https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532">Hiddify</a>, <a href="https://apps.apple.com/app/shadowrocket/id932747118">Shadowrocket</a></li>
-    <li><strong>Android:</strong> <a href="https://play.google.com/store/apps/details?id=app.hiddify.com">Hiddify</a>, <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a></li>
-    <li><strong>Windows:</strong> <a href="https://github.com/hiddify/hiddify-next/releases">Hiddify</a>, <a href="https://github.com/2dust/v2rayN/releases">v2rayN</a></li>
-    <li><strong>macOS:</strong> <a href="https://github.com/hiddify/hiddify-next/releases">Hiddify</a></li>
-  </ul>
-  
-  <h2>Source</h2>
-  <p><a href="https://github.com/behnamkhorsandian/Vanysh">GitHub</a></p>
-</body>
-</html>`;
-}
-```
-
-### 5. Wrangler Configuration
-
-Create `wrangler.toml`:
-
-```toml
-name = "vany-reality"
-main = "src/index.ts"
-compatibility_date = "2024-01-01"
-
-routes = [
-  { pattern = "vany.sh/reality", custom_domain = true }
-]
-```
-
-### 6. Deploy
-
-```bash
-wrangler deploy
-```
-
-### 7. Custom Domain Setup
-
-After first deploy:
-
-1. Go to Cloudflare Dashboard > Workers & Pages
-2. Select worker > Settings > Triggers
-3. Add Custom Domain: `vany.sh/reality`
-4. Cloudflare auto-creates DNS record
-
-## Deploying All Workers
-
-Script to deploy all workers:
-
-```bash
-#!/bin/bash
-SERVICES="reality wg mtp vray ws dnstt"
-
-for service in $SERVICES; do
-  echo "Deploying $service..."
-  cd workers/$service
-  wrangler deploy
-  cd ../..
-done
-```
-
-## Environment Variables
-
-For workers that need configuration:
-
-```bash
-wrangler secret put GITHUB_TOKEN
-```
-
-## Monitoring
-
-View logs:
-```bash
-wrangler tail vany-reality
-```
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| 404 on script | Check GitHub raw URL is correct |
-| Custom domain not working | Wait 5 min, check DNS in Cloudflare |
-| CORS errors | Add appropriate headers in worker |
-| Rate limited | GitHub raw has limits; consider caching |
-
-## Caching Strategy
-
-For production, add caching:
-
-```typescript
-const cache = caches.default;
-const cacheKey = new Request(url.toString(), request);
-let response = await cache.match(cacheKey);
-
-if (!response) {
-  response = await fetch(scriptUrl);
-  response = new Response(response.body, response);
-  response.headers.set('Cache-Control', 'max-age=300'); // 5 min
-  await cache.put(cacheKey, response.clone());
-}
-```
-
-## Landing Page (Cloudflare Pages)
-
-The main website at `www.vany.sh` is hosted on Cloudflare Pages.
-
-### Deployment via Direct Upload
-
-1. Go to **Cloudflare Dashboard** → **Workers & Pages**
-2. Click **Create** → **Pages** → **Upload your static files**
-3. Name the project: `vany-www`
-4. Drag and drop the contents of the `www/` folder:
-   - `index.html`
-   - `_redirects`
-5. Click **Deploy**
-
-### Add Custom Domain
-
-After deployment:
-1. Go to the deployed Pages project
-2. Click **Custom domains** → **Set up a custom domain**
-3. Enter: `www.vany.sh`
-4. Cloudflare will auto-configure DNS
-
-### Files Structure
+## Request Flow
 
 ```text
-www/
-  index.html      # Landing page with protocol overview
-  _redirects      # SPA routing (optional)
+curl vany.sh/wg | sudo bash
+        |
+        v
+Cloudflare Worker: workers/src/index.ts
+        |
+        v
+Fetch scripts/direct-install.sh from GitHub Raw
+        |
+        v
+Prepend VANY_PROTOCOL="wg" and return text/plain
 ```
 
-### Updating the Page
+The Worker routes browser users to `https://www.vany.sh/` and returns plain text for CLI user agents such as `curl` and `wget`.
 
-For updates, either:
-- **Direct Upload**: Re-upload the `www/` folder contents
-- **GitHub Integration**: Connect to GitHub for auto-deploy on push
+## Important Routes
 
-### DNSTT Client Setup Page
+| Route | Purpose |
+|-------|---------|
+| `/` | ANSI landing page for CLI users; browser users redirect to `www` |
+| `/<protocol>` | Standalone guided installer/manager for a known protocol |
+| `/<protocol>/info` | Browser protocol info page |
+| `/<protocol>/version` | JSON protocol metadata |
+| `/scripts/*` | No-cache proxy to repository scripts |
+| `/tools/<tool>` | Client-side scanner/diagnostic script |
+| `/choose` | CLI protocol chooser |
+| `/tui/*` | Server-rendered ANSI TUI pages |
+| `/box` and `/box/<id>` | SafeBox web and CLI routes |
+| `/health` | Worker health check |
+| `/stats` | Worker KV counters |
 
-The DNSTT worker includes a client setup page:
+## Source Files
 
-| URL | Description |
-|-----|-------------|
-| `vany.sh/dnstt/client` | Interactive setup page |
-| `vany.sh/dnstt/client?key=PUBKEY&domain=t.example.com` | Pre-filled setup |
-| `vany.sh/dnstt/setup/linux?key=...&domain=...` | Linux setup script |
-| `vany.sh/dnstt/setup/macos?key=...&domain=...` | macOS setup script |
-| `vany.sh/dnstt/setup/windows?key=...&domain=...` | Windows PowerShell script |
+- `workers/src/index.ts` - main Worker router and service metadata.
+- `workers/src/tui/` - ANSI UI renderer and TUI pages.
+- `workers/src/safebox.ts` - SafeBox storage and retrieval handlers.
+- `workers/src/vless.ts` - Worker-side VLESS/WebSocket support.
+- `workers/wrangler.toml` - Worker name, compatibility date, routes, and KV binding.
+- `workers/package.json` - Worker test and deploy commands.
+- `www/index.html` - static Pages website.
+
+## Deployment Workflow
+
+Deployments are performed by GitHub Actions. Do not run local Wrangler deploys for normal development.
+
+Required GitHub secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `CF_API_TOKEN` | Cloudflare API token with Workers, Pages, zone read, and cache purge permissions |
+| `CF_ACCOUNT_ID` | Cloudflare account ID |
+| `CF_ZONE_ID` | Cloudflare zone ID for cache purge |
+
+Workflow behavior:
+
+- `.github/workflows/deploy.yml` runs on pushes to `main`.
+- Worker changes run `npm ci`, `npm test`, then `wrangler deploy` in `workers/`.
+- Website changes deploy `www/` with `wrangler pages deploy`.
+- Script, Docker, TUI, Worker, or Pages changes purge Cloudflare cache as needed.
+
+## CI Checks
+
+- `.github/workflows/protocol-smoke.yml` validates shell syntax, registry drift, and Docker compose config.
+- `scripts/tools/check-protocol-registry.sh` ensures Worker protocol keys match `scripts/lib/protocol-registry.sh`.
+- `scripts/tools/protocol-smoke.sh` ensures every registered protocol has its installer script and runtime compose file where applicable.
+
+## Manual Verification
+
+After pushing, verify the actual workflow result rather than only checking dispatch:
+
+```bash
+gh run list --repo behnamkhorsandian/Vanysh --limit 10
+gh run view <run-id> --log
+```
+
+Useful route checks after deploy:
+
+```bash
+curl -A curl -s https://vany.sh/wg | head
+curl -s https://vany.sh/wg/version
+curl -A curl -s https://vany.sh/tools/cfray | head
+curl -s https://vany.sh/health
+```
+
+## Pages
+
+The website lives in `www/` and deploys to the Cloudflare Pages project named `vany`.
+
+Browser traffic:
+
+```text
+https://vany.sh      -> Worker redirect
+https://www.vany.sh  -> Cloudflare Pages
+```
+
+The Pages project is created automatically by the deploy workflow if it does not already exist.
+
+## Notes
+
+- Worker routes intentionally use no-cache headers for installer scripts so VPS users get the latest command flow.
+- The Worker fetches scripts from GitHub Raw; if that becomes a reliability bottleneck, add Worker cache or embed release artifacts.
+- Real protocol usability still requires VM E2E tests. Worker and compose smoke tests do not prove public UDP, DNS delegation, Cloudflare CDN, TUN, or iptables behavior.

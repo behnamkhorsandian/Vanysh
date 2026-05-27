@@ -39,6 +39,25 @@ ok()      { echo -e "  ${G}*${R} $1"; }
 err()     { echo -e "  ${RED}!${R} $1"; }
 info()    { echo -e "  ${D}  $1${R}"; }
 
+# ── Protocol Registry ─────────────────────────────────────────────────────────
+
+load_protocol_registry() {
+    local local_registry
+    local_registry="$(dirname "${BASH_SOURCE[0]}")/lib/protocol-registry.sh"
+
+    if [[ -f "$local_registry" ]]; then
+        source "$local_registry"
+        return 0
+    fi
+
+    local registry_file="/tmp/vany-protocol-registry.sh"
+    if ! curl -sfL "$GITHUB_RAW/scripts/lib/protocol-registry.sh" -o "$registry_file"; then
+        err "Failed to download protocol registry"
+        exit 1
+    fi
+    source "$registry_file"
+}
+
 # ── ASCII Art Banners ─────────────────────────────────────────────────────────
 
 declare -A BANNERS
@@ -102,99 +121,7 @@ BANNERS[sos]='░█▀▀░█▀█░█▀▀
 ░▀▀█░█░█░▀▀█
 ░▀▀▀░▀▀▀░▀▀▀'
 
-# ── Protocol Metadata ─────────────────────────────────────────────────────────
-
-declare -A PROTO_NAME PROTO_DESC PROTO_PORTS PROTO_NEEDS_DOMAIN PROTO_SCRIPT
-
-PROTO_NAME[reality]="VLESS + REALITY"
-PROTO_DESC[reality]="TLS camouflage proxy. Borrows real website certificates."
-PROTO_PORTS[reality]="443/tcp"
-PROTO_NEEDS_DOMAIN[reality]="No"
-PROTO_SCRIPT[reality]="install-xray.sh"
-
-PROTO_NAME[ws]="VLESS + WS + CDN"
-PROTO_DESC[ws]="WebSocket proxy behind Cloudflare CDN. IP fully hidden."
-PROTO_PORTS[ws]="80/tcp 443/tcp"
-PROTO_NEEDS_DOMAIN[ws]="Yes"
-PROTO_SCRIPT[ws]="install-xray.sh"
-
-PROTO_NAME[hysteria]="Hysteria v2"
-PROTO_DESC[hysteria]="QUIC-based proxy. Fastest on lossy/throttled networks."
-PROTO_PORTS[hysteria]="8443/udp"
-PROTO_NEEDS_DOMAIN[hysteria]="No"
-PROTO_SCRIPT[hysteria]="install-hysteria.sh"
-
-PROTO_NAME[wg]="WireGuard"
-PROTO_DESC[wg]="Full-device VPN tunnel. Kernel-level performance."
-PROTO_PORTS[wg]="51820/udp"
-PROTO_NEEDS_DOMAIN[wg]="No"
-PROTO_SCRIPT[wg]="install-wireguard.sh"
-
-PROTO_NAME[vray]="VLESS + TLS"
-PROTO_DESC[vray]="Classic V2Ray with real TLS certificates."
-PROTO_PORTS[vray]="443/tcp"
-PROTO_NEEDS_DOMAIN[vray]="Yes"
-PROTO_SCRIPT[vray]="install-xray.sh"
-
-PROTO_NAME[http-obfs]="HTTP Obfuscation"
-PROTO_DESC[http-obfs]="CDN host header spoofing. Hides behind popular domains."
-PROTO_PORTS[http-obfs]="80/tcp"
-PROTO_NEEDS_DOMAIN[http-obfs]="CDN"
-PROTO_SCRIPT[http-obfs]="install-http-obfs.sh"
-
-PROTO_NAME[mtp]="MTProto Proxy"
-PROTO_DESC[mtp]="Telegram-only proxy with Fake-TLS camouflage."
-PROTO_PORTS[mtp]="443/tcp"
-PROTO_NEEDS_DOMAIN[mtp]="No"
-PROTO_SCRIPT[mtp]="install-xray.sh"
-
-PROTO_NAME[ssh-tunnel]="SSH Tunnel"
-PROTO_DESC[ssh-tunnel]="Basic SOCKS5 proxy over SSH. Universally available."
-PROTO_PORTS[ssh-tunnel]="22/tcp"
-PROTO_NEEDS_DOMAIN[ssh-tunnel]="No"
-PROTO_SCRIPT[ssh-tunnel]="install-ssh-tunnel.sh"
-
-PROTO_NAME[dnstt]="DNSTT"
-PROTO_DESC[dnstt]="DNS tunnel. ~42 KB/s, last resort when all else fails."
-PROTO_PORTS[dnstt]="53/udp 53/tcp"
-PROTO_NEEDS_DOMAIN[dnstt]="Yes"
-PROTO_SCRIPT[dnstt]="install-dnstt.sh"
-
-PROTO_NAME[slipstream]="Slipstream"
-PROTO_DESC[slipstream]="Enhanced DNS tunnel with QUIC+TLS. ~63 KB/s."
-PROTO_PORTS[slipstream]="53/udp"
-PROTO_NEEDS_DOMAIN[slipstream]="Yes"
-PROTO_SCRIPT[slipstream]="install-slipstream.sh"
-
-PROTO_NAME[noizdns]="NoizDNS"
-PROTO_DESC[noizdns]="DPI-resistant DNSTT fork with noise padding."
-PROTO_PORTS[noizdns]="53/udp"
-PROTO_NEEDS_DOMAIN[noizdns]="Yes"
-PROTO_SCRIPT[noizdns]="install-noizdns.sh"
-
-PROTO_NAME[conduit]="Conduit (Psiphon Relay)"
-PROTO_DESC[conduit]="Psiphon volunteer relay. Auto-configures, zero maintenance."
-PROTO_PORTS[conduit]="auto"
-PROTO_NEEDS_DOMAIN[conduit]="No"
-PROTO_SCRIPT[conduit]="install-conduit.sh"
-
-PROTO_NAME[tor-bridge]="Tor Bridge (obfs4)"
-PROTO_DESC[tor-bridge]="obfs4 pluggable transport bridge for the Tor network."
-PROTO_PORTS[tor-bridge]="9001/tcp"
-PROTO_NEEDS_DOMAIN[tor-bridge]="No"
-PROTO_SCRIPT[tor-bridge]="install-tor-bridge.sh"
-
-PROTO_NAME[snowflake]="Snowflake Proxy"
-PROTO_DESC[snowflake]="WebRTC Tor relay. Zero config, minimal resources."
-PROTO_PORTS[snowflake]="--"
-PROTO_NEEDS_DOMAIN[snowflake]="No"
-PROTO_SCRIPT[snowflake]="install-snowflake.sh"
-
-PROTO_NAME[sos]="SOS Emergency Chat"
-PROTO_DESC[sos]="E2E encrypted emergency chat over DNS tunnel."
-PROTO_PORTS[sos]="8899/tcp"
-PROTO_NEEDS_DOMAIN[sos]="Yes"
-PROTO_SCRIPT[sos]="install-sos.sh"
+load_protocol_registry
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
@@ -204,9 +131,9 @@ if [[ -z "$PROTOCOL" ]]; then
     exit 1
 fi
 
-if [[ -z "${PROTO_NAME[$PROTOCOL]+x}" ]]; then
+if ! vany_protocol_exists "$PROTOCOL"; then
     echo -e "\n  ${RED}! Unknown protocol: $PROTOCOL${R}"
-    echo -e "  ${D}Valid: reality ws hysteria wg vray http-obfs mtp ssh-tunnel dnstt slipstream noizdns conduit tor-bridge snowflake sos${R}\n"
+    echo -e "  ${D}Valid: $(vany_protocol_list_inline)${R}\n"
     exit 1
 fi
 
@@ -236,10 +163,10 @@ fi
 
 # ── Protocol Info ─────────────────────────────────────────────────────────────
 
-name="${PROTO_NAME[$PROTOCOL]}"
-desc="${PROTO_DESC[$PROTOCOL]}"
-ports="${PROTO_PORTS[$PROTOCOL]}"
-domain="${PROTO_NEEDS_DOMAIN[$PROTOCOL]}"
+name="$(vany_protocol_name "$PROTOCOL")"
+desc="$(vany_protocol_desc "$PROTOCOL")"
+ports="$(vany_protocol_ports "$PROTOCOL")"
+domain="$(vany_protocol_needs_domain "$PROTOCOL")"
 
 echo -e "  ${LG}${B}${name}${R}"
 echo -e "  ${D}${desc}${R}"
@@ -255,17 +182,25 @@ is_running=false
 
 check_status() {
     if [[ -f "$STATE_FILE" ]] && command -v jq &>/dev/null; then
-        local proto_key="$PROTOCOL"
-        [[ "$proto_key" == "ws" || "$proto_key" == "reality" || "$proto_key" == "vray" || "$proto_key" == "mtp" || "$proto_key" == "http-obfs" ]] && proto_key="xray"
-        [[ "$proto_key" == "wg" ]] && proto_key="wireguard"
+        local proto_key
+        proto_key=$(vany_protocol_state_key "$PROTOCOL")
+        local feature_key
+        feature_key=$(vany_protocol_feature_key "$PROTOCOL")
 
         local status
-        status=$(jq -r ".protocols.${proto_key}.status // empty" "$STATE_FILE" 2>/dev/null)
-        container_name=$(jq -r ".protocols.${proto_key}.container // empty" "$STATE_FILE" 2>/dev/null)
+        status=$(jq -r --arg proto "$proto_key" '.protocols[$proto].status // empty' "$STATE_FILE" 2>/dev/null)
+        container_name=$(jq -r --arg proto "$proto_key" '.protocols[$proto].container // empty' "$STATE_FILE" 2>/dev/null)
+        [[ -z "$container_name" ]] && container_name=$(vany_protocol_container "$PROTOCOL")
+
+        if [[ -n "$feature_key" ]]; then
+            local feature_state
+            feature_state=$(jq -r --arg proto "$proto_key" --arg feature "$feature_key" '.protocols[$proto][$feature] // empty' "$STATE_FILE" 2>/dev/null)
+            [[ -z "$feature_state" ]] && status=""
+        fi
 
         if [[ -n "$status" ]]; then
             is_installed=true
-            if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${container_name}$"; then
+            if [[ -n "$container_name" ]] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${container_name}$"; then
                 is_running=true
             fi
         fi
@@ -327,7 +262,8 @@ do_bootstrap() {
 # ── Download Protocol Script ──────────────────────────────────────────────────
 
 do_download_script() {
-    local script_name="${PROTO_SCRIPT[$PROTOCOL]}"
+    local script_name
+    script_name="$(vany_protocol_script "$PROTOCOL")"
     local script_path="/tmp/vany-${script_name}"
 
     step "Downloading ${script_name}..."
@@ -351,14 +287,17 @@ do_install() {
     case "$PROTOCOL" in
         reality)
             install_xray
-            add_reality_inbound "" "" ""
+            ensure_reality_inbound
+            reload_xray
             ;;
         ws)
             install_xray
             # WS inbound needs domain
             read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain <&3
             if [[ -n "$ws_domain" ]]; then
-                add_ws_inbound "$ws_domain"
+                add_ws_inbound "/ws"
+                set_ws_state "$ws_domain" "/ws"
+                reload_xray
             fi
             ;;
         hysteria)
@@ -392,22 +331,29 @@ do_install() {
             install_ssh_tunnel
             ;;
         http-obfs)
-            install_xray
             read -rp "  Enter CDN domain: " cdn_domain <&3
             if [[ -n "$cdn_domain" ]]; then
-                add_http_obfs_inbound "$cdn_domain"
+                HTTP_OBFS_DOMAIN="$cdn_domain" install_http_obfs
             fi
             ;;
         vray)
             install_xray
             read -rp "  Enter your domain: " vray_domain <&3
-            if [[ -n "$vray_domain" ]]; then
+            if [[ -n "$vray_domain" ]] && declare -F add_vray_inbound >/dev/null; then
                 add_vray_inbound "$vray_domain"
+            else
+                err "VLESS+TLS Docker inbound is not implemented yet"
+                return 1
             fi
             ;;
         mtp)
             install_xray
-            add_mtp_inbound
+            if declare -F add_mtp_inbound >/dev/null; then
+                add_mtp_inbound
+            else
+                err "MTProto Docker inbound is not implemented yet"
+                return 1
+            fi
             ;;
         *)
             err "Install function not implemented for: $PROTOCOL"
@@ -433,11 +379,18 @@ do_add_user() {
     do_download_script
 
     case "$PROTOCOL" in
-        reality)  add_reality_client "$username" ;;
-        ws)       add_ws_client "$username" ;;
-        wg)       add_wg_peer "$username" ;;
-        hysteria) echo "  Hysteria uses shared password auth" ;;
-        *)        info "User management not implemented for $PROTOCOL" ;;
+        hysteria)
+            echo "  Hysteria uses shared password auth"
+            ;;
+        *)
+            local add_fn
+            add_fn="$(vany_protocol_add_user_hook "$PROTOCOL")"
+            if [[ -n "$add_fn" ]] && declare -F "$add_fn" >/dev/null; then
+                "$add_fn" "$username"
+            else
+                info "User management not implemented for $PROTOCOL"
+            fi
+            ;;
     esac
 }
 
@@ -448,12 +401,13 @@ do_remove_user() {
 
     do_download_script
 
-    case "$PROTOCOL" in
-        reality)  remove_reality_client "$username" ;;
-        ws)       remove_ws_client "$username" ;;
-        wg)       remove_wg_peer "$username" ;;
-        *)        info "User management not implemented for $PROTOCOL" ;;
-    esac
+    local remove_fn
+    remove_fn="$(vany_protocol_remove_user_hook "$PROTOCOL")"
+    if [[ -n "$remove_fn" ]] && declare -F "$remove_fn" >/dev/null; then
+        "$remove_fn" "$username"
+    else
+        info "User management not implemented for $PROTOCOL"
+    fi
 }
 
 # ── Show Config ───────────────────────────────────────────────────────────────
@@ -461,14 +415,36 @@ do_remove_user() {
 do_show_config() {
     section "Connection Config"
 
+    do_download_script
+
     local server_ip
     server_ip=$(jq -r '.ip // "unknown"' "$STATE_FILE" 2>/dev/null)
 
     case "$PROTOCOL" in
         reality)
             if [[ -f "$USERS_FILE" ]]; then
-                echo -e "  ${D}Users with REALITY config:${R}"
-                jq -r '.users | to_entries[] | select(.value.protocols.reality) | "  \(.key): \(.value.protocols.reality.uuid)"' "$USERS_FILE" 2>/dev/null
+                echo -e "  ${D}REALITY configs:${R}"
+                jq -r '.users | to_entries[] | select(.value.protocols.reality) | [.key, .value.protocols.reality.uuid] | @tsv' "$USERS_FILE" 2>/dev/null |
+                    while IFS=$'\t' read -r username uuid; do
+                        if declare -F reality_link >/dev/null; then
+                            echo "  ${username}: $(reality_link "$uuid" "$username")"
+                        else
+                            echo "  ${username}: ${uuid}"
+                        fi
+                    done
+            fi
+            ;;
+        ws)
+            if [[ -f "$USERS_FILE" ]]; then
+                echo -e "  ${D}WS+CDN configs:${R}"
+                jq -r '.users | to_entries[] | select(.value.protocols.ws) | [.key, .value.protocols.ws.uuid] | @tsv' "$USERS_FILE" 2>/dev/null |
+                    while IFS=$'\t' read -r username uuid; do
+                        if declare -F ws_link >/dev/null; then
+                            echo "  ${username}: $(ws_link "$uuid" "$username")"
+                        else
+                            echo "  ${username}: ${uuid}"
+                        fi
+                    done
             fi
             ;;
         wg)
@@ -519,27 +495,46 @@ do_restart() {
 
 # ── Uninstall ─────────────────────────────────────────────────────────────────
 
+do_generic_uninstall() {
+    if [[ -n "$(vany_protocol_feature_key "$PROTOCOL")" ]]; then
+        err "Shared-runtime uninstall hook missing for $PROTOCOL"
+        return 1
+    fi
+
+    if [[ -n "$container_name" ]]; then
+        docker stop "$container_name" 2>/dev/null || true
+        docker rm "$container_name" 2>/dev/null || true
+        ok "Container removed"
+    fi
+
+    if [[ -f "$STATE_FILE" ]] && command -v jq &>/dev/null; then
+        local proto_key
+        proto_key=$(vany_protocol_state_key "$PROTOCOL")
+        jq --arg proto "$proto_key" 'del(.protocols[$proto])' "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+    fi
+}
+
 do_uninstall() {
     section "Uninstall ${name}"
-    echo -e "  ${RED}This will stop and remove the container.${R}"
+    echo -e "  ${RED}This will remove ${name} from this server.${R}"
+    if [[ -n "$(vany_protocol_feature_key "$PROTOCOL")" ]]; then
+        echo -e "  ${D}Shared runtimes stay up if another protocol still uses them.${R}"
+    fi
     read -rp "  Are you sure? (y/N): " confirm <&3
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        if [[ -n "$container_name" ]]; then
-            docker stop "$container_name" 2>/dev/null || true
-            docker rm "$container_name" 2>/dev/null || true
-            ok "Container removed"
-        fi
+        do_download_script
 
-        # Clean state
-        if [[ -f "$STATE_FILE" ]] && command -v jq &>/dev/null; then
-            local proto_key="$PROTOCOL"
-            [[ "$proto_key" == "ws" || "$proto_key" == "reality" || "$proto_key" == "vray" || "$proto_key" == "mtp" || "$proto_key" == "http-obfs" ]] && proto_key="xray"
-            [[ "$proto_key" == "wg" ]] && proto_key="wireguard"
-            jq "del(.protocols.${proto_key})" "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+        local uninstall_fn
+        uninstall_fn=$(vany_protocol_uninstall_hook "$PROTOCOL")
+        if [[ -n "$uninstall_fn" ]] && declare -F "$uninstall_fn" >/dev/null; then
+            "$uninstall_fn"
+        else
+            do_generic_uninstall
         fi
 
         is_installed=false
         is_running=false
+        check_status
         ok "Uninstall complete"
     else
         info "Cancelled"

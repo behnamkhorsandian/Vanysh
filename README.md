@@ -1,10 +1,11 @@
 # Vanysh
 [![Build Cloak](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/cloak-build.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/cloak-build.yml)
 [![Deploy](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/deploy.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/deploy.yml)
+[![Protocol Smoke](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/protocol-smoke.yml/badge.svg)](https://github.com/behnamkhorsandian/Vanysh/actions/workflows/protocol-smoke.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&up_color=green&up_message=online&url=https%3A%2F%2Fvany.sh)](https://www.vany.sh)
 
-Multi-protocol censorship bypass toolkit. Deploy proxy services on any VM, connect from restricted networks, and scan for clean routes -- all from the terminal.
+Multi-protocol censorship bypass toolkit. Pick a protocol, run one command on a VPS, and use that same command later to update, manage users, print connection configs, restart, or uninstall.
 
 [![Screenshot of Vany TUI](https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/github.png)](https://www.vany.sh)
 
@@ -12,7 +13,7 @@ Multi-protocol censorship bypass toolkit. Deploy proxy services on any VM, conne
 
 ```bash
 curl vany.sh                        # Browse protocol catalog (static ANSI page)
-curl vany.sh | sudo bash            # Server TUI: install & manage protocols
+curl vany.sh/reality | sudo bash    # Install or manage one protocol on a VPS
 curl vany.sh/tools/cfray | bash     # Client tools: scanners & diagnostics
 ```
 
@@ -76,13 +77,11 @@ Available for Linux (amd64/arm64), macOS (Intel/Apple Silicon), and Windows (WSL
 ### Server Setup (VPS owner)
 
 ```bash
-# SSH into your VPS, pick a protocol:
+# SSH into your VPS and pick a protocol:
 curl vany.sh/reality | sudo bash
 
-# Manage users:
-vany add reality alice
-vany links alice
-vany status
+# Run the same command later for update, users, configs, logs, restart, or uninstall:
+curl vany.sh/reality | sudo bash
 ```
 
 ### Client Connection (restricted country)
@@ -103,17 +102,17 @@ Use connection links from your VPS in apps like **Hiddify**, **v2rayNG**, or **W
 - **Client tools:** Any terminal with `curl` and `bash`
 - **Domain:** Required for WS+CDN, HTTP Obfs, DNS tunnels. Optional for others.
 
-## User Management
+## Protocol Management
+
+Every protocol route opens a guided manager for that protocol. The menu adapts to the current install state.
 
 ```bash
-vany add reality alice        # Add user to Reality
-vany add wg bob               # Add user to WireGuard
-vany users                    # List all users
-vany links alice              # Show connection links
-vany remove reality alice     # Remove user
-vany status                   # All services status
-vany uninstall reality        # Remove service
+curl vany.sh/reality | sudo bash    # Reality install/update/users/config/logs/restart/uninstall
+curl vany.sh/ws | sudo bash         # WS+CDN install/update/users/config/logs/restart/uninstall
+curl vany.sh/wg | sudo bash         # WireGuard install/update/users/config/logs/restart/uninstall
 ```
+
+The installer keeps runtime state in `/opt/vany/state.json` and users in `/opt/vany/users.json`.
 
 ## Client Apps
 
@@ -127,17 +126,27 @@ vany uninstall reality        # Remove service
 
 ## Architecture
 
-```
-curl vany.sh                     curl vany.sh | sudo bash
-     |                                |
-     v                                v
- CF Worker (static ANSI)       CF Worker -> bash TUI client
-                                      |
-                               Docker containers on VPS
-                               /opt/vany/state.json
+```text
+curl vany.sh/<protocol> | sudo bash
+    |
+    v
+Cloudflare Worker: workers/src/index.ts
+    |
+    v
+scripts/direct-install.sh with VANY_PROTOCOL=<protocol>
+    |
+    v
+scripts/docker-bootstrap.sh + scripts/lib/protocol-registry.sh
+    |
+    v
+Docker runtimes on the VPS under /opt/vany
 ```
 
-```
+`scripts/lib/protocol-registry.sh` is the shared Bash protocol registry. It defines installer scripts, runtime names, containers, state keys, ports, user hooks, and uninstall hooks. Worker service metadata in `workers/src/index.ts` is kept in sync with the registry by CI.
+
+Xray-family protocols share the `vany-xray` runtime. Reality, WS+CDN, HTTP Obfs, V2Ray, and MTProto each track their own feature state so uninstalling one does not stop Xray while another feature still uses it.
+
+```text
 Port 443 (TCP)
     +-> SNI: camouflage.com    -> Reality (VLESS+XTLS)
     +-> SNI: yourdomain.com    -> V2Ray (VLESS+TLS)
@@ -151,9 +160,24 @@ Port 9001 (TCP)                -> Tor Bridge (obfs4)
 Port 22 (TCP)                  -> SSH Tunnel (SOCKS5)
 ```
 
+## Development And Deployment
+
+Normal development does not require local builds. Push changes and let GitHub Actions run the build, tests, and deployment.
+
+| Workflow | Purpose |
+|----------|---------|
+| `deploy.yml` | Deploy Cloudflare Worker and Pages on relevant pushes to `main` |
+| `protocol-smoke.yml` | Check shell syntax, registry drift, and Docker compose config |
+| `spot-vm-watchdog.yml` | Restart the GCP Spot VM if it is preempted |
+| `cloak-build.yml` | Build Cloak release archives on tags/manual dispatch |
+| `sos-build.yml` | Build SOS release binaries on tags/manual dispatch |
+
+Real protocol usability still needs disposable VM E2E tests. GitHub Actions can catch script, registry, Worker, and compose regressions, but it cannot fully prove public UDP, low ports, DNS delegation, Cloudflare CDN behavior, TUN/NET_ADMIN, iptables, or reboot persistence.
+
 ## Documentation
 
 - **[Cloak Desktop Client](docs/cloak.md)** — Offline suite, install & usage
+- [Project Overview](PROJECT_OVERVIEW.md)
 - [Self-Hosting Guide](docs/self-hosting.md)
 - [Firewall Setup](docs/firewall.md)
 - [DNS Setup](docs/dns.md)

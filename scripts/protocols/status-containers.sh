@@ -7,11 +7,38 @@
 
 VANY_DIR="/opt/vany"
 STATE_FILE="$VANY_DIR/state.json"
+GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 
-CONTAINERS=("vany-xray" "vany-wireguard" "vany-dnstt" "vany-conduit" "vany-sos" "vany-hysteria" "vany-slipstream" "vany-noizdns" "vany-tor-bridge" "vany-snowflake")
+load_protocol_registry() {
+    if [[ -n "${VANY_PROTOCOL_REGISTRY_LOADED:-}" ]]; then
+        return 0
+    fi
+
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local candidate
+    for candidate in \
+        "$script_dir/../lib/protocol-registry.sh" \
+        "$script_dir/lib/protocol-registry.sh" \
+        "$VANY_DIR/scripts/lib/protocol-registry.sh"; do
+        if [[ -f "$candidate" ]]; then
+            source "$candidate"
+            return 0
+        fi
+    done
+
+    local registry_file="/tmp/vany-protocol-registry.sh"
+    curl -sfL "$GITHUB_RAW/scripts/lib/protocol-registry.sh" -o "$registry_file"
+    source "$registry_file"
+}
 
 get_container_status() {
     local name="$1"
+
+    if [[ -z "$name" ]]; then
+        echo "host_managed"
+        return
+    fi
 
     if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${name}$"; then
         echo "not_installed"
@@ -25,6 +52,11 @@ get_container_status() {
 
 get_container_stats() {
     local name="$1"
+
+    if [[ -z "$name" ]]; then
+        echo '{"cpu": "-", "mem": "-", "uptime": "-"}'
+        return
+    fi
 
     if [[ "$(get_container_status "$name")" != "running" ]]; then
         echo '{"cpu": "-", "mem": "-", "uptime": "-"}'
@@ -44,24 +76,12 @@ get_container_stats() {
     echo "$stats" | jq --arg started "$started" '. + {"started": $started}'
 }
 
+load_protocol_registry
+
 PROTO="${1:-}"
 
 if [[ -n "$PROTO" ]]; then
-    case "$PROTO" in
-        xray|reality|ws|vray) NAME="vany-xray" ;;
-        wireguard|wg)         NAME="vany-wireguard" ;;
-        dnstt)                NAME="vany-dnstt" ;;
-        conduit)              NAME="vany-conduit" ;;
-        sos)                  NAME="vany-sos" ;;
-        hysteria)             NAME="vany-hysteria" ;;
-        http-obfs)            NAME="vany-xray" ;;
-        ssh-tunnel)           NAME="--" ;;
-        slipstream)           NAME="vany-slipstream" ;;
-        noizdns)              NAME="vany-noizdns" ;;
-        tor-bridge)           NAME="vany-tor-bridge" ;;
-        snowflake)            NAME="vany-snowflake" ;;
-        *)                    NAME="vany-$PROTO" ;;
-    esac
+    NAME=$(vany_protocol_container "$PROTO")
 
     STATUS=$(get_container_status "$NAME")
     STATS=$(get_container_stats "$NAME")
@@ -72,7 +92,13 @@ else
     # All containers
     echo "{"
     first=true
-    for name in "${CONTAINERS[@]}"; do
+    seen=" "
+    for protocol in "${VANY_PROTOCOLS[@]}"; do
+        name=$(vany_protocol_container "$protocol")
+        [[ -z "$name" ]] && continue
+        [[ "$seen" == *" $name "* ]] && continue
+        seen+="$name "
+
         STATUS=$(get_container_status "$name")
         STATS=$(get_container_stats "$name")
 

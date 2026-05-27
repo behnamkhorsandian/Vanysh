@@ -68,10 +68,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: workers/package-lock.json
 
       - name: Install dependencies
         working-directory: workers
-        run: npm install
+        run: npm ci
+
+      - name: Test Worker
+        working-directory: workers
+        run: npm test
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
