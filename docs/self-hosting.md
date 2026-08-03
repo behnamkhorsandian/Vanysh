@@ -40,6 +40,7 @@ You do not need local Node modules, local Docker builds, or local Wrangler deplo
 | `CF_API_TOKEN` | Cloudflare API authentication |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `CF_ZONE_ID` | Zone ID for your domain |
+| `CF_ANALYTICS_TOKEN` | Read-only Cloudflare Zone Analytics token |
 
 Set secrets without printing values:
 
@@ -47,6 +48,7 @@ Set secrets without printing values:
 gh secret set CF_API_TOKEN --repo OWNER/REPO --body "$(cat cf-token.txt)"
 gh secret set CF_ACCOUNT_ID --repo OWNER/REPO --body "<account-id>"
 gh secret set CF_ZONE_ID --repo OWNER/REPO --body "<zone-id>"
+gh secret set CF_ANALYTICS_TOKEN --repo OWNER/REPO --body "$(cat cf-analytics-token.txt)"
 ```
 
 ## Repository Configuration

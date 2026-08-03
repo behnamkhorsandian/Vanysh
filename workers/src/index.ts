@@ -21,6 +21,157 @@ const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/m
 
 interface Env {
   SAFEBOX: KVNamespace;
+  CF_ANALYTICS_TOKEN?: string;
+  CF_ZONE_ID?: string;
+}
+
+interface CloudflareAnalyticsRow {
+  dimensions?: {
+    date?: string;
+    clientCountryName?: string;
+  };
+  sum?: {
+    requests?: number;
+  };
+  uniq?: {
+    uniques?: number;
+  };
+}
+
+interface CloudflareAnalyticsResponse {
+  data?: {
+    viewer?: {
+      zones?: Array<{
+        daily?: CloudflareAnalyticsRow[];
+        countries?: CloudflareAnalyticsRow[];
+      }>;
+    };
+  };
+  errors?: Array<{ message?: string }>;
+}
+
+const COUNTRY_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });
+
+async function getCloudflareTraffic(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const responseHeaders = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'public, max-age=900, stale-while-revalidate=3600',
+    'X-Content-Type-Options': 'nosniff',
+  };
+
+  const cache = caches.default;
+  const cacheKey = new Request(new URL('/traffic-stats', request.url).toString(), { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  if (!env.CF_ANALYTICS_TOKEN || !env.CF_ZONE_ID) {
+    return Response.json(
+      { error: 'Traffic analytics are not configured' },
+      { status: 503, headers: responseHeaders },
+    );
+  }
+
+  const end = new Date();
+  end.setUTCHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 30);
+  const startDate = start.toISOString().slice(0, 10);
+  const endDate = end.toISOString().slice(0, 10);
+
+  const query = `
+    query VanyTraffic($zoneTag: string, $start: Date, $end: Date) {
+      viewer {
+        zones(filter: { zoneTag: $zoneTag }) {
+          daily: httpRequests1dGroups(
+            limit: 31
+            orderBy: [date_ASC]
+            filter: { date_geq: $start, date_lt: $end, requestSource: "eyeball" }
+          ) {
+            dimensions { date }
+            sum { requests }
+            uniq { uniques }
+          }
+          countries: httpRequests1dGroups(
+            limit: 1000
+            filter: { date_geq: $start, date_lt: $end, requestSource: "eyeball" }
+          ) {
+            dimensions { date clientCountryName }
+            sum { requests }
+          }
+        }
+      }
+    }
+  `;
+
+  const analyticsResponse = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      variables: { zoneTag: env.CF_ZONE_ID, start: startDate, end: endDate },
+    }),
+  });
+
+  if (!analyticsResponse.ok) {
+    return Response.json(
+      { error: 'Traffic analytics are temporarily unavailable' },
+      { status: 502, headers: responseHeaders },
+    );
+  }
+
+  const payload = await analyticsResponse.json() as CloudflareAnalyticsResponse;
+  if (payload.errors?.length) {
+    console.error('Cloudflare Analytics query failed', payload.errors.map(error => error.message));
+    return Response.json(
+      { error: 'Traffic analytics are temporarily unavailable' },
+      { status: 502, headers: responseHeaders },
+    );
+  }
+
+  const zone = payload.data?.viewer?.zones?.[0];
+  if (!zone) {
+    return Response.json(
+      { error: 'Traffic analytics returned no zone data' },
+      { status: 502, headers: responseHeaders },
+    );
+  }
+
+  const daily = (zone.daily || []).map(row => ({
+    date: row.dimensions?.date || '',
+    visitors: row.uniq?.uniques || 0,
+    requests: row.sum?.requests || 0,
+  }));
+  const countryTotals = new Map<string, number>();
+  for (const row of zone.countries || []) {
+    const code = row.dimensions?.clientCountryName || 'XX';
+    countryTotals.set(code, (countryTotals.get(code) || 0) + (row.sum?.requests || 0));
+  }
+
+  const visitorCounts = daily.map(day => day.visitors);
+  const countries = Array.from(countryTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([code, requests]) => ({
+      code,
+      name: COUNTRY_NAMES.of(code) || code,
+      requests,
+    }));
+
+  const response = Response.json({
+    period: { start: startDate, end: endDate, days: 30 },
+    uniqueVisitors: visitorCounts.reduce((total, count) => total + count, 0),
+    peakVisitors: visitorCounts.length ? Math.max(...visitorCounts) : 0,
+    lowVisitors: visitorCounts.length ? Math.min(...visitorCounts) : 0,
+    requests: daily.reduce((total, day) => total + day.requests, 0),
+    countries,
+    daily,
+    updatedAt: new Date().toISOString(),
+  }, { headers: responseHeaders });
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
 }
 
 /** Fire-and-forget KV counter increment */
@@ -243,6 +394,11 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const hostname = url.hostname;
+
+    // Serve the same protected analytics facade on vany.sh and www.vany.sh.
+    if (url.pathname === '/traffic-stats' && request.method === 'GET') {
+      return getCloudflareTraffic(request, env, ctx);
+    }
 
     // www subdomain: proxy to Cloudflare Pages
     if (hostname === 'www.vany.sh') {

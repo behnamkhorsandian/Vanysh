@@ -85,6 +85,12 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           workingDirectory: workers
+          secrets: |
+            CF_ANALYTICS_TOKEN
+            CF_ZONE_ID
+        env:
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN || secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
 
   # ============================================
   # Deploy Cloudflare Pages (www)

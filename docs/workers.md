@@ -34,6 +34,7 @@ The Worker routes browser users to `https://www.vany.sh/` and returns plain text
 | `/box` and `/box/<id>` | SafeBox web and CLI routes |
 | `/health` | Worker health check |
 | `/stats` | Worker KV counters |
+| `/traffic-stats` | Cached and normalized Cloudflare zone analytics |
 
 ## Source Files
 
@@ -56,6 +57,12 @@ Required GitHub secrets:
 | `CF_API_TOKEN` | Cloudflare API token with Workers, Pages, zone read, and cache purge permissions |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `CF_ZONE_ID` | Cloudflare zone ID for cache purge |
+| `CF_ANALYTICS_TOKEN` | Read-only zone analytics token passed to the Worker as an encrypted secret |
+
+Use a separate, least-privilege token for `CF_ANALYTICS_TOKEN`. Grant only
+`Zone Analytics Read` for the Vanysh zone. The Worker keeps this token and the
+zone ID server-side, then exposes only aggregate traffic counts through
+`/traffic-stats`. Responses are cached at the edge for 15 minutes.
 
 Workflow behavior:
 
