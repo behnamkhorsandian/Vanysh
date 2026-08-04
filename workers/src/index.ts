@@ -16,6 +16,7 @@ import { handleTuiRequest } from './tui/index.js';
 import { pageLandingBash } from './tui/pages/landing.js';
 import { handleBoxCreate, handleBoxFetch, handleBoxPage } from './safebox.js';
 import { handleVless } from './vless.js';
+import { topProtocolsFromEndpoints, type EndpointAnalyticsRow } from './traffic-analytics.js';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main';
 
@@ -29,6 +30,7 @@ interface CloudflareAnalyticsRow {
   dimensions?: {
     date?: string;
     clientCountryName?: string;
+    clientRequestPath?: string;
   };
   sum?: {
     requests?: number;
@@ -44,6 +46,7 @@ interface CloudflareAnalyticsResponse {
       zones?: Array<{
         daily?: CloudflareAnalyticsRow[];
         countries?: CloudflareAnalyticsRow[];
+        endpoints?: EndpointAnalyticsRow[];
       }>;
     };
   };
@@ -96,6 +99,13 @@ async function getCloudflareTraffic(request: Request, env: Env, ctx: ExecutionCo
             filter: { date_geq: $start, date_lt: $end, requestSource: "eyeball" }
           ) {
             dimensions { date clientCountryName }
+            sum { requests }
+          }
+          endpoints: httpRequests1dGroups(
+            limit: 10000
+            filter: { date_geq: $start, date_lt: $end, requestSource: "eyeball" }
+          ) {
+            dimensions { clientRequestPath }
             sum { requests }
           }
         }
@@ -167,6 +177,7 @@ async function getCloudflareTraffic(request: Request, env: Env, ctx: ExecutionCo
     lowVisitors: visitorCounts.length ? Math.min(...visitorCounts) : 0,
     requests: daily.reduce((total, day) => total + day.requests, 0),
     countries,
+    protocols: topProtocolsFromEndpoints(zone.endpoints || []),
     daily,
     updatedAt: new Date().toISOString(),
   }, { headers: responseHeaders });

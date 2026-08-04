@@ -1641,7 +1641,12 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .cloud-country-panel { padding: 18px 0 8px; }
+    .cloud-breakdowns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 32px;
+    }
+    .cloud-country-panel { min-width: 0; padding: 18px 0 8px; }
     .cloud-country-title {
       margin-bottom: 14px;
       color: var(--text-dim);
@@ -1661,6 +1666,7 @@
     .cloud-country-track { height: 2px; background: var(--border-soft); }
     .cloud-country-bar { display: block; height: 100%; background: var(--text-secondary); }
     .cloud-country-value { color: var(--text-dim); text-align: right; }
+    #traffic-protocols .cloud-country-row { grid-template-columns: 136px minmax(80px, 1fr) 72px; }
 
     /* Documentation */
     .sidebar {
@@ -1721,7 +1727,9 @@
       .cloud-stat { border-bottom: 1px solid var(--border-soft); }
       .cloud-stat:nth-child(2n) { border-right: 0; }
       .cloud-stat:last-child { grid-column: span 2; border-bottom: 0; }
+      .cloud-breakdowns { grid-template-columns: 1fr; gap: 0; }
       .cloud-country-row { grid-template-columns: 76px minmax(60px, 1fr) 62px; gap: 9px; }
+      #traffic-protocols .cloud-country-row { grid-template-columns: 116px minmax(60px, 1fr) 62px; }
       .mobile-menu-btn { right: 16px; bottom: 16px; width: 46px; height: 46px; }
     }
   </style>
@@ -1824,33 +1832,45 @@
                 <span class="cloud-stat-label">Days measured</span>
               </div>
             </div>
-            <div class="cloud-country-panel">
-              <div class="cloud-country-title">Top traffic countries and regions</div>
-              <div class="cloud-country-list" id="traffic-countries">
-                <div class="cloud-country-row">
-                  <span class="cloud-country-name">Netherlands</span>
-                  <span class="cloud-country-track"><span class="cloud-country-bar" style="width:100%"></span></span>
-                  <span class="cloud-country-value">41,014</span>
+            <div class="cloud-breakdowns">
+              <div class="cloud-country-panel">
+                <div class="cloud-country-title">Top traffic countries and regions</div>
+                <div class="cloud-country-list" id="traffic-countries">
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">Netherlands</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:100%"></span></span>
+                    <span class="cloud-country-value">41,014</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">France</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:48.4%"></span></span>
+                    <span class="cloud-country-value">19,842</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">Brazil</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:31.7%"></span></span>
+                    <span class="cloud-country-value">12,997</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">United States</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:31%"></span></span>
+                    <span class="cloud-country-value">12,725</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">Canada</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:12.4%"></span></span>
+                    <span class="cloud-country-value">5,090</span>
+                  </div>
                 </div>
-                <div class="cloud-country-row">
-                  <span class="cloud-country-name">France</span>
-                  <span class="cloud-country-track"><span class="cloud-country-bar" style="width:48.4%"></span></span>
-                  <span class="cloud-country-value">19,842</span>
-                </div>
-                <div class="cloud-country-row">
-                  <span class="cloud-country-name">Brazil</span>
-                  <span class="cloud-country-track"><span class="cloud-country-bar" style="width:31.7%"></span></span>
-                  <span class="cloud-country-value">12,997</span>
-                </div>
-                <div class="cloud-country-row">
-                  <span class="cloud-country-name">United States</span>
-                  <span class="cloud-country-track"><span class="cloud-country-bar" style="width:31%"></span></span>
-                  <span class="cloud-country-value">12,725</span>
-                </div>
-                <div class="cloud-country-row">
-                  <span class="cloud-country-name">Canada</span>
-                  <span class="cloud-country-track"><span class="cloud-country-bar" style="width:12.4%"></span></span>
-                  <span class="cloud-country-value">5,090</span>
+              </div>
+              <div class="cloud-country-panel">
+                <div class="cloud-country-title">Top protocols <span title="Estimated from protocol endpoint requests">/ endpoint traffic proxy</span></div>
+                <div class="cloud-country-list" id="traffic-protocols">
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">Loading</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:100%"></span></span>
+                    <span class="cloud-country-value">--</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3140,6 +3160,34 @@
 
         row.append(name, track, value);
         list.appendChild(row);
+      });
+
+      const protocols = Array.isArray(data.protocols) ? data.protocols : [];
+      const protocolList = document.getElementById('traffic-protocols');
+      const protocolMaximum = Math.max(...protocols.map(protocol => Number(protocol.requests) || 0), 1);
+      protocolList.replaceChildren();
+
+      protocols.slice(0, 5).forEach(protocol => {
+        const row = document.createElement('div');
+        row.className = 'cloud-country-row';
+
+        const name = document.createElement('span');
+        name.className = 'cloud-country-name';
+        name.textContent = protocol.name || protocol.endpoint || 'Unknown';
+
+        const track = document.createElement('span');
+        track.className = 'cloud-country-track';
+        const bar = document.createElement('span');
+        bar.className = 'cloud-country-bar';
+        bar.style.width = Math.max(2, ((Number(protocol.requests) || 0) / protocolMaximum) * 100) + '%';
+        track.appendChild(bar);
+
+        const value = document.createElement('span');
+        value.className = 'cloud-country-value';
+        value.textContent = (Number(protocol.requests) || 0).toLocaleString();
+
+        row.append(name, track, value);
+        protocolList.appendChild(row);
       });
     }
 
