@@ -5,6 +5,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/website?down_color=red&down_message=offline&up_color=green&up_message=online&url=https%3A%2F%2Fvany.sh)](https://www.vany.sh)
 
+### Project stats
+
+[![GitHub stars](https://img.shields.io/github/stars/behnamkhorsandian/Vanysh?style=flat&logo=github&label=Stars)](https://github.com/behnamkhorsandian/Vanysh/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/behnamkhorsandian/Vanysh?style=flat&logo=github&label=Forks)](https://github.com/behnamkhorsandian/Vanysh/forks)
+[![GitHub watchers](https://img.shields.io/github/watchers/behnamkhorsandian/Vanysh?style=flat&logo=github&label=Watchers)](https://github.com/behnamkhorsandian/Vanysh/watchers)
+[![GitHub release downloads](https://img.shields.io/github/downloads/behnamkhorsandian/Vanysh/total?style=flat&logo=github&label=Release%20downloads)](https://github.com/behnamkhorsandian/Vanysh/releases)
+[![GitHub issues](https://img.shields.io/github/issues/behnamkhorsandian/Vanysh?style=flat&logo=github&label=Open%20issues)](https://github.com/behnamkhorsandian/Vanysh/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/behnamkhorsandian/Vanysh?style=flat&logo=github&label=Last%20commit)](https://github.com/behnamkhorsandian/Vanysh/commits/main)
+
+#### Cloudflare traffic (previous 30 days)
+
+[![Unique visitors](https://img.shields.io/badge/Unique%20visitors-5.44k-F38020?style=flat&logo=cloudflare&logoColor=white)](https://www.vany.sh)
+[![HTTP requests](https://img.shields.io/badge/HTTP%20requests-43%2C870-F38020?style=flat&logo=cloudflare&logoColor=white)](https://www.vany.sh)
+[![Peak visitors per day](https://img.shields.io/badge/Peak%20visitors%2Fday-956-F38020?style=flat&logo=cloudflare&logoColor=white)](https://www.vany.sh)
+[![Low visitors per day](https://img.shields.io/badge/Low%20visitors%2Fday-66-F38020?style=flat&logo=cloudflare&logoColor=white)](https://www.vany.sh)
+
+Cloudflare figures are the latest 30-day snapshot published on the website. GitHub clone counts are available only to repository maintainers in the repository's **Insights → Traffic** view, so GitHub does not provide a public clone-count badge.
+
 Multi-protocol censorship bypass toolkit. Pick a protocol, run one command on a VPS, and use that same command later to update, manage users, print connection configs, restart, or uninstall.
 
 [![Screenshot of Vany TUI](https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/github.png)](https://www.vany.sh)
