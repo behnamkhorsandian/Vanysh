@@ -136,7 +136,9 @@ jobs:
           with open('src/sos/main.py', 'w') as f:
               f.write(content)
           
-          print(f'Injected: DNSTT_PUBKEY={bool(pubkey)}, SOS_RELAY_HOST={relay_host}')
+          # Report presence only. Values supplied through the secrets context
+          # must never be copied into a public Actions log.
+          print(f'Injected: DNSTT_PUBKEY={bool(pubkey)}, SOS_RELAY_HOST={bool(relay_host)}')
           EOF
       
       - name: Build SOS

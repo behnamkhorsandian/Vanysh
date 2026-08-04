@@ -144,7 +144,8 @@ jobs:
             echo "* Cloudflare cache purged"
           else
             echo "Warning: Cache purge failed (non-critical)"
-            echo "$RESPONSE"
+            # Do not print the provider response. Error payloads can contain
+            # request details that do not belong in a public Actions log.
           fi
 
       - name: Purge jsDelivr CDN cache
