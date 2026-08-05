@@ -1712,10 +1712,16 @@
 
     @media (max-width: 768px) {
       .container { padding-inline: 16px; }
-      #home-page header { padding-top: 34px; }
-      .hero { padding: 24px 0 40px; }
-      .hero-title { font-size: 26px; }
-      .hero-subtitle { margin-bottom: 30px; }
+      #home-page header { padding-top: 20px; }
+      .morph-section { height: 96px; margin-bottom: 10px; font-size: 5.8px; transform: scale(0.88); transform-origin: center; }
+      .header-info { font-size: 10px; letter-spacing: 0.06em; }
+      .hero { padding: 18px 0 34px; text-align: left; }
+      .hero-title { font-size: clamp(28px, 10vw, 38px); line-height: 1; max-width: 9ch; }
+      .hero-subtitle { margin-bottom: 24px; font-size: 13px; line-height: 1.55; }
+      .setup-steps { flex-direction: column; }
+      .step-item { width: 100%; min-width: 0; padding: 16px; }
+      .install-cmd { align-items: flex-start; padding-right: 80px; }
+      .install-cmd code { margin-right: 0; font-size: 11px; }
       .tui-window { margin-inline: 0; }
       .setup-steps,
       .protocol-list { gap: 10px; }
@@ -1867,9 +1873,14 @@
                 <div class="cloud-country-title">Top protocols <span title="Estimated from protocol endpoint requests">/ endpoint traffic proxy</span></div>
                 <div class="cloud-country-list" id="traffic-protocols">
                   <div class="cloud-country-row">
-                    <span class="cloud-country-name">Loading</span>
+                    <span class="cloud-country-name">SafeBox</span>
                     <span class="cloud-country-track"><span class="cloud-country-bar" style="width:100%"></span></span>
-                    <span class="cloud-country-value">--</span>
+                    <span class="cloud-country-value">live</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">Install</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:72%"></span></span>
+                    <span class="cloud-country-value">ready</span>
                   </div>
                 </div>
               </div>
@@ -3164,8 +3175,29 @@
 
       const protocols = Array.isArray(data.protocols) ? data.protocols : [];
       const protocolList = document.getElementById('traffic-protocols');
-      const protocolMaximum = Math.max(...protocols.map(protocol => Number(protocol.requests) || 0), 1);
       protocolList.replaceChildren();
+      if (!protocols.length) {
+        [['SafeBox', 'live'], ['Install', 'ready'], ['Docs', 'ready']].forEach((item, index) => {
+          const row = document.createElement('div');
+          row.className = 'cloud-country-row';
+          const name = document.createElement('span');
+          name.className = 'cloud-country-name';
+          name.textContent = item[0];
+          const track = document.createElement('span');
+          track.className = 'cloud-country-track';
+          const bar = document.createElement('span');
+          bar.className = 'cloud-country-bar';
+          bar.style.width = [100, 72, 48][index] + '%';
+          track.appendChild(bar);
+          const value = document.createElement('span');
+          value.className = 'cloud-country-value';
+          value.textContent = item[1];
+          row.append(name, track, value);
+          protocolList.appendChild(row);
+        });
+        return;
+      }
+      const protocolMaximum = Math.max(...protocols.map(protocol => Number(protocol.requests) || 0), 1);
 
       protocols.slice(0, 5).forEach(protocol => {
         const row = document.createElement('div');
@@ -3191,7 +3223,8 @@
       });
     }
 
-    fetch('/traffic-stats', { headers: { Accept: 'application/json' } })
+    const trafficStatsUrl = location.hostname === 'vany-agg.pages.dev' ? 'https://vany.sh/traffic-stats' : '/traffic-stats';
+    fetch(trafficStatsUrl, { headers: { Accept: 'application/json' } })
       .then(response => response.ok ? response.json() : null)
       .then(renderTrafficStats)
       .catch(() => {});
