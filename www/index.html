@@ -1873,14 +1873,19 @@
                 <div class="cloud-country-title">Top protocols <span title="Estimated from protocol endpoint requests">/ endpoint traffic proxy</span></div>
                 <div class="cloud-country-list" id="traffic-protocols">
                   <div class="cloud-country-row">
-                    <span class="cloud-country-name">SafeBox</span>
+                    <span class="cloud-country-name">MTP protocol</span>
                     <span class="cloud-country-track"><span class="cloud-country-bar" style="width:100%"></span></span>
-                    <span class="cloud-country-value">live</span>
+                    <span class="cloud-country-value">top</span>
                   </div>
                   <div class="cloud-country-row">
-                    <span class="cloud-country-name">Install</span>
+                    <span class="cloud-country-name">WireGuard</span>
                     <span class="cloud-country-track"><span class="cloud-country-bar" style="width:72%"></span></span>
-                    <span class="cloud-country-value">ready</span>
+                    <span class="cloud-country-value">2</span>
+                  </div>
+                  <div class="cloud-country-row">
+                    <span class="cloud-country-name">VLESS Websocket</span>
+                    <span class="cloud-country-track"><span class="cloud-country-bar" style="width:48%"></span></span>
+                    <span class="cloud-country-value">3</span>
                   </div>
                 </div>
               </div>
@@ -3177,7 +3182,7 @@
       const protocolList = document.getElementById('traffic-protocols');
       protocolList.replaceChildren();
       if (!protocols.length) {
-        [['SafeBox', 'live'], ['Install', 'ready'], ['Docs', 'ready']].forEach((item, index) => {
+        [['MTP protocol', 'top'], ['WireGuard', '2'], ['VLESS Websocket', '3']].forEach((item, index) => {
           const row = document.createElement('div');
           row.className = 'cloud-country-row';
           const name = document.createElement('span');

@@ -26,8 +26,8 @@ describe('topProtocolsFromEndpoints', () => {
     ]);
 
     expect(protocols).toEqual([
-      { endpoint: 'mtp', name: 'MTProto', requests: 7 },
-      { endpoint: 'ws', name: 'VLESS + WS + CDN', requests: 4 },
+      { endpoint: 'mtp', name: 'MTP protocol', requests: 7 },
+      { endpoint: 'ws', name: 'VLESS Websocket', requests: 4 },
       { endpoint: 'wg', name: 'WireGuard', requests: 3 },
     ]);
   });
@@ -40,7 +40,7 @@ describe('topProtocolsFromEndpoints', () => {
     ], 1);
 
     expect(protocols).toEqual([
-      { endpoint: 'ws', name: 'VLESS + WS + CDN', requests: 4 },
+      { endpoint: 'ws', name: 'VLESS Websocket', requests: 4 },
     ]);
   });
 });

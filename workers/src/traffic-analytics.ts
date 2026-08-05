@@ -9,11 +9,11 @@ export interface EndpointAnalyticsRow {
 }
 
 const PROTOCOL_ENDPOINTS: Record<string, string> = {
-  mtp: 'MTProto',
+  mtp: 'MTP protocol',
   reality: 'VLESS + REALITY',
   wg: 'WireGuard',
   vray: 'VLESS + TLS',
-  ws: 'VLESS + WS + CDN',
+  ws: 'VLESS Websocket',
   dnstt: 'DNS Tunnel',
   conduit: 'Conduit',
   hysteria: 'Hysteria v2',
