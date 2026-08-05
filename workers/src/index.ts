@@ -31,6 +31,7 @@ interface CloudflareAnalyticsRow {
     date?: string;
     clientCountryName?: string;
     clientRequestPath?: string;
+    clientRequestHTTPHost?: string;
   };
   sum?: {
     requests?: number;
@@ -105,7 +106,7 @@ async function getCloudflareTraffic(request: Request, env: Env, ctx: ExecutionCo
             limit: 10000
             filter: { date_geq: $start, date_lt: $end, requestSource: "eyeball" }
           ) {
-            dimensions { clientRequestPath }
+            dimensions { clientRequestPath clientRequestHTTPHost }
             sum { requests }
           }
         }

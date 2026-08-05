@@ -17,6 +17,21 @@ describe('topProtocolsFromEndpoints', () => {
     ]);
   });
 
+  it('aggregates protocol subdomain requests when the path is not protocol-specific', () => {
+    const protocols = topProtocolsFromEndpoints([
+      { dimensions: { clientRequestHTTPHost: 'mtp.vany.sh', clientRequestPath: '/' }, sum: { requests: 7 } },
+      { dimensions: { clientRequestHTTPHost: 'wg.vany.sh', clientRequestPath: '/' }, sum: { requests: 3 } },
+      { dimensions: { clientRequestHTTPHost: 'www.vany.sh', clientRequestPath: '/' }, sum: { requests: 10 } },
+      { dimensions: { clientRequestHTTPHost: 'vany.sh', clientRequestPath: '/ws' }, sum: { requests: 4 } },
+    ]);
+
+    expect(protocols).toEqual([
+      { endpoint: 'mtp', name: 'MTProto', requests: 7 },
+      { endpoint: 'ws', name: 'VLESS + WS + CDN', requests: 4 },
+      { endpoint: 'wg', name: 'WireGuard', requests: 3 },
+    ]);
+  });
+
   it('limits the result and handles absent analytics fields', () => {
     const protocols = topProtocolsFromEndpoints([
       {},
