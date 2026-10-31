@@ -133,6 +133,26 @@ _build_status_content() {
         fi
     done
     (( found )) || FRAME_CONTENT+=("  No protocols found in Vany's saved state.")
+    if service_running wg && [[ -f "$users_file" ]] && command -v jq >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+        local transfers peer received sent username
+        FRAME_CONTENT+=("" "WireGuard peer usage since the interface started:")
+        if transfers=$(timeout 5 docker exec "${VANY_CONTAINER[wg]}" wg show wg0 transfer 2>/dev/null); then
+            if [[ -z "$transfers" ]]; then
+                FRAME_CONTENT+=("  No WireGuard peers found.")
+            else
+                while IFS=$'\t' read -r peer received sent; do
+                    [[ "$received" =~ ^[0-9]+$ && "$sent" =~ ^[0-9]+$ ]] || continue
+                    username=$(jq -r --arg key "$peer" '[.users // {} | to_entries[] | select(.value.protocols.wg.public_key == $key) | .key] | first // "unmatched peer"' "$users_file" 2>/dev/null)
+                    username=$(printf '%s' "$username" | tr -cd '[:alnum:]_.@ -' | cut -c1-32)
+                    FRAME_CONTENT+=("  ${username:-unmatched peer}: server received $((received / 1048576)) MiB, sent $((sent / 1048576)) MiB")
+                done <<< "$transfers"
+            fi
+        else
+            FRAME_CONTENT+=("  WireGuard usage could not be read.")
+        fi
+        FRAME_CONTENT+=("  Counters reset when the interface restarts.")
+    fi
+    FRAME_CONTENT+=("" "Per-user traffic is not available for other protocols.")
     FRAME_CONTENT+=("" "Press Enter to browse protocols. Press H for home.")
 }
 

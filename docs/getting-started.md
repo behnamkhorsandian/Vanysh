@@ -53,7 +53,7 @@ Vany does not yet start every protocol's client automatically. Some DNS tunnels 
 
 ## Check status
 
-Press S on the home page. The status page shows saved services and users when available. It also offers network checks, route tracing, speed testing, and Docker resource usage.
+Press S on the home page. The status page shows saved services and users when available. For running WireGuard peers, it shows bytes received and sent by the server since the interface started. Per-user traffic for other protocols is not available. The page also offers network checks, route tracing, speed testing, and Docker resource usage.
 
 The header shows CPU, RAM, network activity, public IP, approximate location, UTC time, and local time when available. The location is estimated from your public IP using `ipinfo.io`. A VPN can change the IP and location shown. The checks contact public endpoints. A failed check can have many causes and does not prove censorship.
 

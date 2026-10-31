@@ -28,6 +28,22 @@ service_installed wg || fail 'WireGuard state was not found'
 service_running wg && fail 'stopped WireGuard was reported as running'
 service_installed ws && fail 'an absent Xray feature was reported as installed'
 
+VANY_USERS="$TEST_DIR/users.json"
+cat > "$VANY_USERS" <<'JSON'
+{"users":{"alice":{"protocols":{"wg":{"public_key":"peer-A"}}}}}
+JSON
+docker() {
+    case "$1" in
+        ps) printf 'vany-xray\nvany-wireguard\n' ;;
+        inspect) printf 'healthy\n' ;;
+        exec) printf 'peer-A\t2097152\t3145728\n' ;;
+    esac
+}
+timeout() { shift; "$@"; }
+_refresh_menu_status
+_build_status_content
+printf '%s\n' "${FRAME_CONTENT[@]}" | grep -Fq 'alice: server received 2 MiB, sent 3 MiB' || fail 'WireGuard peer usage was not displayed'
+
 # Replace only the drawing and keyboard functions. The page routing stays real.
 tui_get_size() { _TERM_COLS=100; _TERM_ROWS=30; }
 tui_compute_layout() { _FRAME_W=100; _CONTENT_INNER_W=77; _CONTENT_H=20; }

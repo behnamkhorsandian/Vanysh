@@ -33,6 +33,8 @@ Only one DNS tunnel can use port 53 on the same server. VLESS with TLS and MTPro
 
 Press S on the Vany home page for status. Press N for public endpoint, DNS, latency, and packet loss checks. Press T for a speed test. Press P for a route trace. Press M for Docker resource usage. The checks cannot prove censorship or guarantee that a protocol works. A route trace may omit hops that do not answer.
 
+When WireGuard is running, the status page can show each peer's received and sent traffic from the server's perspective. The counters reset when the interface restarts. Vany does not currently have reliable per-user traffic for the other protocols.
+
 Vany requests public IP and approximate location from `ipinfo.io`. The IP may belong to your VPN or proxy. The network checks contact Cloudflare and Google. The speed test downloads data from Cloudflare and may use significant bandwidth.
 
 ## Commands used by the wizard
