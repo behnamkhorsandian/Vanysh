@@ -99,11 +99,16 @@ _render_doc_file() {
             '# '*) continue ;;
             *) FRAME_CONTENT+=("$line") ;;
         esac
-    done < <(fold -s -w "$(( _CONTENT_INNER_W - 2 ))" "$path")
+    done < "$path"
 }
 
 _build_status_content() {
     FRAME_CONTENT=("${C_ORANGE}${C_BOLD}Status and checks${C_RST}" ""
+        "CPU: $_METRIC_CPU    RAM: $_METRIC_RAM"
+        "Network down/up: $_METRIC_NET"
+        "Public IP: $_METRIC_IP    Location: ~$_METRIC_LOCATION"
+        "UTC: $(date -u '+%Y-%m-%d %H:%M:%S')"
+        "Local: $(date '+%Y-%m-%d %H:%M:%S %Z')" ""
         "Public IP and approximate location come from ipinfo.io."
         "Network rate is the total for local interfaces, not per user."
         "A running container does not prove a usable connection." ""
@@ -224,7 +229,7 @@ page_main_menu() {
             h|H|ESC|BACKSPACE) view=home ;;
             s|S) _refresh_menu_status; view=status; last_view="" ;;
             r|R) if [[ "$view" == status ]]; then _refresh_menu_status; last_view=""; fi ;;
-            n|N) if [[ "$view" == status ]]; then tui_cleanup; journey_network_checks; tui_init; last_view=""; fi ;;
+            n|N) if [[ "$view" == status ]]; then tui_command_pane "Network check" bash "$TUI_DIR/command-tasks.sh" network; last_view=""; fi ;;
             t|T) if [[ "$view" == status ]]; then journey_run_tool speedtest; last_view=""; fi ;;
             p|P) if [[ "$view" == status ]]; then journey_trace_route; last_view=""; else view=protocols; fi ;;
             m|M) if [[ "$view" == status ]]; then journey_container_stats; last_view=""; fi ;;

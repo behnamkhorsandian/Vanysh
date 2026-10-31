@@ -80,6 +80,8 @@ download_tui() {
         "tui/theme.sh"
         "tui/engine.sh"
         "tui/metrics.sh"
+        "tui/command-pane.py"
+        "tui/command-tasks.sh"
         "tui/main.sh"
         "tui/pages/main.sh"
         "tui/pages/chooser.sh"

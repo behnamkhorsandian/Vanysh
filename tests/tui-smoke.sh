@@ -80,7 +80,7 @@ tui_refresh_status() { printf 'tick\n' >> "$TEST_DIR/status-ticks"; }
 printf 'TICK\nENTER\n' > "$TEST_DIR/keys"
 tui_wait_key > "$TEST_DIR/wait-output"
 [[ "$TUI_KEY" == ENTER ]] || fail 'idle update was treated as a key press'
-[[ $(wc -l < "$TEST_DIR/status-ticks") -eq 1 ]] || fail 'idle status update did not run once'
+[[ ! -e "$TEST_DIR/status-ticks" ]] || fail 'a short idle wait refreshed the status too soon'
 [[ ! -s "$TEST_DIR/wait-output" ]] || fail 'status output leaked into key handling'
 printf 'EOF\n' > "$TEST_DIR/keys"
 tui_wait_key

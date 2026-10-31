@@ -98,6 +98,11 @@ try:
         raise AssertionError("Idle status refresh did not update the header")
     pending = b""
 
+    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 18, 60, 0, 0))
+    wait_for("Welcome to Vany")
+    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 28, 120, 0, 0))
+    wait_for("Welcome to Vany")
+
     send("c")
     first = wait_for("What do you want to do?")
     if "┌".encode() not in first:

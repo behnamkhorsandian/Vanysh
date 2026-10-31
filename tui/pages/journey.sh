@@ -127,14 +127,9 @@ journey_wireguard_action() {
         rm -f "$copy_path"; rmdir "$copy_dir" 2>/dev/null
         return
     fi
-    tui_cleanup
-    printf '\n  Running WireGuard %s...\n\n' "$action"
-    wg-quick "$action" "$copy_path"
+    tui_command_pane "WireGuard $action" wg-quick "$action" "$copy_path"
     local result=$?
     rm -f "$copy_path"; rmdir "$copy_dir" 2>/dev/null
-    printf '\n  Press any key to return. '
-    read -rsn1 </dev/tty
-    tui_init
     if (( result == 0 )); then JOURNEY_MESSAGE="WireGuard $action completed. Verify the connection."; else JOURNEY_MESSAGE="WireGuard $action failed. Check the message above."; fi
 }
 
@@ -167,49 +162,8 @@ journey_ssh_tunnel() {
         JOURNEY_MESSAGE="Use a login such as alice@server.example.com."
         return
     fi
-    tui_cleanup
-    (
-        local ssh_pid log ready=0 attempt
-        log=$(mktemp "${TMPDIR:-/tmp}/vany-ssh.XXXXXX") || exit 1
-        cleanup_ssh() { [[ -n "$ssh_pid" ]] && kill "$ssh_pid" 2>/dev/null || true; rm -f "$log"; }
-        trap cleanup_ssh EXIT
-        trap 'exit 130' INT TERM
-        if [[ -n "${SUDO_USER:-}" ]] && command -v runuser >/dev/null 2>&1; then
-            runuser -u "$SUDO_USER" -- ssh -o ConnectTimeout=8 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -N -D 127.0.0.1:1080 "$target" >"$log" 2>&1 &
-        else
-            ssh -o ConnectTimeout=8 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -N -D 127.0.0.1:1080 "$target" >"$log" 2>&1 &
-        fi
-        ssh_pid=$!
-        for (( attempt=0; attempt<10; attempt++ )); do
-            kill -0 "$ssh_pid" 2>/dev/null || break
-            if ss -lnt 2>/dev/null | awk 'NR > 1 && $4 ~ /:1080$/ {found=1} END {exit !found}'; then ready=1; break; fi
-            sleep 1
-        done
-        if (( !ready )); then
-            printf '\n  Could not start the SSH proxy.\n'
-            cat "$log"
-            printf '\n  Press any key to return. '
-            read -rsn1 </dev/tty
-            exit 1
-        fi
-        printf '\n  SSH proxy is running at 127.0.0.1:1080.\n'
-        printf '  Configure your app to use this SOCKS proxy.\n'
-        printf '  Press Q to stop the proxy and return.\n'
-        while true; do
-            if IFS= read -rsn1 -t 2 key </dev/tty; then
-                case "$key" in q|Q|$'\033') exit 0 ;; esac
-            fi
-            if ! kill -0 "$ssh_pid" 2>/dev/null; then
-                printf '\n  The SSH proxy stopped.\n'
-                cat "$log"
-                printf '\n  Press any key to return. '
-                read -rsn1 </dev/tty
-                exit 1
-            fi
-        done
-    )
+    tui_command_pane "SSH proxy" bash "$TUI_DIR/command-tasks.sh" ssh "$target"
     result=$?
-    tui_init
     if (( result == 0 )); then JOURNEY_MESSAGE="SSH proxy stopped."; else JOURNEY_MESSAGE="SSH proxy did not start or was interrupted."; fi
 }
 
@@ -301,59 +255,20 @@ journey_network_checks() {
 }
 
 journey_run_tool() {
-    local tool="$1" file="" temporary=0
-    tui_cleanup
-    printf '\n  Speed test downloads data from Cloudflare.\n'
-    printf '  Press Q to cancel or any other key to continue: '
-    local key
-    read -rsn1 key </dev/tty
-    case "$key" in q|Q|$'\033') tui_init; return ;; esac
-    file="${TUI_DIR:-}/../scripts/tools/${tool}.sh"
-    if [[ ! -f "$file" ]]; then
-        file=$(mktemp "${TMPDIR:-/tmp}/vany-tool.XXXXXX") || { tui_init; return; }
-        temporary=1
-        if ! curl -fsSL --connect-timeout 5 --max-time 20 "$GITHUB_RAW/scripts/tools/${tool}.sh" -o "$file"; then
-            printf '\n  Could not download the tool.\n'
-            rm -f "$file"; tui_init; return
-        fi
-    fi
-    bash "$file"
-    (( temporary )) && rm -f "$file"
-    printf '\n  Press any key to return. '
-    read -rsn1 </dev/tty
-    tui_init
+    local tool="$1" key
+    FRAME_CONTENT=("Speed test" "" "This test downloads and uploads data through Cloudflare." "" "1  Start the test" "Q  Return")
+    FRAME_FOOTER="1: start  Q: back"
+    tui_render_frame
+    tui_wait_key
+    key="$TUI_KEY"
+    [[ "$key" == 1 || "$key" == ENTER ]] || return
+    GITHUB_RAW="$GITHUB_RAW" tui_command_pane "Speed test" bash "$TUI_DIR/command-tasks.sh" speed "${TUI_DIR:-}/../scripts/tools/${tool}.sh"
 }
 
 journey_trace_route() {
-    tui_cleanup
-    printf '\n  Tracing the route to Cloudflare 1.1.1.1.\n'
-    printf '  A missing hop does not always mean a fault.\n\n'
-    if command -v traceroute >/dev/null 2>&1; then
-        traceroute -m 8 -q 1 -w 1 1.1.1.1 2>&1
-    elif command -v tracepath >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
-        timeout 15 tracepath -m 8 1.1.1.1 2>&1 || true
-    else
-        printf '  Install traceroute or tracepath to use this check.\n'
-    fi
-    printf '\n  Press any key to return. '
-    read -rsn1 </dev/tty
-    tui_init
+    tui_command_pane "Network route" bash "$TUI_DIR/command-tasks.sh" trace
 }
 
 journey_container_stats() {
-    tui_cleanup
-    printf '\n  Docker resource usage for running containers\n\n'
-    if command -v docker >/dev/null 2>&1; then
-        if command -v timeout >/dev/null 2>&1; then
-            timeout 15 docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}' 2>&1 || true
-        else
-            printf '  Install the timeout utility to run this check.\n'
-        fi
-    else
-        printf '  Docker is not installed.\n'
-    fi
-    printf '\n  These totals do not show per-user usage.\n'
-    printf '  Press any key to return. '
-    read -rsn1 </dev/tty
-    tui_init
+    tui_command_pane "Container usage" bash "$TUI_DIR/command-tasks.sh" containers
 }

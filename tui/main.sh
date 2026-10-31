@@ -293,26 +293,12 @@ _run_navigation() {
                 case "$SELECTED_PROTOCOL" in
                     _manage)
                         current_proto="$PROTOCOL_TO_MANAGE"
-                        tui_cleanup
                         local manager="${TUI_DIR:-}/../scripts/direct-install.sh"
                         if [[ ! -f "$manager" ]]; then
-                            manager="$(mktemp "${TMPDIR:-/tmp}/vany-manager.XXXXXX")"
-                            if ! curl -fsSL --connect-timeout 10 --max-time 60 "$GITHUB_RAW/scripts/direct-install.sh" -o "$manager"; then
-                                printf '\nCould not load the protocol manager. Check your connection.\n'
-                                rm -f "$manager"
-                                read -r -p 'Press Enter to return. ' </dev/tty
-                                tui_init
-                                continue
-                            fi
+                            manager=""
                         fi
-                        VANY_PROTOCOL="$current_proto" VANY_PUBLIC_IP="$_METRIC_IP" VANY_LOCATION="$_METRIC_LOCATION" bash "$manager"
-                        local manager_result=$?
-                        [[ "$manager" == "${TMPDIR:-/tmp}/vany-manager."* ]] && rm -f "$manager"
-                        if (( manager_result != 0 )); then
-                            printf '\nThe manager stopped. Press any key to return to Vany. '
-                            read -rsn1 </dev/tty
-                        fi
-                        tui_init
+                        VANY_PROTOCOL="$current_proto" GITHUB_RAW="$GITHUB_RAW" \
+                            tui_command_pane "Protocol manager" bash "$TUI_DIR/command-tasks.sh" manager "$manager"
                         START_PROTOCOL="$current_proto"
                         current_page="main"
                         ;;

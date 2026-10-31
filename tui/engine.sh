@@ -205,17 +205,18 @@ _TUI_ACTIVE=0
 _TUI_OLD_STTY=""
 
 tui_get_size() {
-    if [[ -e /dev/tty ]]; then
-        _TERM_COLS=$(tput cols </dev/tty 2>/dev/null || echo 80)
-        _TERM_ROWS=$(tput lines </dev/tty 2>/dev/null || echo 24)
+    local size rows cols
+    size=$(stty size </dev/tty 2>/dev/null) || size=""
+    read -r rows cols <<< "$size"
+    if [[ "$rows" =~ ^[0-9]+$ && "$cols" =~ ^[0-9]+$ ]] && (( rows > 0 && cols > 0 )); then
+        _TERM_ROWS=$rows
+        _TERM_COLS=$cols
     else
-        _TERM_COLS=${COLUMNS:-80}
-        _TERM_ROWS=${LINES:-24}
+        _TERM_COLS=$(tput cols </dev/tty 2>/dev/null || printf '%s' "${COLUMNS:-80}")
+        _TERM_ROWS=$(tput lines </dev/tty 2>/dev/null || printf '%s' "${LINES:-24}")
     fi
-    (( _TERM_COLS < 40 )) && _TERM_COLS=40
-    (( _TERM_COLS > 300 )) && _TERM_COLS=300
-    (( _TERM_ROWS < 15 )) && _TERM_ROWS=15
-    (( _TERM_ROWS > 100 )) && _TERM_ROWS=100
+    [[ "$_TERM_COLS" =~ ^[0-9]+$ ]] && (( _TERM_COLS > 0 )) || _TERM_COLS=80
+    [[ "$_TERM_ROWS" =~ ^[0-9]+$ ]] && (( _TERM_ROWS > 0 )) || _TERM_ROWS=24
     return 0
 }
 
@@ -236,7 +237,9 @@ FRAME_BANNER=""              # Banner name to display (e.g., "reality", "logo")
 FRAME_BANNER_COLOR=""        # Color escape for banner text
 _BANNER_LINES=()             # Cached banner lines (array)
 _BANNER_H=0                  # Number of banner lines
+_DISPLAY_BANNER_H=0          # Banner rows that fit in this terminal
 _BANNER_CACHE_NAME=""        # Last loaded banner name (for caching)
+_TUI_TOO_SMALL=0
 
 # Base chrome rows: top(1) + status(1) + split_top(1) + split_bottom(1) + footer(1) + bottom(1) = 6
 _CHROME_ROWS=6
@@ -298,7 +301,19 @@ tui_compute_layout() {
     _refresh_machine_metrics
     _build_status_rows
 
-    if (( _TERM_COLS < 100 )); then
+    _TUI_TOO_SMALL=0
+    if (( _TERM_COLS < 24 || _TERM_ROWS < 8 )); then
+        _TUI_TOO_SMALL=1
+    fi
+
+    # Reserve room for the frame and at least two content rows.
+    local max_status=$(( _TERM_ROWS - 7 ))
+    (( max_status < 1 )) && max_status=1
+    if (( ${#_STATUS_ROWS[@]} > max_status )); then
+        _STATUS_ROWS=("${_STATUS_ROWS[@]:0:$((max_status - 1))}" "S: system details")
+    fi
+
+    if (( _TERM_COLS < 70 )); then
         _COMPACT=1
         _SIDEBAR_INNER_W=0
         _CONTENT_INNER_W=$(( _FRAME_W - 2 ))
@@ -311,15 +326,24 @@ tui_compute_layout() {
 
     # Load banner and compute chrome
     _load_frame_banner
-    if (( _BANNER_H > 0 )); then
+    _DISPLAY_BANNER_H=$_BANNER_H
+    (( _TERM_ROWS < 22 )) && _DISPLAY_BANNER_H=0
+    local banner_line
+    for banner_line in "${_BANNER_LINES[@]}"; do
+        if (( ${#banner_line} > _FRAME_W - 2 )); then _DISPLAY_BANNER_H=0; break; fi
+    done
+    if (( _TERM_ROWS - 6 - ${#_STATUS_ROWS[@]} - _DISPLAY_BANNER_H < 2 )); then
+        _DISPLAY_BANNER_H=0
+    fi
+    if (( _DISPLAY_BANNER_H > 0 )); then
         # base(6) + separator(1) + banner_lines
-        _CHROME_ROWS=$(( 6 + ${#_STATUS_ROWS[@]} + _BANNER_H ))
+        _CHROME_ROWS=$(( 6 + ${#_STATUS_ROWS[@]} + _DISPLAY_BANNER_H ))
     else
         _CHROME_ROWS=$(( 5 + ${#_STATUS_ROWS[@]} ))
     fi
 
     _CONTENT_H=$(( _TERM_ROWS - _CHROME_ROWS ))
-    (( _CONTENT_H < 5 )) && _CONTENT_H=5
+    (( _CONTENT_H < 1 )) && _CONTENT_H=1
 
     # _MARGIN is 0 — edge-to-edge rendering
     _MARGIN=0
@@ -448,11 +472,7 @@ tui_init() {
     return 0
 }
 
-_tui_on_resize() {
-    tui_get_size
-    tui_compute_layout
-    # Pages will re-render on next loop iteration
-}
+_tui_on_resize() { _TUI_RESIZED=1; }
 
 tui_cleanup() {
     if [[ $_TUI_ACTIVE -eq 0 ]]; then
@@ -598,6 +618,10 @@ _print_full_row() {
     local vlen
     _visible_len_fast "$text"
     vlen=$REPLY
+    if (( vlen > inner )); then
+        text="${REPLY_TEXT:0:inner}"
+        vlen=${#text}
+    fi
     local pad=$(( inner - vlen ))
     (( pad < 0 )) && pad=0
     printf '%b%s%b%b%*s%b%s%b\n' \
@@ -614,7 +638,9 @@ _print_split_row() {
 
     local sv cl sp cp
     _visible_len_fast "$sidebar_text"; sv=$REPLY
+    if (( sv > _SIDEBAR_INNER_W )); then sidebar_text="${REPLY_TEXT:0:_SIDEBAR_INNER_W}"; sv=${#sidebar_text}; fi
     _visible_len_fast "$content_text"; cl=$REPLY
+    if (( cl > _CONTENT_INNER_W )); then content_text="${REPLY_TEXT:0:_CONTENT_INNER_W}"; cl=${#content_text}; fi
     sp=$(( _SIDEBAR_INNER_W - sv ))
     cp=$(( _CONTENT_INNER_W - cl ))
     (( sp < 0 )) && sp=0
@@ -635,6 +661,15 @@ _print_split_row() {
 
 tui_render_frame() {
     local bc="$C_DGRAY"
+
+    if (( _TUI_TOO_SMALL )); then
+        local warning='Resize terminal to at least 24 columns and 8 rows.'
+        printf '\033[H\033[J%s' "${warning:0:_TERM_COLS}"
+        if (( _TERM_ROWS > 1 )); then printf '\n%s' "${warning:_TERM_COLS:_TERM_COLS}"; fi
+        _DRAWN_TERM_COLS=$_TERM_COLS
+        _DRAWN_TERM_ROWS=$_TERM_ROWS
+        return
+    fi
 
     _build_sidebar
 
@@ -695,14 +730,14 @@ tui_render_frame() {
         done
 
         # Banner rows (if active)
-        if (( _BANNER_H > 0 )); then
+        if (( _DISPLAY_BANNER_H > 0 )); then
             # Separator between status bar and banner
             printf '%b%s%s%s%b\n' "$bc" "$BOX_ML" "$h_full" "$BOX_MR" "$C_RST"
 
             local bcolor="${FRAME_BANNER_COLOR:-$C_GREEN}"
             local banner_inner=$(( _FRAME_W - 2 ))
             local bi=0
-            while (( bi < _BANNER_H )); do
+            while (( bi < _DISPLAY_BANNER_H )); do
                 local bline="${_BANNER_LINES[$bi]:-}"
                 local bvlen=${#bline}
                 local bpad_l=$(( (banner_inner - bvlen) / 2 ))
@@ -768,10 +803,16 @@ tui_refresh_status() {
         tui_render_frame
         return
     fi
+    (( _TUI_TOO_SMALL )) && return
 
     local old_count=${#_STATUS_ROWS[@]} row=2 status_line
     _refresh_machine_metrics
     _build_status_rows
+    local max_status=$(( _TERM_ROWS - 7 ))
+    (( max_status < 1 )) && max_status=1
+    if (( ${#_STATUS_ROWS[@]} > max_status )); then
+        _STATUS_ROWS=("${_STATUS_ROWS[@]:0:$((max_status - 1))}" "S: system details")
+    fi
     if (( ${#_STATUS_ROWS[@]} != old_count )); then
         tui_compute_layout
         tui_render_frame
@@ -790,17 +831,44 @@ tui_refresh_status() {
 # Keep timed status refreshes out of command substitution so terminal output
 # cannot be mistaken for a key press.
 tui_wait_key() {
-    local key
+    local key last_refresh=$SECONDS
     while true; do
-        key=$(tui_read_key 5)
+        key=$(tui_read_key 0.5)
         if [[ "$key" == TICK ]]; then
-            tui_refresh_status
+            tui_get_size
+            if (( _DRAWN_TERM_COLS != _TERM_COLS || _DRAWN_TERM_ROWS != _TERM_ROWS )); then
+                tui_compute_layout
+                tui_render_frame
+            elif (( SECONDS - last_refresh >= 5 )); then
+                tui_refresh_status
+                last_refresh=$SECONDS
+            fi
         else
             [[ "$key" == EOF ]] && key=Q
             TUI_KEY="$key"
             return 0
         fi
     done
+}
+
+# Run a command on its own pseudo-terminal while keeping it inside Vany.
+tui_command_pane() {
+    local title="$1"; shift
+    local pane="${TUI_DIR:-$(dirname "${BASH_SOURCE[0]}")}/command-pane.py"
+    if ! command -v python3 >/dev/null 2>&1 || [[ ! -f "$pane" ]]; then
+        FRAME_CONTENT=("Command window unavailable." "Install Python 3 and start Vany again.")
+        FRAME_FOOTER="Press any key to return"
+        tui_render_frame
+        tui_wait_key
+        return 1
+    fi
+    VANY_PUBLIC_IP="$_METRIC_IP" VANY_LOCATION="$_METRIC_LOCATION" \
+        VANY_CPU="$_METRIC_CPU" VANY_RAM="$_METRIC_RAM" VANY_NET="$_METRIC_NET" \
+        python3 "$pane" "$title" "$@"
+    local result=$?
+    tui_get_size
+    tui_compute_layout
+    return "$result"
 }
 
 #===============================================================================
@@ -1355,73 +1423,51 @@ tui_read_line_boxed() {
     local prompt="$1"
     local default="$2"
     local result_var="$3"
-    local width="${4:-$_FRAME_W}"
-    local bc="${5:-$C_DGRAY}"
-
-    printf '\033[?25h'
-
-    stty echo icanon <&3 2>/dev/null
-    while read -rsn1 -t 0.05 _ <&3 2>/dev/null; do :; done
-
-    local prompt_text=""
-    if [[ -n "$default" ]]; then
-        prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt} ${C_DGRAY}[${default}]${C_RST}: "
-    else
-        prompt_text=" ${C_GREEN}[>]${C_RST} ${prompt}: "
-    fi
-
-    _m; printf '%b%s%b%b' "$bc" "$BOX_V" "$C_RST" "$prompt_text"
-
-    local input=""
+    local -a original_content=("${FRAME_CONTENT[@]}")
+    local input="" ch="" next="" saved_stty dirty=1
+    saved_stty=$(stty -g <&3 2>/dev/null)
     stty -echo -icanon min 1 time 0 <&3 2>/dev/null
     while true; do
-        local ch=""
-        IFS= read -rsn1 ch <&3
-
+        tui_get_size
+        if (( dirty || _DRAWN_TERM_COLS != _TERM_COLS || _DRAWN_TERM_ROWS != _TERM_ROWS )); then
+            tui_compute_layout
+            FRAME_CONTENT=("${original_content[@]}" "" "${prompt}: ${input}_")
+            _SCROLL_OFFSET=999999
+            tui_render_frame
+            dirty=0
+        fi
+        if ! IFS= read -rsn1 -t 0.5 ch <&3; then
+            continue
+        fi
         if [[ "$ch" == $'\033' ]]; then
-            local c2=""
-            IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
-            if [[ -z "$c2" ]]; then
-                stty echo icanon <&3 2>/dev/null
-                printf '\r'
-                draw_box_empty "$width" "$bc"
-                printf '\033[?25l'
+            next=""
+            IFS= read -rsn1 -t 0.1 next <&3 2>/dev/null || true
+            if [[ -z "$next" ]]; then
+                [[ -n "$saved_stty" ]] && stty "$saved_stty" <&3 2>/dev/null
+                FRAME_CONTENT=("${original_content[@]}")
+                tui_scroll_reset
                 return 1
             fi
-            if [[ "$c2" == "[" ]]; then
+            if [[ "$next" == "[" ]]; then
                 IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
             fi
             continue
         fi
-
-        if [[ "$ch" == "" ]]; then
-            break
-        fi
-
+        [[ -z "$ch" ]] && break
         if [[ "$ch" == $'\177' || "$ch" == $'\b' ]]; then
-            if [[ -n "$input" ]]; then
-                input="${input%?}"
-                printf '\b \b'
-            fi
+            [[ -n "$input" ]] && input="${input%?}"
+            dirty=1
             continue
         fi
-
         if [[ "$ch" =~ ^[[:print:]]$ ]]; then
             input+="$ch"
-            printf '%s' "$ch"
+            dirty=1
         fi
     done
-    stty echo icanon <&3 2>/dev/null
-
-    local display_val="${input:-$default}"
-    printf '\r'
-    draw_box_row " ${C_GREEN}[>]${C_RST} ${prompt}: ${C_TEXT}${display_val}${C_RST}" "$width" "$bc"
-    printf '\033[?25l'
-
-    if [[ -z "$input" && -n "$default" ]]; then
-        input="$default"
-    fi
-    eval "$result_var=\$input"
+    [[ -n "$saved_stty" ]] && stty "$saved_stty" <&3 2>/dev/null
+    FRAME_CONTENT=("${original_content[@]}")
+    tui_scroll_reset
+    printf -v "$result_var" '%s' "${input:-$default}"
     return 0
 }
 

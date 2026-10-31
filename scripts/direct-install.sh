@@ -28,13 +28,21 @@ RED='\033[38;5;130m'   # Red/warning
 BLUE='\033[38;5;39m'   # Blue
 YELLOW='\033[38;5;220m'
 
-W=70  # Width
+W=70
+if [[ "${VANY_IN_PANE:-0}" == 1 ]]; then
+    read -r _pane_rows _pane_cols < <(stty size </dev/tty 2>/dev/null || printf '24 80\n')
+    if [[ "$_pane_cols" =~ ^[0-9]+$ ]] && (( _pane_cols >= 14 )); then
+        W=$((_pane_cols - 4))
+        (( W < 10 )) && W=10
+    fi
+fi
 
 if [[ -f "${TUI_DIR:-}/metrics.sh" ]]; then
     source "$TUI_DIR/metrics.sh"
 fi
 
 show_device_header() {
+    [[ "${VANY_IN_PANE:-0}" == 1 ]] && return
     if declare -F _refresh_machine_metrics >/dev/null; then
         _refresh_machine_metrics
         printf '  VANY | CPU %s | RAM %s | Net down/up %s\n' "$_METRIC_CPU" "$_METRIC_RAM" "$_METRIC_NET"
