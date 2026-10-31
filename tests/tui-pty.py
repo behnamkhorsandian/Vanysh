@@ -31,8 +31,10 @@ _refresh_menu_status() { :; }
 tui_init || exit 1
 page_main_menu
 if [[ "$SELECTED_PROTOCOL" == _choose ]]; then page_chooser; fi
-tui_cleanup
 printf '\nTEST_SELECTED=%s\n' "$START_PROTOCOL"
+if [[ -n "$START_PROTOCOL" ]]; then page_main_menu; fi
+tui_cleanup
+printf '\nTEST_DONE\n'
 '''
 
 
@@ -108,6 +110,13 @@ try:
     wait_for("A starting point: WireGuard")
     send("1")
     wait_for("TEST_SELECTED=wg")
+    wait_for("1  Create or manage this service")
+    send("2")
+    wait_for("Connect with WireGuard")
+    send("q")
+    wait_for("1  Create or manage this service")
+    send("q")
+    wait_for("TEST_DONE")
     if process.wait(timeout=5) != 0:
         raise AssertionError("TUI exited with an error")
     print("Pseudo-terminal refresh and chooser checks passed")

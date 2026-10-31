@@ -515,7 +515,7 @@ _build_sidebar() {
     _SIDEBAR_LINES+=("")
 
     # Protocol list — icon BEFORE name
-    local i=0
+    local i=0 proto
     for proto in "${PROTOCOL_IDS[@]}"; do
         local name="${PROTOCOL_SHORT[$proto]}"
         local dot="$DOT_NONE"

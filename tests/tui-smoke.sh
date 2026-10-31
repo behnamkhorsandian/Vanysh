@@ -59,9 +59,11 @@ grep -Fq $'\033[2J' "$TEST_DIR/status-output" && fail 'idle status update cleare
 # A normal frame redraw should overwrite in place, not blank the terminal.
 _COMPACT=1; _CONTENT_INNER_W=78; _CONTENT_H=20; _CHROME_ROWS=6; _BANNER_H=0
 _SCROLL_OFFSET=0; FRAME_CONTENT=('frame content'); FRAME_FOOTER='Q: quit'
+proto=wg
 tui_render_frame > "$TEST_DIR/frame-output"
 grep -Fq 'frame content' "$TEST_DIR/frame-output" || fail 'frame content was not rendered'
 grep -Fq $'\033[2J' "$TEST_DIR/frame-output" && fail 'frame redraw cleared the screen'
+[[ "$proto" == wg ]] || fail 'sidebar rendering changed the selected protocol'
 
 # Replace only the drawing and keyboard functions. The page routing stays real.
 tui_get_size() { _TERM_COLS=100; _TERM_ROWS=30; }
