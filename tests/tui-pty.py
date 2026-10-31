@@ -31,8 +31,14 @@ _refresh_machine_metrics() {
 }
 _refresh_menu_status() { :; }
 page_setup_checks() { return 0; }
+FAKE_COUNT=0
 _manage_run() {
-  tui_run_action "Set up WireGuard" "Vany is working on this server." 0 bash -c 'printf "INSTALL_LOG_SECRET\n"; sleep 1'
+  (( FAKE_COUNT++ ))
+  if (( FAKE_COUNT == 1 )); then
+    tui_run_action "Set up WireGuard" "Vany is working on this server." 0 bash -c 'printf "INSTALL_LOG_SECRET\n"; sleep 1'
+  else
+    tui_run_action "Set up WireGuard" "Vany is working on this server." 0 bash -c 'sleep 60'
+  fi
 }
 tui_init || exit 1
 page_main_menu
@@ -138,6 +144,14 @@ try:
         raise AssertionError("Command details leaked into the progress view")
     send("d")
     wait_for("INSTALL_LOG_SECRET")
+    send("q")
+    wait_for("Manage WireGuard")
+    send("1")
+    wait_for("Vany is working on this server.")
+    send("q")
+    wait_for("Stopping now can leave partial changes.")
+    send("y")
+    wait_for("The action did not finish.")
     send("q")
     wait_for("Manage WireGuard")
     send("q")

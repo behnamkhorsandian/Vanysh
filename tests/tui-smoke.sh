@@ -143,4 +143,37 @@ if sudo -n env VANY_PROTOCOL=vray VANY_ACTION=install bash "$ROOT_DIR/scripts/di
 fi
 grep -Fq 'not implemented' "$TEST_DIR/action-output" || fail 'action did not report the unsupported protocol'
 grep -Fq 'Choose an option' "$TEST_DIR/action-output" && fail 'action opened the old protocol menu'
+
+# Exercise a setup action with harmless stand-ins for the downloaded scripts.
+mkdir -p "$TEST_DIR/bin"
+cat > "$TEST_DIR/bin/curl" <<'SH'
+#!/bin/bash
+url='' dest=''
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o) dest="$2"; shift 2 ;;
+        http*) url="$1"; shift ;;
+        *) shift ;;
+    esac
+done
+case "$url" in
+    */scripts/docker-bootstrap.sh)
+        printf '%s\n' 'bootstrap() { echo BOOTSTRAP_OK; }' > "$dest" ;;
+    */scripts/protocols/install-xray.sh)
+        cat > "$dest" <<'SCRIPT'
+install_xray() { echo XRAY_OK; }
+add_ws_inbound() { echo INBOUND_OK; }
+set_ws_state() { echo "DOMAIN=$1"; }
+reload_xray() { echo RELOAD_OK; }
+SCRIPT
+        ;;
+    *) exit 1 ;;
+esac
+SH
+chmod +x "$TEST_DIR/bin/curl"
+if ! sudo -n env PATH="$TEST_DIR/bin:$PATH" VANY_PROTOCOL=ws VANY_ACTION=install VANY_DOMAIN=vpn.example.com bash "$ROOT_DIR/scripts/direct-install.sh" </dev/null > "$TEST_DIR/setup-output" 2>&1; then
+    fail 'non-interactive setup action failed'
+fi
+grep -Fq 'DOMAIN=vpn.example.com' "$TEST_DIR/setup-output" || fail 'setup did not pass the selected domain'
+grep -Fq 'Choose an option' "$TEST_DIR/setup-output" && fail 'setup opened the old protocol menu'
 printf 'TUI smoke checks passed\n'
