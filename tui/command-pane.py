@@ -263,8 +263,8 @@ def main():
                     top = max(0, len(screen.lines) - screen.rows - screen.scroll)
                     visible = screen.lines[top:top + screen.rows]
                     border = '+' + '-' * inner + '+'
-                    footer = 'Finished. Up/Down: scroll  Enter: return' if done else 'Type to answer  Ctrl-]: cancel'
-                    parts = ['\x1b[H\x1b[2J', border]
+                    footer = 'Finished. Up/Down: scroll  Enter: return' if done else 'PgUp/PgDn: scroll  Ctrl-]: cancel'
+                    parts = ['\x1b[?25l\x1b[H\x1b[2J', border]
                     for line in headers:
                         parts.extend(['\r\n|', fit(' ' + line, inner), '|'])
                     parts.extend(['\r\n|', fit(title, inner), '|\r\n', border])
@@ -304,7 +304,13 @@ def main():
                     else: break
                 elif b'\x1d' in data:
                     terminate(None, None)
+                elif data == b'\x1b[5~':
+                    screen.scroll = min(max(0, len(screen.lines) - screen.rows), screen.scroll + max(1, screen.rows // 2)); changed = True
+                elif data == b'\x1b[6~':
+                    screen.scroll = max(0, screen.scroll - max(1, screen.rows // 2)); changed = True
                 else:
+                    if screen.scroll:
+                        screen.scroll = 0; changed = True
                     os.write(master, data)
             if cancel_at and not done and time.monotonic() - cancel_at > 2:
                 try: os.killpg(child, signal.SIGKILL)
