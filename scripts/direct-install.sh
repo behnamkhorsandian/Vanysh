@@ -41,20 +41,6 @@ if [[ "${VANY_IN_PANE:-0}" == 1 ]]; then
     fi
 fi
 
-if [[ -f "${TUI_DIR:-}/metrics.sh" ]]; then
-    source "$TUI_DIR/metrics.sh"
-fi
-
-show_device_header() {
-    [[ "${VANY_IN_PANE:-0}" == 1 ]] && return
-    if declare -F _refresh_machine_metrics >/dev/null; then
-        _refresh_machine_metrics
-        printf '  VANY | CPU %s | RAM %s | Net down/up %s\n' "$_METRIC_CPU" "$_METRIC_RAM" "$_METRIC_NET"
-        printf '  Public IP %s | Location ~%s\n' "$_METRIC_IP" "$_METRIC_LOCATION"
-        printf '  UTC %s | Local %s\n\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
-    fi
-}
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 hr() { printf "  ${D}"; printf '─%.0s' $(seq 1 "$W"); printf "${R}\n"; }
@@ -176,7 +162,6 @@ name="$(vany_protocol_name "$PROTOCOL")"
 if [[ -z "${VANY_ACTION:-}" ]]; then
 clear 2>/dev/null || true
 echo ""
-show_device_header
 
 banner="${BANNERS[$PROTOCOL]}"
 if [[ -n "$banner" ]]; then

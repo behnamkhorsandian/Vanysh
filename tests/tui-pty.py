@@ -26,9 +26,11 @@ source "$TUI_DIR/pages/journey.sh"
 source "$TUI_DIR/pages/chooser.sh"
 source "$TUI_DIR/pages/main.sh"
 _refresh_machine_metrics() {
-  _METRIC_CPU="9%"; _METRIC_RAM="100/200 MiB"; _METRIC_NET="1/2 KiB/s"
+  (( METRIC_CALLS++ ))
+  _METRIC_CPU="${METRIC_CALLS}%"; _METRIC_RAM="100/200 MiB"; _METRIC_NET="1/2 KiB/s"
   _METRIC_IP="192.0.2.1"; _METRIC_LOCATION="test"
 }
+METRIC_CALLS=0
 _refresh_menu_status() { :; }
 page_setup_checks() { return 0; }
 FAKE_COUNT=0
@@ -101,19 +103,35 @@ def send(key):
 
 
 try:
-    wait_for("Welcome to Vany")
+    first_home = wait_for("Welcome to Vany")
+    if b"CPU" in first_home or b"192.0.2.1" in first_home:
+        raise AssertionError("Machine information appeared on the home page")
     deadline = time.monotonic() + 7
     while time.monotonic() < deadline:
         read_more(min(0.5, max(0, deadline - time.monotonic())))
     if b"\x1b[2J" in pending or b"Welcome to Vany" in pending:
         raise AssertionError("Idle status refresh redrew or cleared the whole screen")
-    if b"\x1b7" not in pending:
-        raise AssertionError("Idle status refresh did not update the header")
+    if b"\x1b7" in pending:
+        raise AssertionError("The TUI refreshed its header while idle")
     pending = b""
 
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 18, 60, 0, 0))
     wait_for("Welcome to Vany")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 28, 120, 0, 0))
+    wait_for("Welcome to Vany")
+
+    send("s")
+    wait_for("CPU: 1%")
+    wait_for("S: refresh")
+    pending = b""
+    deadline = time.monotonic() + 6
+    while time.monotonic() < deadline:
+        read_more(min(0.5, max(0, deadline - time.monotonic())))
+    if b"\x1b7" in pending or b"CPU: 2%" in pending:
+        raise AssertionError("Status refreshed without a key press")
+    send("s")
+    wait_for("CPU: 2%")
+    send("h")
     wait_for("Welcome to Vany")
 
     send("c")

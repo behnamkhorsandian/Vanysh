@@ -28,7 +28,7 @@ _action_cleanup() {
 tui_run_action() {
     local title="$1" message="$2" show_result="$3"
     shift 3
-    local key state=running details=0 confirm=0 result=1 last_refresh=$SECONDS line
+    local key state=running details=0 confirm=0 result=1 line
     local -a output=()
     command -v setsid >/dev/null 2>&1 || {
         FRAME_CONTENT=("${C_ORANGE}${C_BOLD}${title}${C_RST}" "" "Install the setsid utility to run this action.")
@@ -87,8 +87,7 @@ tui_run_action() {
         fi
         key=$(tui_read_key 0.5)
         case "$key" in
-            TICK)
-                if (( SECONDS - last_refresh >= 5 )); then tui_refresh_status; last_refresh=$SECONDS; fi ;;
+            TICK) : ;;
             EOF)
                 _action_stop; result=130; break ;;
             q|Q|ESC)

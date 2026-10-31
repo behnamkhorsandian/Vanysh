@@ -7,7 +7,7 @@ if [[ ${VANY_TUI_ENGINE_LOADED:-0} == 1 ]]; then
 fi
 VANY_TUI_ENGINE_LOADED=1
 # Vany TUI - Rendering Engine
-# Unified frame model: status bar + sidebar + content + footer
+# Unified frame model: sidebar + content + footer
 # Inspired by 432.sh layout patterns, ported to bash
 #===============================================================================
 
@@ -241,8 +241,8 @@ _DISPLAY_BANNER_H=0          # Banner rows that fit in this terminal
 _BANNER_CACHE_NAME=""        # Last loaded banner name (for caching)
 _TUI_TOO_SMALL=0
 
-# Base chrome rows: top(1) + status(1) + split_top(1) + split_bottom(1) + footer(1) + bottom(1) = 6
-_CHROME_ROWS=6
+# Base chrome rows: top, split top, split bottom, footer and bottom.
+_CHROME_ROWS=5
 
 #-------------------------------------------------------------------------------
 # Load banner file into _BANNER_LINES array
@@ -298,19 +298,10 @@ _load_frame_banner() {
 
 tui_compute_layout() {
     _FRAME_W=$_TERM_COLS
-    _refresh_machine_metrics
-    _build_status_rows
 
     _TUI_TOO_SMALL=0
     if (( _TERM_COLS < 24 || _TERM_ROWS < 8 )); then
         _TUI_TOO_SMALL=1
-    fi
-
-    # Reserve room for the frame and at least two content rows.
-    local max_status=$(( _TERM_ROWS - 7 ))
-    (( max_status < 1 )) && max_status=1
-    if (( ${#_STATUS_ROWS[@]} > max_status )); then
-        _STATUS_ROWS=("${_STATUS_ROWS[@]:0:$((max_status - 1))}" "S: system details")
     fi
 
     if (( _TERM_COLS < 70 )); then
@@ -332,14 +323,13 @@ tui_compute_layout() {
     for banner_line in "${_BANNER_LINES[@]}"; do
         if (( ${#banner_line} > _FRAME_W - 2 )); then _DISPLAY_BANNER_H=0; break; fi
     done
-    if (( _TERM_ROWS - 6 - ${#_STATUS_ROWS[@]} - _DISPLAY_BANNER_H < 2 )); then
+    if (( _TERM_ROWS - 6 - _DISPLAY_BANNER_H < 2 )); then
         _DISPLAY_BANNER_H=0
     fi
     if (( _DISPLAY_BANNER_H > 0 )); then
-        # base(6) + separator(1) + banner_lines
-        _CHROME_ROWS=$(( 6 + ${#_STATUS_ROWS[@]} + _DISPLAY_BANNER_H ))
+        _CHROME_ROWS=$(( 6 + _DISPLAY_BANNER_H ))
     else
-        _CHROME_ROWS=$(( 5 + ${#_STATUS_ROWS[@]} ))
+        _CHROME_ROWS=5
     fi
 
     _CONTENT_H=$(( _TERM_ROWS - _CHROME_ROWS ))
@@ -724,15 +714,9 @@ tui_render_frame() {
         # Row 1: Top border
         printf '%b%s%s%s%b\n' "$bc" "$BOX_TL" "$h_full" "$BOX_TR" "$C_RST"
 
-        # Machine status remains visible on every page.
-        local status_line
-        for status_line in "${_STATUS_ROWS[@]}"; do
-            _print_full_row " $status_line"
-        done
-
         # Banner rows (if active)
         if (( _DISPLAY_BANNER_H > 0 )); then
-            # Separator between status bar and banner
+            # Separator between the top border and banner
             printf '%b%s%s%s%b\n' "$bc" "$BOX_ML" "$h_full" "$BOX_MR" "$C_RST"
 
             local bcolor="${FRAME_BANNER_COLOR:-$C_GREEN}"
@@ -797,42 +781,9 @@ tui_render_frame() {
     _DRAWN_TERM_ROWS=$_TERM_ROWS
 }
 
-# Refresh only the status rows during idle input. Keep the content and cursor.
-tui_refresh_status() {
-    if (( _DRAWN_TERM_COLS != _TERM_COLS || _DRAWN_TERM_ROWS != _TERM_ROWS )); then
-        tui_compute_layout
-        tui_render_frame
-        return
-    fi
-    (( _TUI_TOO_SMALL )) && return
-
-    local old_count=${#_STATUS_ROWS[@]} row=2 status_line
-    _refresh_machine_metrics
-    _build_status_rows
-    local max_status=$(( _TERM_ROWS - 7 ))
-    (( max_status < 1 )) && max_status=1
-    if (( ${#_STATUS_ROWS[@]} > max_status )); then
-        _STATUS_ROWS=("${_STATUS_ROWS[@]:0:$((max_status - 1))}" "S: system details")
-    fi
-    if (( ${#_STATUS_ROWS[@]} != old_count )); then
-        tui_compute_layout
-        tui_render_frame
-        return
-    fi
-
-    printf '\033%s' 7
-    for status_line in "${_STATUS_ROWS[@]}"; do
-        printf '\033[%d;1H' "$row"
-        _print_full_row " $status_line"
-        (( row++ ))
-    done
-    printf '\033%s' 8
-}
-
-# Keep timed status refreshes out of command substitution so terminal output
-# cannot be mistaken for a key press.
+# Poll only for terminal resize. Status changes on an explicit request.
 tui_wait_key() {
-    local key last_refresh=$SECONDS
+    local key
     while true; do
         key=$(tui_read_key 0.5)
         if [[ "$key" == TICK ]]; then
@@ -840,9 +791,6 @@ tui_wait_key() {
             if (( _DRAWN_TERM_COLS != _TERM_COLS || _DRAWN_TERM_ROWS != _TERM_ROWS )); then
                 tui_compute_layout
                 tui_render_frame
-            elif (( SECONDS - last_refresh >= 5 )); then
-                tui_refresh_status
-                last_refresh=$SECONDS
             fi
         else
             [[ "$key" == EOF ]] && key=Q

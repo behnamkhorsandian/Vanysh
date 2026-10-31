@@ -10,6 +10,7 @@ on:
       - 'tui/**'
       - 'tests/tui-smoke.sh'
       - 'tests/tui-pty.py'
+      - 'tests/client-status-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -21,6 +22,7 @@ on:
       - 'tui/**'
       - 'tests/tui-smoke.sh'
       - 'tests/tui-pty.py'
+      - 'tests/client-status-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -46,6 +48,9 @@ jobs:
       - name: Check terminal navigation and setup choices
         run: bash tests/tui-smoke.sh
 
-      - name: Check the real terminal refresh and chooser
+      - name: Check manual status refresh and terminal navigation
         run: python3 tests/tui-pty.py
+
+      - name: Check client manual status refresh
+        run: python3 tests/client-status-pty.py
 

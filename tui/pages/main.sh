@@ -111,12 +111,13 @@ _build_status_content() {
         "Local: $(date '+%Y-%m-%d %H:%M:%S %Z')" ""
         "Public IP and approximate location come from ipinfo.io."
         "Network rate is the total for local interfaces, not per user."
+        "CPU and network rates use the time since your previous refresh."
         "A running container does not prove a usable connection." ""
         "N  Check public endpoints, latency, and packet loss"
         "T  Run a connection speed test"
         "P  Show the route to a public endpoint"
         "M  Show container resource usage"
-        "R  Refresh saved service status" "")
+        "S  Refresh status" "")
     local users_file="${VANY_USERS:-/opt/vany/users.json}" user_count
     if [[ -f "$users_file" ]] && command -v jq >/dev/null 2>&1; then
         user_count=$(jq -r '.users // {} | length' "$users_file" 2>/dev/null)
@@ -161,11 +162,31 @@ _build_status_content() {
     FRAME_CONTENT+=("" "Press Enter to browse protocols. Press H for home.")
 }
 
+_capture_status_snapshot() {
+    _SIDEBAR_PAGE=status
+    FRAME_BANNER=""
+    FRAME_CONTENT=("${C_ORANGE}${C_BOLD}Status and checks${C_RST}" "" "Checking status. Please wait.")
+    FRAME_FOOTER="Please wait"
+    tui_get_size; tui_compute_layout; tui_render_frame
+    _refresh_menu_status
+    _METRIC_GEO_CHECKED=0
+    _METRIC_IP="?"
+    _METRIC_LOCATION="unknown"
+    _refresh_machine_metrics
+    _build_status_content
+    STATUS_SNAPSHOT=("${FRAME_CONTENT[@]}")
+}
+
 page_main_menu() {
     local view=home last_view="" last_proto="" proto key i=0
     _SIDEBAR_SEL=0
     _SIDEBAR_DIM=0
     _refresh_menu_status
+    if [[ ${START_WITH_STATUS:-0} == 1 ]]; then
+        START_WITH_STATUS=0
+        _capture_status_snapshot
+        view=status
+    fi
     if [[ -n "${START_PROTOCOL:-}" ]]; then
         for proto in "${PROTOCOL_IDS[@]}"; do
             [[ "$proto" == "$START_PROTOCOL" ]] && { _SIDEBAR_SEL=$i; view=protocols; break; }
@@ -184,7 +205,7 @@ page_main_menu() {
             tui_scroll_reset
             case "$view" in
                 home) _build_home_content ;;
-                status) _build_status_content ;;
+                status) FRAME_CONTENT=("${STATUS_SNAPSHOT[@]}") ;;
                 protocols) _build_protocol_content "$proto" ;;
             esac
             last_view="$view"; last_proto="$proto"
@@ -192,7 +213,7 @@ page_main_menu() {
         if [[ "$view" == protocols ]]; then
             FRAME_FOOTER="1: create  2: connect  C: choose"
         elif [[ "$view" == status ]]; then
-            FRAME_FOOTER="N: checks  T: speed  P: route  H: home"
+            FRAME_FOOTER="S: refresh  N: checks  T: speed  P: route  H: home"
         else
             FRAME_FOOTER="Enter: browse  C: choose  PgDn: more"
         fi
@@ -221,8 +242,7 @@ page_main_menu() {
                     last_view=""
                 fi ;;
             h|H|ESC|BACKSPACE) view=home ;;
-            s|S) _refresh_menu_status; view=status; last_view="" ;;
-            r|R) if [[ "$view" == status ]]; then _refresh_menu_status; last_view=""; fi ;;
+            s|S) _capture_status_snapshot; view=status; last_view="" ;;
             n|N) if [[ "$view" == status ]]; then tui_run_action "Network check" "Vany is checking public endpoints." 1 bash "$TUI_DIR/command-tasks.sh" network; last_view=""; fi ;;
             t|T) if [[ "$view" == status ]]; then journey_run_tool speedtest; last_view=""; fi ;;
             p|P) if [[ "$view" == status ]]; then journey_trace_route; last_view=""; else view=protocols; fi ;;

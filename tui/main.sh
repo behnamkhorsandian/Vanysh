@@ -410,11 +410,7 @@ _run_navigation() {
                 ;;
 
             status)
-                page_status
-                local src=$?
-                if [[ $src -ne 0 ]]; then
-                    return 0  # quit from status
-                fi
+                START_WITH_STATUS=1
                 current_page="main"
                 current_proto=""
                 ;;

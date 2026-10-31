@@ -262,80 +262,15 @@ render_wizard_step() {
             FRAME_CONTENT+=("${C_DGRAY}Default: ${current_val}${C_RST}")
             FRAME_CONTENT+=("")
 
-            # Record which content line the input prompt will be on
-            local input_line_idx=${#FRAME_CONTENT[@]}
-            FRAME_CONTENT+=("${C_GREEN}[>]${C_RST} ${step_prompt}: ")
-
             FRAME_FOOTER="${C_DIM}Type value${C_RST}  "
             FRAME_FOOTER+="${C_DGRAY}Enter${C_RST}${C_DIM} confirm${C_RST}  "
             FRAME_FOOTER+="${C_DGRAY}Esc${C_RST}${C_DIM} cancel${C_RST}"
 
             tui_render_frame
 
-            # Position cursor at input field
-            # Content rows start at screen row 4 (top border + status + split top)
-            local screen_row=$(( 4 + input_line_idx ))
-            local prompt_text="${C_GREEN}[>]${C_RST} ${step_prompt}: "
-            local prompt_vlen
-            prompt_vlen=$(visible_len " $prompt_text")
-            local col_start
-            if (( _COMPACT )); then
-                col_start=$(( 2 + prompt_vlen ))
-            else
-                col_start=$(( _SIDEBAR_INNER_W + 3 + prompt_vlen ))
-            fi
-
-            printf '\033[?25h'
-            cursor_to "$screen_row" "$col_start"
-
-            # Read input character by character
             local input_val=""
-            stty -echo -icanon min 1 time 0 <&3 2>/dev/null
-
-            while true; do
-                local ch=""
-                IFS= read -rsn1 ch <&3
-
-                if [[ "$ch" == $'\033' ]]; then
-                    local c2=""
-                    IFS= read -rsn1 -t 0.1 c2 <&3 2>/dev/null || true
-                    if [[ -z "$c2" ]]; then
-                        # Escape pressed — cancel wizard
-                        stty echo icanon <&3 2>/dev/null
-                        printf '\033[?25l'
-                        return 2
-                    fi
-                    # Consume rest of escape sequence
-                    [[ "$c2" == "[" ]] && IFS= read -rsn1 -t 0.1 _ <&3 2>/dev/null || true
-                    continue
-                fi
-
-                if [[ "$ch" == "" ]]; then
-                    # Enter pressed
-                    break
-                fi
-
-                if [[ "$ch" == $'\177' || "$ch" == $'\b' ]]; then
-                    if [[ -n "$input_val" ]]; then
-                        input_val="${input_val%?}"
-                        printf '\b \b'
-                    fi
-                    continue
-                fi
-
-                if [[ "$ch" =~ ^[[:print:]]$ ]]; then
-                    input_val+="$ch"
-                    printf '%s' "$ch"
-                fi
-            done
-
-            stty echo icanon <&3 2>/dev/null
-            printf '\033[?25l'
-
-            if [[ -z "$input_val" && -n "$step_default" ]]; then
-                input_val="$step_default"
-            fi
-            eval "$step_var=\$input_val"
+            tui_read_line_boxed "$step_prompt" "$current_val" input_val || return 2
+            printf -v "$step_var" '%s' "$input_val"
             return 0
             ;;
 

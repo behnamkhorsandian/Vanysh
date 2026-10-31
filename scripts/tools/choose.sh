@@ -16,8 +16,6 @@ ask() {
 
 show_question() {
     clear 2>/dev/null || true
-    [[ -n "${VANY_STATUS_HEADER:-}" ]] && printf '\n  %s\n' "$VANY_STATUS_HEADER"
-    printf '  UTC %s | Local %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
     printf '\n  VANY | Help me choose\n\n  %s\n\n' "$1"
 }
 

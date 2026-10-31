@@ -5,17 +5,22 @@ BASE="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
 PUBLIC_IP="unknown"
 LOCATION="unknown"
 
-# Public IP and approximate location are supplied by ipinfo.io once per session.
-geo=$(curl -fsS --connect-timeout 2 --max-time 3 https://ipinfo.io/json 2>/dev/null) || geo=""
-if [[ -n "$geo" ]]; then
-    ip=$(printf '%s\n' "$geo" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | tr -cd '0-9a-fA-F:.')
-    city=$(printf '%s\n' "$geo" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | tr -cd '[:alnum:] ,.-')
-    [[ -n "$ip" ]] && PUBLIC_IP="$ip"
-    [[ -n "$city" ]] && LOCATION="$city"
-fi
-
 header() {
+    clear 2>/dev/null || true
+    printf '\n  VANY\n\n'
+}
+
+refresh_client_metrics() {
     local cpu total_mb used_mb local_ip page_size iface net
+    local geo ip city
+    PUBLIC_IP="unknown"; LOCATION="unknown"
+    geo=$(curl -fsS --connect-timeout 2 --max-time 3 https://ipinfo.io/json 2>/dev/null) || geo=""
+    if [[ -n "$geo" ]]; then
+        ip=$(printf '%s\n' "$geo" | sed -n 's/.*"ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | tr -cd '0-9a-fA-F:.')
+        city=$(printf '%s\n' "$geo" | sed -n 's/.*"city"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | tr -cd '[:alnum:] ,.-')
+        [[ -n "$ip" ]] && PUBLIC_IP="$ip"
+        [[ -n "$city" ]] && LOCATION="$city"
+    fi
     cpu=$(top -l 1 -n 0 2>/dev/null | awk '/CPU usage/ {print $3 " user, " $5 " system"; exit}')
     total_mb=$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%.0f MiB", $1/1048576}')
     page_size=$(sysctl -n hw.pagesize 2>/dev/null)
@@ -23,13 +28,10 @@ header() {
     local_ip=$(ipconfig getifaddr en0 2>/dev/null || true)
     iface=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2; exit}')
     net=$(netstat -ibn 2>/dev/null | awk -v interface="$iface" 'NR==1 {for(i=1;i<=NF;i++){if($i=="Ibytes")r=i; if($i=="Obytes")t=i}} $1==interface && r && t {printf "%.0f/%.0f MiB",$r/1048576,$t/1048576; exit}')
-    clear 2>/dev/null || true
-    printf '\n  VANY | CPU %s | RAM %s / %s\n' "${cpu:-unknown}" "$used_mb" "${total_mb:-unknown}"
-    printf '  Network received/sent %s on %s\n' "${net:-unknown}" "${iface:-unknown}"
-    printf '  Public IP %s | Location ~%s | Local IP %s\n' "$PUBLIC_IP" "$LOCATION" "${local_ip:-unknown}"
-    printf '  UTC %s | Local %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
-    printf '\n'
-    CLIENT_HEADER="CPU ${cpu:-unknown} | RAM $used_mb / ${total_mb:-unknown} | Net ${net:-unknown} | Public IP $PUBLIC_IP | Location ~$LOCATION"
+    CLIENT_CPU="${cpu:-unknown}"; CLIENT_RAM="$used_mb / ${total_mb:-unknown}"
+    CLIENT_NET="${net:-unknown} on ${iface:-unknown}"; CLIENT_LOCAL_IP="${local_ip:-unknown}"
+    CLIENT_UTC=$(date -u '+%Y-%m-%d %H:%M:%S')
+    CLIENT_LOCAL_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
 }
 
 key() { IFS= read -rsn1 KEY <&3 || exit 0; printf '\n'; }
@@ -66,11 +68,16 @@ network_checks() {
 }
 
 status_menu() {
+    refresh_client_metrics
     while true; do
         header
         printf '  Status and checks\n\n'
+        printf '  CPU %s | RAM %s\n' "$CLIENT_CPU" "$CLIENT_RAM"
+        printf '  Network received/sent %s\n' "$CLIENT_NET"
+        printf '  Public IP %s | Location ~%s | Local IP %s\n' "$PUBLIC_IP" "$LOCATION" "$CLIENT_LOCAL_IP"
+        printf '  UTC %s | Local %s\n\n' "$CLIENT_UTC" "$CLIENT_LOCAL_TIME"
         printf '  Public IP and approximate location come from ipinfo.io.\n'
-        printf '  1  Check public endpoints and packet loss\n  2  Test download speed\n  3  Trace a route\n  4  Show network interface counters\n  Q  Return\n\n'
+        printf '  1  Check public endpoints and packet loss\n  2  Test download speed\n  3  Trace a route\n  4  Show network interface counters\n  S  Refresh status\n  Q  Return\n\n'
         key
         case "$KEY" in
             1) network_checks ;;
@@ -84,6 +91,7 @@ status_menu() {
                 fi ;;
             3) header; traceroute -m 8 -q 1 -w 1 1.1.1.1 2>&1; pause_key ;;
             4) header; netstat -ibn | head -25; printf '\n  Counters include virtual interfaces and may overlap.\n'; pause_key ;;
+            s|S) refresh_client_metrics ;;
             q|Q|$'\033') return ;;
         esac
     done
@@ -133,7 +141,7 @@ choose_protocol() {
     file=$(mktemp "${TMPDIR:-/tmp}/vany-chooser.XXXXXX") || return
     result=$(mktemp "${TMPDIR:-/tmp}/vany-choice.XXXXXX") || { rm -f "$file"; return; }
     if curl -fsSL --connect-timeout 8 --max-time 20 "$BASE/scripts/tools/choose.sh" -o "$file"; then
-        VANY_CHOICE_FILE="$result" VANY_STATUS_HEADER="$CLIENT_HEADER" bash "$file"
+        VANY_CHOICE_FILE="$result" bash "$file"
         if [[ -s "$result" ]]; then IFS= read -r selected < "$result"; protocol_page "$selected"; fi
     else
         printf 'Could not load the chooser.\n'; pause_key

@@ -47,16 +47,12 @@ _refresh_menu_status
 _build_status_content
 printf '%s\n' "${FRAME_CONTENT[@]}" | grep -Fq 'alice: server received 2 MiB, sent 3 MiB' || fail 'WireGuard peer usage was not displayed'
 
-# Idle status updates must preserve the frame and the scroll position.
+# Layout must not collect or draw machine metrics.
 _FRAME_W=80; _TERM_COLS=80; _TERM_ROWS=30
 _DRAWN_TERM_COLS=80; _DRAWN_TERM_ROWS=30
-_STATUS_ROWS=('old status'); _SCROLL_OFFSET=7
-_refresh_machine_metrics() { :; }
-_build_status_rows() { _STATUS_ROWS=('updated status'); }
-tui_refresh_status > "$TEST_DIR/status-output"
-grep -Fq 'updated status' "$TEST_DIR/status-output" || fail 'status row was not refreshed'
-grep -Fq $'\033[2J' "$TEST_DIR/status-output" && fail 'idle status update cleared the screen'
-[[ $_SCROLL_OFFSET -eq 7 ]] || fail 'idle status update changed scroll position'
+_refresh_machine_metrics() { printf 'requested\n' >> "$TEST_DIR/metric-requests"; _METRIC_CPU='sampled'; }
+tui_compute_layout
+[[ ! -e "$TEST_DIR/metric-requests" ]] || fail 'layout collected machine metrics'
 
 # A normal frame redraw should overwrite in place, not blank the terminal.
 _COMPACT=1; _CONTENT_INNER_W=78; _CONTENT_H=20; _CHROME_ROWS=6; _BANNER_H=0
@@ -65,6 +61,7 @@ proto=wg
 tui_render_frame > "$TEST_DIR/frame-output"
 grep -Fq 'frame content' "$TEST_DIR/frame-output" || fail 'frame content was not rendered'
 grep -Fq $'\033[2J' "$TEST_DIR/frame-output" && fail 'frame redraw cleared the screen'
+grep -Fq 'CPU ' "$TEST_DIR/frame-output" && fail 'machine metrics appeared outside status'
 [[ "$proto" == wg ]] || fail 'sidebar rendering changed the selected protocol'
 
 # Replace only the drawing and keyboard functions. The page routing stays real.
@@ -87,6 +84,10 @@ tui_wait_key > "$TEST_DIR/wait-output"
 printf 'EOF\n' > "$TEST_DIR/keys"
 tui_wait_key
 [[ "$TUI_KEY" == Q ]] || fail 'closed terminal input did not exit cleanly'
+
+printf 's\ns\nh\nq\n' > "$TEST_DIR/keys"
+page_main_menu
+[[ $(wc -l < "$TEST_DIR/metric-requests") -eq 2 ]] || fail 'status did not refresh only on S'
 
 printf '2\n1\n2\n1\n' > "$TEST_DIR/keys"
 page_chooser || fail 'chooser did not return a selection'
