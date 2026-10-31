@@ -14,10 +14,10 @@ The current setup uses Cloudflare Flexible mode. The connection from Cloudflare 
 2. Run the command below.
 
    ```bash
-   curl -fsSL https://vany.sh/http-obfs | sudo bash
+   curl vany.sh | sudo bash
    ```
 
-3. Choose Install. Read each prompt before you continue.
+3. Select this protocol. Press 1 to run the setup checks. Choose Install in the management menu.
 4. Enter the Cloudflare domain when prompted.
 5. Check the service logs in the management menu. Test the connection from another network.
 
@@ -28,3 +28,7 @@ The client must use a reachable Cloudflare IP and the correct domain. The connec
 Run the same command again to open the management menu. The menu shows which actions are available. Keep connection credentials private.
 
 If a connection fails, check your provider firewall, the server firewall, and the service logs. A running container does not guarantee a working connection.
+
+For terminal commands, operating system steps, DNS, and provider firewalls, see [network and provider setup](../network-setup.md).
+
+For app setup on Windows, macOS, and Linux, see [connect a device](../connect-a-device.md).

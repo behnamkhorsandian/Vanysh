@@ -30,6 +30,19 @@ YELLOW='\033[38;5;220m'
 
 W=70  # Width
 
+if [[ -f "${TUI_DIR:-}/metrics.sh" ]]; then
+    source "$TUI_DIR/metrics.sh"
+fi
+
+show_device_header() {
+    if declare -F _refresh_machine_metrics >/dev/null; then
+        _refresh_machine_metrics
+        printf '  VANY | CPU %s | RAM %s | Net down/up %s\n' "$_METRIC_CPU" "$_METRIC_RAM" "$_METRIC_NET"
+        printf '  Public IP %s | Location ~%s\n' "$_METRIC_IP" "$_METRIC_LOCATION"
+        printf '  UTC %s | Local %s\n\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+    fi
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 hr() { printf "  ${D}"; printf '─%.0s' $(seq 1 "$W"); printf "${R}\n"; }
@@ -149,6 +162,7 @@ fi
 
 clear 2>/dev/null || true
 echo ""
+show_device_header
 
 banner="${BANNERS[$PROTOCOL]}"
 if [[ -n "$banner" ]]; then
@@ -557,7 +571,8 @@ do_uninstall() {
 
 while true; do
     show_menu
-    read -rp "  > " choice <&3
+    printf '  Choose an option: '
+    IFS= read -rsn1 choice <&3 || exit 0
     echo ""
 
     case "$choice" in
@@ -574,7 +589,7 @@ while true; do
         5) $is_installed && do_logs ;;
         6) $is_installed && do_restart ;;
         7) $is_installed && do_uninstall ;;
-        q|Q|exit) echo -e "  ${D}Goodbye${R}\n"; exit 0 ;;
+        q|Q|$'\033') exit 0 ;;
         *) err "Invalid option" ;;
     esac
 done

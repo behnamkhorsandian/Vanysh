@@ -17,3 +17,7 @@ This option is not ready to install through the current Docker manager. Choose a
 Use a compatible VLESS app when the service is available.
 
 Keep connection credentials private.
+
+For terminal commands, operating system steps, DNS, and provider firewalls, see [network and provider setup](../network-setup.md).
+
+For app setup on Windows, macOS, and Linux, see [connect a device](../connect-a-device.md).

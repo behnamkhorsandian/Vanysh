@@ -50,6 +50,7 @@ if [[ -n "$SCRIPT_DIR" ]]; then
     _source_if_exists "$SCRIPT_DIR/../lib/xray.sh"
 
     # Pages
+    source "$SCRIPT_DIR/pages/journey.sh"
     source "$SCRIPT_DIR/pages/main.sh"
     source "$SCRIPT_DIR/pages/protocol.sh"
     source "$SCRIPT_DIR/pages/install_wizard.sh"
@@ -155,6 +156,11 @@ _preflight() {
         elif command -v dnf &>/dev/null; then
             dnf install -y -q jq >/dev/null 2>&1
         fi
+    fi
+
+    if ! command -v jq &>/dev/null; then
+        printf 'Could not install jq. Install jq on this machine and start Vany again.\n'
+        return 1
     fi
 
     # jq may have been installed after the engine was sourced.
@@ -298,11 +304,15 @@ _run_navigation() {
                                 continue
                             fi
                         fi
-                        VANY_PROTOCOL="$current_proto" bash "$manager"
+                        VANY_PROTOCOL="$current_proto" VANY_PUBLIC_IP="$_METRIC_IP" VANY_LOCATION="$_METRIC_LOCATION" bash "$manager"
+                        local manager_result=$?
                         [[ "$manager" == "${TMPDIR:-/tmp}/vany-manager."* ]] && rm -f "$manager"
-                        printf '\nPress Enter to return to Vany. '
-                        read -r </dev/tty
+                        if (( manager_result != 0 )); then
+                            printf '\nThe manager stopped. Press any key to return to Vany. '
+                            read -rsn1 </dev/tty
+                        fi
                         tui_init
+                        START_PROTOCOL="$current_proto"
                         current_page="main"
                         ;;
                     _status)
@@ -446,33 +456,33 @@ _run_navigation() {
                 ;;
 
             choose)
-                # Run the interactive protocol chooser
-                printf '\033[?25h'  # show cursor
-                clear_screen
+                tui_cleanup
                 local choose_script=""
-                # In Cloak mode, use local file
-                if [[ "${CLOAK_MODE:-}" == "1" ]]; then
-                    local candidates=(
-                        "${CLOAK_HOME:-}/scripts/tools/choose.sh"
-                        "${SCRIPT_DIR:-}/../scripts/tools/choose.sh"
-                    )
-                    for c in "${candidates[@]}"; do
-                        [[ -f "$c" ]] && { choose_script="$c"; break; }
-                    done
-                fi
+                local candidates=("${CLOAK_HOME:-}/scripts/tools/choose.sh" "${SCRIPT_DIR:-}/../scripts/tools/choose.sh")
+                for c in "${candidates[@]}"; do
+                    [[ -f "$c" ]] && { choose_script="$c"; break; }
+                done
+                local choose_temporary=0 choice_file
+                choice_file=$(mktemp "${TMPDIR:-/tmp}/vany-choice.XXXXXX")
                 if [[ -z "$choose_script" ]]; then
-                    choose_script="/tmp/vany-choose.sh"
-                    curl -sfL "$GITHUB_RAW/scripts/tools/choose.sh" -o "$choose_script" 2>/dev/null || true
+                    choose_script=$(mktemp "${TMPDIR:-/tmp}/vany-chooser.XXXXXX")
+                    choose_temporary=1
+                    if ! curl -fsSL --connect-timeout 8 --max-time 20 "$GITHUB_RAW/scripts/tools/choose.sh" -o "$choose_script"; then
+                        rm -f "$choose_script"
+                    fi
                 fi
                 if [[ -f "$choose_script" ]]; then
-                    bash "$choose_script" </dev/tty
+                    VANY_CHOICE_FILE="$choice_file" VANY_STATUS_HEADER="$(printf '%s\n' "${_STATUS_ROWS[@]}")" bash "$choose_script" </dev/tty
                 else
-                    echo "  Failed to load protocol chooser"
+                    printf '\nCould not load the chooser. Press any key to return. '
+                    read -rsn1 </dev/tty
                 fi
-                echo ""
-                echo -e "  ${C_DIM}Press any key to return to TUI...${C_RST}"
-                read -rsn1 </dev/tty
-                printf '\033[?25l'  # hide cursor
+                if [[ -s "$choice_file" ]]; then
+                    IFS= read -r START_PROTOCOL < "$choice_file"
+                fi
+                [[ -n "$choice_file" ]] && rm -f "$choice_file"
+                (( choose_temporary )) && rm -f "$choose_script"
+                tui_init
                 current_page="main"
                 current_proto=""
                 ;;
@@ -536,7 +546,7 @@ vany_tui_main() {
     # that return non-zero legitimately and must not terminate the script
     set +e
 
-    _preflight
+    _preflight || return 1
 
     # Trap for clean exit
     trap 'tui_cleanup 2>/dev/null; _show_exit_banner' EXIT

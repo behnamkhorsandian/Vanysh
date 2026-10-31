@@ -1180,10 +1180,8 @@ function getInfoPage(service: string, config: ServiceConfig): string {
     </div>
     
     <div class="install-box">
-      <h2>Install on your VPS</h2>
-      <p style="color:#8b949e;margin-bottom:10px;">Install this protocol directly:</p>
-      <code>curl vany.sh/${service} | sudo bash</code>
-      <p style="color:#8b949e;margin-top:15px;">Or install the full interactive menu:</p>
+      <h2>Open Vany</h2>
+      <p style="color:#8b949e;margin-bottom:10px;">Run this command, then select ${config.name} and choose Create or Connect.</p>
       <code>curl vany.sh | sudo bash</code>
     </div>
     

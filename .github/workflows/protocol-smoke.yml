@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'scripts/**'
+      - 'tui/**'
+      - 'tests/tui-smoke.sh'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -15,6 +17,8 @@ on:
       - main
     paths:
       - 'scripts/**'
+      - 'tui/**'
+      - 'tests/tui-smoke.sh'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -36,3 +40,6 @@ jobs:
 
       - name: Run protocol smoke checks
         run: bash scripts/tools/protocol-smoke.sh
+
+      - name: Check terminal navigation and setup choices
+        run: bash tests/tui-smoke.sh

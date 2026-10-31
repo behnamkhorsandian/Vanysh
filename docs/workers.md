@@ -5,16 +5,16 @@ Vany uses one unified Cloudflare Worker for installer, tool, TUI, SafeBox, and s
 ## Request Flow
 
 ```text
-curl vany.sh/wg | sudo bash
+curl vany.sh | sudo bash
         |
         v
 Cloudflare Worker: workers/src/index.ts
         |
         v
-Fetch scripts/direct-install.sh from GitHub Raw
+Load start.sh and the terminal menu
         |
         v
-Prepend VANY_PROTOCOL="wg" and return text/plain
+Open the selected connection or server manager
 ```
 
 The Worker routes browser users to `https://www.vany.sh/` and returns plain text for CLI user agents such as `curl` and `wget`.
@@ -24,7 +24,7 @@ The Worker routes browser users to `https://www.vany.sh/` and returns plain text
 | Route | Purpose |
 |-------|---------|
 | `/` | ANSI landing page for CLI users; browser users redirect to `www` |
-| `/<protocol>` | Standalone guided installer/manager for a known protocol |
+| `/<protocol>` | Legacy standalone installer/manager route |
 | `/<protocol>/info` | Browser protocol info page |
 | `/<protocol>/version` | JSON protocol metadata |
 | `/scripts/*` | No-cache proxy to repository scripts |

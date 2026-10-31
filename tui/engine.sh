@@ -17,6 +17,8 @@ if [[ -z "$C_RST" ]]; then
     source "$SCRIPT_DIR/theme.sh"
 fi
 
+source "$(dirname "${BASH_SOURCE[0]}")/metrics.sh"
+
 #===============================================================================
 # SECTION 0: JSON Data Loaders
 #===============================================================================
@@ -293,6 +295,8 @@ _load_frame_banner() {
 
 tui_compute_layout() {
     _FRAME_W=$_TERM_COLS
+    _refresh_machine_metrics
+    _build_status_rows
 
     if (( _TERM_COLS < 100 )); then
         _COMPACT=1
@@ -309,9 +313,9 @@ tui_compute_layout() {
     _load_frame_banner
     if (( _BANNER_H > 0 )); then
         # base(6) + separator(1) + banner_lines
-        _CHROME_ROWS=$(( 7 + _BANNER_H ))
+        _CHROME_ROWS=$(( 6 + ${#_STATUS_ROWS[@]} + _BANNER_H ))
     else
-        _CHROME_ROWS=6
+        _CHROME_ROWS=$(( 5 + ${#_STATUS_ROWS[@]} ))
     fi
 
     _CONTENT_H=$(( _TERM_ROWS - _CHROME_ROWS ))
@@ -350,6 +354,7 @@ _visible_len_fast() {
         value=${value#*$'\033['}
         value="${prefix}${value#*m}"
     done
+    REPLY_TEXT=$value
     REPLY=${#value}
 }
 
@@ -639,13 +644,29 @@ tui_render_frame() {
         h_cont=$(repeat_str "$BOX_H" "$_CONTENT_INNER_W")
     fi
 
-    # Build status bar text
-    local status_text
-    status_text=$(_build_status_text)
-
     # Keep the frame within the terminal and scroll its content when needed.
+    local -a render_content=()
+    local content_line plain chunk max_width
+    max_width=$(( _CONTENT_INNER_W - 1 ))
+    (( max_width < 1 )) && max_width=1
+    for content_line in "${FRAME_CONTENT[@]}"; do
+        _visible_len_fast "$content_line"
+        if (( REPLY <= max_width )); then
+            render_content+=("$content_line")
+            continue
+        fi
+        plain="$REPLY_TEXT"
+        while (( ${#plain} > max_width )); do
+            chunk="${plain:0:max_width}"
+            if [[ "$chunk" == *' '* && -n "${chunk% *}" ]]; then chunk="${chunk% *}"; fi
+            render_content+=("$chunk")
+            plain="${plain:${#chunk}}"
+            plain="${plain#"${plain%%[![:space:]]*}"}"
+        done
+        [[ -n "$plain" ]] && render_content+=("$plain")
+    done
     local total_sidebar=${#_SIDEBAR_LINES[@]}
-    local total_content=${#FRAME_CONTENT[@]}
+    local total_content=${#render_content[@]}
     local render_rows=$total_sidebar
     (( total_content > render_rows )) && render_rows=$total_content
     (( render_rows < 1 )) && render_rows=1
@@ -665,8 +686,11 @@ tui_render_frame() {
         # Row 1: Top border
         printf '%b%s%s%s%b\n' "$bc" "$BOX_TL" "$h_full" "$BOX_TR" "$C_RST"
 
-        # Row 2: Status bar
-        _print_full_row "$status_text"
+        # Machine status remains visible on every page.
+        local status_line
+        for status_line in "${_STATUS_ROWS[@]}"; do
+            _print_full_row " $status_line"
+        done
 
         # Banner rows (if active)
         if (( _BANNER_H > 0 )); then
@@ -700,7 +724,7 @@ tui_render_frame() {
             # Content rows (full-width, no sidebar, all lines)
             local r=0
             while (( r < render_rows )); do
-                _print_full_row " ${FRAME_CONTENT[$((r + _SCROLL_OFFSET))]:-}"
+                _print_full_row " ${render_content[$((r + _SCROLL_OFFSET))]:-}"
                 (( r++ ))
             done
 
@@ -713,7 +737,7 @@ tui_render_frame() {
             # Content rows (sidebar | content, all lines)
             local r=0
             while (( r < render_rows )); do
-                _print_split_row " ${_SIDEBAR_LINES[$((r + sidebar_offset))]:-}" " ${FRAME_CONTENT[$((r + _SCROLL_OFFSET))]:-}"
+                _print_split_row " ${_SIDEBAR_LINES[$((r + sidebar_offset))]:-}" " ${render_content[$((r + _SCROLL_OFFSET))]:-}"
                 (( r++ ))
             done
 
@@ -1187,7 +1211,15 @@ tui_read_key() {
     local c1 c2 c3 c4
 
     stty -echo -icanon min 1 time 0 <&3 2>/dev/null
-    IFS= read -rsn1 c1 <&3
+    if [[ -n "${1:-}" ]]; then
+        if ! IFS= read -rsn1 -t "$1" c1 <&3; then
+            stty echo icanon <&3 2>/dev/null
+            echo "TICK"
+            return
+        fi
+    else
+        IFS= read -rsn1 c1 <&3
+    fi
     stty echo icanon <&3 2>/dev/null
 
     if [[ "$c1" == $'\033' ]]; then

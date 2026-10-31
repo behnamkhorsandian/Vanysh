@@ -1769,18 +1769,18 @@
               <div class="step-number">1</div>
               <div class="step-header">
                 <span class="step-icon material-symbols-outlined">dns</span>
-                <span class="step-title">Get Server</span>
+                <span class="step-title">Choose your task</span>
               </div>
-              <div class="step-desc">Purchase a small VPS (Linux) from your favorite cloud provider. A domain is optional for most protocols.</div>
+              <div class="step-desc">Connect from your device, or create a service on a Linux server. The chooser can help you decide.</div>
             </div>
             
             <div class="step-item">
               <div class="step-number">2</div>
               <div class="step-header">
                 <span class="step-icon material-symbols-outlined">terminal</span>
-                <span class="step-title">Connect (SSH)</span>
+                <span class="step-title">Open a terminal</span>
               </div>
-              <div class="step-desc">Open your terminal and login to your server: <code>ssh root@your-ip</code> or using remote desktop tools.</div>
+              <div class="step-desc">On Windows, open Ubuntu in WSL. To create a service on a remote server, connect to it with SSH first.</div>
             </div>
             
             <div class="step-item">
@@ -1789,7 +1789,7 @@
                 <span class="step-icon material-symbols-outlined">bolt</span>
                 <span class="step-title">Run Command</span>
               </div>
-              <div class="step-desc">Copy paste the install command you want, then follow the interactive prompts to finish setup.</div>
+              <div class="step-desc">Run the command below. Choose a protocol, then select Create or Connect.</div>
             </div>
           </div>
           
@@ -1803,7 +1803,7 @@
                 <code><span class="prompt">$ </span>curl vany.sh | sudo bash</code>
                 <button class="copy-btn" onclick="copyCommand('curl vany.sh | sudo bash')">[ COPY ]</button>
               </div>
-              <p class="install-note">Launches an interactive menu to install and manage all protocols.</p>
+              <p class="install-note">Open the menu to create, connect, check status, or choose a protocol.</p>
             </div>
           </div>
         </div>
@@ -1905,13 +1905,13 @@
                 <span class="protocol-name">DNS Tunnel (DNSTT)</span>
                 <span class="protocol-status status-ready">READY</span>
               </div>
-              <p class="protocol-desc">Emergency protocol for total blackouts. Tunnels through DNS queries. Slow but works when all else fails.</p>
+              <p class="protocol-desc">A slow DNS tunnel for fallback use. It needs working DNS, a domain, and extra client and server setup.</p>
               <div class="protocol-tags">
                 <span class="tag">emergency</span>
                 <span class="tag">last-resort</span>
                 <span class="tag">slow</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/dnstt | sudo bash')"><span class="prompt">$ </span>curl vany.sh/dnstt | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
 
             <div class="protocol-item theme-purple">
@@ -1926,7 +1926,7 @@
                 <span class="tag">psiphon</span>
                 <span class="tag">no-domain</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/conduit | sudo bash')"><span class="prompt">$ </span>curl vany.sh/conduit | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
 
 
@@ -1941,9 +1941,9 @@
               <div class="protocol-tags">
                 <span class="tag">no-domain</span>
                 <span class="tag">fast</span>
-                <span class="tag">undetectable</span>
+                <span class="tag">tls</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/reality | sudo bash')"><span class="prompt">$ </span>curl vany.sh/reality | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
             
             <div class="protocol-item">
@@ -1952,13 +1952,13 @@
                 <span class="protocol-name">VLESS + WebSocket + CDN</span>
                 <span class="protocol-status status-ready">READY</span>
               </div>
-              <p class="protocol-desc">Route through Cloudflare CDN. Server IP completely hidden. Good when direct connection is blocked.</p>
+              <p class="protocol-desc">Route connections through Cloudflare. It needs a domain and proxy setup. The server IP may still be exposed elsewhere.</p>
               <div class="protocol-tags">
                 <span class="tag">ip-hidden</span>
                 <span class="tag">cdn</span>
                 <span class="tag">cloudflare</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/ws | sudo bash')"><span class="prompt">$ </span>curl vany.sh/ws | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
             
             <div class="protocol-item">
@@ -1973,14 +1973,14 @@
                 <span class="tag">native-apps</span>
                 <span class="tag">fast</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/wg | sudo bash')"><span class="prompt">$ </span>curl vany.sh/wg | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
             
             <div class="protocol-item">
               <div class="protocol-header">
                 <span class="protocol-icon"><span class="material-symbols-outlined">send</span></span>
                 <span class="protocol-name">MTProto Proxy</span>
-                <span class="protocol-status status-ready">READY</span>
+                <span class="protocol-status">NOT AVAILABLE FOR SETUP</span>
               </div>
               <p class="protocol-desc">Telegram-specific proxy with Fake-TLS. Direct integration, no third-party client needed.</p>
               <div class="protocol-tags">
@@ -1988,7 +1988,7 @@
                 <span class="tag">fake-tls</span>
                 <span class="tag">easy</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/mtp | sudo bash')"><span class="prompt">$ </span>curl vany.sh/mtp | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
             
             
@@ -1996,7 +1996,7 @@
               <div class="protocol-header">
                 <span class="protocol-icon"><span class="material-symbols-outlined">lock</span></span>
                 <span class="protocol-name">VLESS + TLS</span>
-                <span class="protocol-status status-ready">READY</span>
+                <span class="protocol-status">NOT AVAILABLE FOR SETUP</span>
               </div>
               <p class="protocol-desc">Classic V2Ray with real TLS certificate. Requires domain but excellent compatibility.</p>
               <div class="protocol-tags">
@@ -2004,7 +2004,7 @@
                 <span class="tag">lets-encrypt</span>
                 <span class="tag">compatible</span>
               </div>
-              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh/vray | sudo bash')"><span class="prompt">$ </span>curl vany.sh/vray | sudo bash<span class="copied-toast">copied!</span></div>
+              <div class="protocol-cmd" onclick="copyProtocolCmd(this, 'curl vany.sh | sudo bash')"><span class="prompt">$ </span>curl vany.sh | sudo bash<span class="copied-toast">copied!</span></div>
             </div>
 
             <div class="protocol-item theme-box-subtle" style="cursor:pointer" onclick="window.open('https://vany.sh/box','_blank')">
@@ -2155,6 +2155,8 @@
             <div class="nav-section-title"><span class="material-symbols-outlined">menu_book</span> Getting Started</div>
             <ul class="nav-list">
               <li class="nav-item"><a class="nav-link" data-doc="getting-started" onclick="loadDoc('getting-started')"><span class="material-symbols-outlined">home_storage</span> Set up your server</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="connect-a-device" onclick="loadDoc('connect-a-device')"><span class="material-symbols-outlined">devices</span> Connect a device</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="network-setup" onclick="loadDoc('network-setup')"><span class="material-symbols-outlined">lan</span> Network and provider setup</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="self-hosting" onclick="loadDoc('self-hosting')"><span class="material-symbols-outlined">settings</span> Host the Vany platform</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="firewall" onclick="loadDoc('firewall')"><span class="material-symbols-outlined">shield</span> Firewall Setup</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="dns" onclick="loadDoc('dns')"><span class="material-symbols-outlined">dns</span> DNS Configuration</a></li>

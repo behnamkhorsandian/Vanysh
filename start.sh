@@ -79,8 +79,10 @@ download_tui() {
     local tui_files=(
         "tui/theme.sh"
         "tui/engine.sh"
+        "tui/metrics.sh"
         "tui/main.sh"
         "tui/pages/main.sh"
+        "tui/pages/journey.sh"
         "tui/pages/protocol.sh"
         "tui/pages/install_wizard.sh"
         "tui/pages/users.sh"
@@ -189,6 +191,22 @@ main() {
 
     if [[ ${VANY_SPLASH_SHOWN:-0} != 1 ]]; then
         printf '\n  ░█░█░█▀█░█▀█░█░█░█▀▀░█░█\n  ░▀▄▀░█▀█░█░█░░█░░▀▀█░█▀█\n  ░░▀░░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀\n\n  Loading the server menu...\n'
+    fi
+
+    # macOS ships an older Bash and cannot host the Linux Docker services.
+    # Its client menu does not need the Linux-only full-screen engine.
+    if [[ "$(uname -s)" == Darwin ]]; then
+        local client_script
+        client_script=$(mktemp "${TMPDIR:-/tmp}/vany-client.XXXXXX") || exit 1
+        if curl -fsSL --connect-timeout 10 --max-time 60 "$GITHUB_RAW/scripts/client.sh" -o "$client_script"; then
+            bash "$client_script"
+            local client_result=$?
+            rm -f "$client_script"
+            return "$client_result"
+        fi
+        rm -f "$client_script"
+        echo "Could not load the client menu. Check your connection."
+        exit 1
     fi
 
     # Handle --update flag
