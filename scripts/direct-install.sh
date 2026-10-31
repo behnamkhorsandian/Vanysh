@@ -8,13 +8,17 @@
 set -e
 
 # When piped via curl, stdin is the script itself. Read user input from /dev/tty.
-exec 3</dev/tty 2>/dev/null || { echo "Error: No terminal available for interactive input"; exit 1; }
+if [[ -n "${VANY_ACTION:-}" ]]; then
+    exec 3</dev/null
+else
+    exec 3</dev/tty 2>/dev/null || { echo "Error: No terminal available for interactive input"; exit 1; }
+fi
 
 PROTOCOL="${VANY_PROTOCOL:-}"
 VANY_DIR="/opt/vany"
 STATE_FILE="$VANY_DIR/state.json"
 USERS_FILE="$VANY_DIR/users.json"
-GITHUB_RAW="https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main"
+GITHUB_RAW="${GITHUB_RAW:-https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main}"
 
 # ── Colors (Vany theme) ──────────────────────────────────────────────────────
 G='\033[38;5;42m'      # Green
@@ -168,6 +172,8 @@ fi
 
 # ── Display Banner ────────────────────────────────────────────────────────────
 
+name="$(vany_protocol_name "$PROTOCOL")"
+if [[ -z "${VANY_ACTION:-}" ]]; then
 clear 2>/dev/null || true
 echo ""
 show_device_header
@@ -185,7 +191,6 @@ fi
 
 # ── Protocol Info ─────────────────────────────────────────────────────────────
 
-name="$(vany_protocol_name "$PROTOCOL")"
 desc="$(vany_protocol_desc "$PROTOCOL")"
 ports="$(vany_protocol_ports "$PROTOCOL")"
 domain="$(vany_protocol_needs_domain "$PROTOCOL")"
@@ -195,6 +200,7 @@ echo -e "  ${D}${desc}${R}"
 echo ""
 echo -e "  ${D}Ports: ${R}${ports}    ${D}Domain required: ${R}${domain}"
 hr
+fi
 
 # ── Check Current Status ─────────────────────────────────────────────────────
 
@@ -231,6 +237,7 @@ check_status() {
 
 check_status
 
+if [[ -z "${VANY_ACTION:-}" ]]; then
 echo ""
 if $is_running; then
     echo -e "  ${G}${B}Status:${R} ${G}Running${R}  ${D}(container: ${container_name})${R}"
@@ -240,6 +247,7 @@ else
     echo -e "  ${D}${B}Status:${R} ${D}Not installed${R}"
 fi
 echo ""
+fi
 
 # ── Menu ──────────────────────────────────────────────────────────────────────
 
@@ -302,6 +310,16 @@ do_download_script() {
 do_install() {
     section "Installing ${name}"
 
+    if [[ -n "${VANY_ACTION:-}" ]]; then
+        case "$PROTOCOL" in
+            ws|dnstt|slipstream|noizdns|http-obfs)
+                if [[ ${#VANY_DOMAIN} -gt 253 || ! "${VANY_DOMAIN:-}" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ || "$VANY_DOMAIN" != *.* || "$VANY_DOMAIN" == *..* ]]; then
+                    err "Enter a valid domain name."
+                    return 1
+                fi ;;
+        esac
+    fi
+
     case "$PROTOCOL" in
         vray|mtp)
             err "This protocol is not implemented in the current Docker installer."
@@ -321,7 +339,7 @@ do_install() {
             reload_xray
             ;;
         ws)
-            read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain <&3
+            if [[ -n "${VANY_ACTION:-}" ]]; then ws_domain="${VANY_DOMAIN:-}"; else read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain <&3; fi
             [[ -n "$ws_domain" ]] || { err "A domain is required."; return 1; }
             install_xray
             add_ws_inbound "/ws"
@@ -335,7 +353,7 @@ do_install() {
             install_wireguard
             ;;
         dnstt)
-            read -rp "  Enter your delegated DNS name (e.g. t.example.com): " dnstt_domain <&3
+            if [[ -n "${VANY_ACTION:-}" ]]; then dnstt_domain="${VANY_DOMAIN:-}"; else read -rp "  Enter your delegated DNS name (e.g. t.example.com): " dnstt_domain <&3; fi
             [[ -n "$dnstt_domain" ]] || { err "A delegated DNS name is required."; return 1; }
             install_dnstt "$dnstt_domain"
             ;;
@@ -352,12 +370,12 @@ do_install() {
             install_snowflake
             ;;
         slipstream)
-            read -rp "  Enter your domain: " dns_domain <&3
+            if [[ -n "${VANY_ACTION:-}" ]]; then dns_domain="${VANY_DOMAIN:-}"; else read -rp "  Enter your domain: " dns_domain <&3; fi
             [[ -n "$dns_domain" ]] || { err "A domain is required."; return 1; }
             SLIPSTREAM_DOMAIN="$dns_domain" install_slipstream
             ;;
         noizdns)
-            read -rp "  Enter your domain: " dns_domain <&3
+            if [[ -n "${VANY_ACTION:-}" ]]; then dns_domain="${VANY_DOMAIN:-}"; else read -rp "  Enter your domain: " dns_domain <&3; fi
             [[ -n "$dns_domain" ]] || { err "A domain is required."; return 1; }
             NOIZDNS_DOMAIN="$dns_domain" install_noizdns
             ;;
@@ -365,7 +383,7 @@ do_install() {
             install_ssh_tunnel
             ;;
         http-obfs)
-            read -rp "  Enter CDN domain: " cdn_domain <&3
+            if [[ -n "${VANY_ACTION:-}" ]]; then cdn_domain="${VANY_DOMAIN:-}"; else read -rp "  Enter CDN domain: " cdn_domain <&3; fi
             [[ -n "$cdn_domain" ]] || { err "A domain is required."; return 1; }
             HTTP_OBFS_DOMAIN="$cdn_domain" install_http_obfs
             ;;
@@ -406,8 +424,9 @@ do_install() {
 
 do_add_user() {
     section "Add User"
-    read -rp "  Username: " username <&3
-    [[ -z "$username" ]] && { err "Username required"; return; }
+    if [[ -n "${VANY_ACTION:-}" ]]; then username="${VANY_USERNAME:-}"; else read -rp "  Username: " username <&3; fi
+    [[ -z "$username" ]] && { err "Username required"; return 1; }
+    [[ "$username" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$ ]] || { err "Invalid user name"; return 1; }
 
     do_download_script
 
@@ -422,6 +441,7 @@ do_add_user() {
                 "$add_fn" "$username"
             else
                 info "User management not implemented for $PROTOCOL"
+                return 1
             fi
             ;;
     esac
@@ -429,8 +449,9 @@ do_add_user() {
 
 do_remove_user() {
     section "Remove User"
-    read -rp "  Username to remove: " username <&3
-    [[ -z "$username" ]] && { err "Username required"; return; }
+    if [[ -n "${VANY_ACTION:-}" ]]; then username="${VANY_USERNAME:-}"; else read -rp "  Username to remove: " username <&3; fi
+    [[ -z "$username" ]] && { err "Username required"; return 1; }
+    [[ "$username" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$ ]] || { err "Invalid user name"; return 1; }
 
     do_download_script
 
@@ -440,6 +461,7 @@ do_remove_user() {
         "$remove_fn" "$username"
     else
         info "User management not implemented for $PROTOCOL"
+        return 1
     fi
 }
 
@@ -451,7 +473,7 @@ do_show_config() {
     do_download_script
 
     local server_ip
-    server_ip=$(jq -r '.ip // "unknown"' "$STATE_FILE" 2>/dev/null)
+    server_ip=$(jq -r '.server.ip // .ip // "unknown"' "$STATE_FILE" 2>/dev/null)
 
     case "$PROTOCOL" in
         reality)
@@ -483,6 +505,7 @@ do_show_config() {
         wg)
             if [[ -d "$VANY_DIR/wg/peers" ]]; then
                 echo -e "  ${D}WireGuard peer configs:${R}"
+                echo "  Files are in $VANY_DIR/wg/peers/"
                 ls "$VANY_DIR/wg/peers/" 2>/dev/null
             fi
             ;;
@@ -493,6 +516,7 @@ do_show_config() {
             ;;
         *)
             info "Config display not implemented for $PROTOCOL"
+            return 1
             ;;
     esac
     echo ""
@@ -503,11 +527,10 @@ do_show_config() {
 do_logs() {
     section "Container Logs (last 30 lines)"
     if [[ -n "$container_name" ]]; then
-        docker logs --tail 30 "$container_name" 2>&1 | while IFS= read -r line; do
-            echo -e "  ${D}${line}${R}"
-        done
+        docker logs --tail 30 "$container_name" 2>&1 || return 1
     else
-        info "Container not found"
+        err "Container not found"
+        return 1
     fi
     echo ""
 }
@@ -521,6 +544,7 @@ do_restart() {
         ok "Container restarted"
     else
         err "Container not found"
+        return 1
     fi
     echo ""
     check_status
@@ -534,11 +558,15 @@ do_generic_uninstall() {
         return 1
     fi
 
-    if [[ -n "$container_name" ]]; then
-        docker stop "$container_name" 2>/dev/null || true
-        docker rm "$container_name" 2>/dev/null || true
-        ok "Container removed"
+    if [[ -z "$container_name" || "$container_name" == '--' ]]; then
+        err "Container not found. The saved state was not removed."
+        return 1
     fi
+    if ! docker rm -f "$container_name"; then
+        err "Could not remove the container. The saved state was not removed."
+        return 1
+    fi
+    ok "Container removed"
 
     if [[ -f "$STATE_FILE" ]] && command -v jq &>/dev/null; then
         local proto_key
@@ -553,7 +581,7 @@ do_uninstall() {
     if [[ -n "$(vany_protocol_feature_key "$PROTOCOL")" ]]; then
         echo -e "  ${D}Shared runtimes stay up if another protocol still uses them.${R}"
     fi
-    read -rp "  Are you sure? (y/N): " confirm <&3
+    if [[ -n "${VANY_ACTION:-}" ]]; then confirm="${VANY_CONFIRM:-n}"; else read -rp "  Are you sure? (y/N): " confirm <&3; fi
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         do_download_script
 
@@ -571,11 +599,26 @@ do_uninstall() {
         ok "Uninstall complete"
     else
         info "Cancelled"
+        return 1
     fi
     echo ""
 }
 
 # ── Main Loop ─────────────────────────────────────────────────────────────────
+
+if [[ -n "${VANY_ACTION:-}" ]]; then
+    case "$VANY_ACTION" in
+        install) do_install ;;
+        add_user) do_add_user ;;
+        remove_user) do_remove_user ;;
+        config) do_show_config ;;
+        logs) do_logs ;;
+        restart) do_restart ;;
+        uninstall) do_uninstall ;;
+        *) err "Unknown action"; exit 2 ;;
+    esac
+    exit $?
+fi
 
 while true; do
     show_menu

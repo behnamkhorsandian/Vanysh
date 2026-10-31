@@ -7,6 +7,8 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 export TUI_DIR="$ROOT_DIR/tui"
 source "$TUI_DIR/theme.sh"
 source "$TUI_DIR/engine.sh"
+source "$TUI_DIR/pages/actions.sh"
+source "$TUI_DIR/pages/manage.sh"
 source "$TUI_DIR/pages/journey.sh"
 source "$TUI_DIR/pages/chooser.sh"
 source "$TUI_DIR/pages/main.sh"
@@ -124,4 +126,21 @@ TEST_UFW_STATE=inactive
 printf '1\n2\n' > "$TEST_DIR/keys"
 page_setup_checks wg || fail 'inactive firewall check did not continue'
 [[ $(wc -l < "$TEST_DIR/firewall-rules") -eq 1 ]] || fail 'inactive UFW was modified'
+
+# The service menu uses the frame and does not start an action before consent.
+_manage_run() { printf '%s:%s\n' "$1" "$2" >> "$TEST_DIR/actions"; }
+page_setup_checks() { return 0; }
+printf '1\nn\nq\n' > "$TEST_DIR/keys"
+page_manage wg
+[[ ! -e "$TEST_DIR/actions" ]] || fail 'reinstall ran after cancellation'
+printf '1\nq\n' > "$TEST_DIR/keys"
+page_manage hysteria
+[[ $(cat "$TEST_DIR/actions") == hysteria:install ]] || fail 'setup did not invoke the selected action'
+
+# The action entry point must not need a controlling terminal or open a menu.
+if sudo -n env VANY_PROTOCOL=vray VANY_ACTION=install bash "$ROOT_DIR/scripts/direct-install.sh" </dev/null > "$TEST_DIR/action-output" 2>&1; then
+    fail 'unsupported protocol setup unexpectedly succeeded'
+fi
+grep -Fq 'not implemented' "$TEST_DIR/action-output" || fail 'action did not report the unsupported protocol'
+grep -Fq 'Choose an option' "$TEST_DIR/action-output" && fail 'action opened the old protocol menu'
 printf 'TUI smoke checks passed\n'

@@ -204,18 +204,12 @@ page_main_menu() {
             DOWN) view=protocols; (( _SIDEBAR_SEL++ )); (( _SIDEBAR_SEL >= ${#PROTOCOL_IDS[@]} )) && _SIDEBAR_SEL=0 ;;
             ENTER)
                 if [[ "$view" == protocols && "$key" == ENTER ]]; then
-                    if page_setup_checks "$proto"; then
-                        PROTOCOL_TO_MANAGE="$proto"; SELECTED_PROTOCOL="_manage"; return 0
-                    fi
-                    last_view=""; continue
+                    PROTOCOL_TO_MANAGE="$proto"; SELECTED_PROTOCOL="_manage"; return 0
                 fi
                 view=protocols ;;
             1)
                 if [[ "$view" == protocols ]]; then
-                    if page_setup_checks "$proto"; then
-                        PROTOCOL_TO_MANAGE="$proto"; SELECTED_PROTOCOL="_manage"; return 0
-                    fi
-                    last_view=""
+                    PROTOCOL_TO_MANAGE="$proto"; SELECTED_PROTOCOL="_manage"; return 0
                 fi ;;
             2)
                 if [[ "$view" == protocols ]]; then
@@ -229,7 +223,7 @@ page_main_menu() {
             h|H|ESC|BACKSPACE) view=home ;;
             s|S) _refresh_menu_status; view=status; last_view="" ;;
             r|R) if [[ "$view" == status ]]; then _refresh_menu_status; last_view=""; fi ;;
-            n|N) if [[ "$view" == status ]]; then tui_command_pane "Network check" bash "$TUI_DIR/command-tasks.sh" network; last_view=""; fi ;;
+            n|N) if [[ "$view" == status ]]; then tui_run_action "Network check" "Vany is checking public endpoints." 1 bash "$TUI_DIR/command-tasks.sh" network; last_view=""; fi ;;
             t|T) if [[ "$view" == status ]]; then journey_run_tool speedtest; last_view=""; fi ;;
             p|P) if [[ "$view" == status ]]; then journey_trace_route; last_view=""; else view=protocols; fi ;;
             m|M) if [[ "$view" == status ]]; then journey_container_stats; last_view=""; fi ;;

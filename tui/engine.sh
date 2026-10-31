@@ -478,6 +478,7 @@ tui_cleanup() {
     if [[ $_TUI_ACTIVE -eq 0 ]]; then
         return 0
     fi
+    type _action_cleanup &>/dev/null && _action_cleanup
     trap '' WINCH
     if [[ -n "$_TUI_OLD_STTY" ]]; then
         stty "$_TUI_OLD_STTY" <&3 2>/dev/null
@@ -849,26 +850,6 @@ tui_wait_key() {
             return 0
         fi
     done
-}
-
-# Run a command on its own pseudo-terminal while keeping it inside Vany.
-tui_command_pane() {
-    local title="$1"; shift
-    local pane="${TUI_DIR:-$(dirname "${BASH_SOURCE[0]}")}/command-pane.py"
-    if ! command -v python3 >/dev/null 2>&1 || [[ ! -f "$pane" ]]; then
-        FRAME_CONTENT=("Command window unavailable." "Install Python 3 and start Vany again.")
-        FRAME_FOOTER="Press any key to return"
-        tui_render_frame
-        tui_wait_key
-        return 1
-    fi
-    VANY_PUBLIC_IP="$_METRIC_IP" VANY_LOCATION="$_METRIC_LOCATION" \
-        VANY_CPU="$_METRIC_CPU" VANY_RAM="$_METRIC_RAM" VANY_NET="$_METRIC_NET" \
-        python3 "$pane" "$title" "$@"
-    local result=$?
-    tui_get_size
-    tui_compute_layout
-    return "$result"
 }
 
 #===============================================================================

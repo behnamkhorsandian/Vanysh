@@ -127,7 +127,7 @@ journey_wireguard_action() {
         rm -f "$copy_path"; rmdir "$copy_dir" 2>/dev/null
         return
     fi
-    tui_command_pane "WireGuard $action" wg-quick "$action" "$copy_path"
+    tui_run_action "WireGuard $action" "Vany is changing the WireGuard connection." 1 wg-quick "$action" "$copy_path"
     local result=$?
     rm -f "$copy_path"; rmdir "$copy_dir" 2>/dev/null
     if (( result == 0 )); then JOURNEY_MESSAGE="WireGuard $action completed. Verify the connection."; else JOURNEY_MESSAGE="WireGuard $action failed. Check the message above."; fi
@@ -162,9 +162,9 @@ journey_ssh_tunnel() {
         JOURNEY_MESSAGE="Use a login such as alice@server.example.com."
         return
     fi
-    tui_command_pane "SSH proxy" bash "$TUI_DIR/command-tasks.sh" ssh "$target"
+    tui_run_action "SSH proxy" "Press D to check the proxy status. Press Q to stop the proxy." 0 bash "$TUI_DIR/command-tasks.sh" ssh "$target"
     result=$?
-    if (( result == 0 )); then JOURNEY_MESSAGE="SSH proxy stopped."; else JOURNEY_MESSAGE="SSH proxy did not start or was interrupted."; fi
+    if (( result == 0 || result == 130 )); then JOURNEY_MESSAGE="SSH proxy stopped."; else JOURNEY_MESSAGE="SSH proxy did not start or was interrupted."; fi
 }
 
 page_connect() {
@@ -262,13 +262,13 @@ journey_run_tool() {
     tui_wait_key
     key="$TUI_KEY"
     [[ "$key" == 1 || "$key" == ENTER ]] || return
-    GITHUB_RAW="$GITHUB_RAW" tui_command_pane "Speed test" bash "$TUI_DIR/command-tasks.sh" speed "${TUI_DIR:-}/../scripts/tools/${tool}.sh"
+    GITHUB_RAW="$GITHUB_RAW" tui_run_action "Speed test" "Vany is testing the connection." 1 bash "$TUI_DIR/command-tasks.sh" speed "${TUI_DIR:-}/../scripts/tools/${tool}.sh"
 }
 
 journey_trace_route() {
-    tui_command_pane "Network route" bash "$TUI_DIR/command-tasks.sh" trace
+    tui_run_action "Network route" "Vany is checking the network route." 1 bash "$TUI_DIR/command-tasks.sh" trace
 }
 
 journey_container_stats() {
-    tui_command_pane "Container usage" bash "$TUI_DIR/command-tasks.sh" containers
+    tui_run_action "Container usage" "Vany is checking container usage." 1 bash "$TUI_DIR/command-tasks.sh" containers
 }

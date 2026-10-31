@@ -20,6 +20,8 @@ env.update({"TUI_DIR": str(root / "tui"), "TERM": "xterm-256color"})
 script = r'''
 source "$TUI_DIR/theme.sh"
 source "$TUI_DIR/engine.sh"
+source "$TUI_DIR/pages/actions.sh"
+source "$TUI_DIR/pages/manage.sh"
 source "$TUI_DIR/pages/journey.sh"
 source "$TUI_DIR/pages/chooser.sh"
 source "$TUI_DIR/pages/main.sh"
@@ -28,11 +30,16 @@ _refresh_machine_metrics() {
   _METRIC_IP="192.0.2.1"; _METRIC_LOCATION="test"
 }
 _refresh_menu_status() { :; }
+page_setup_checks() { return 0; }
+_manage_run() {
+  tui_run_action "Set up WireGuard" "Vany is working on this server." 0 bash -c 'printf "INSTALL_LOG_SECRET\n"; sleep 1'
+}
 tui_init || exit 1
 page_main_menu
 if [[ "$SELECTED_PROTOCOL" == _choose ]]; then page_chooser; fi
 printf '\nTEST_SELECTED=%s\n' "$START_PROTOCOL"
 if [[ -n "$START_PROTOCOL" ]]; then page_main_menu; fi
+if [[ "$SELECTED_PROTOCOL" == _manage ]]; then page_manage "$PROTOCOL_TO_MANAGE"; fi
 tui_cleanup
 printf '\nTEST_DONE\n'
 '''
@@ -120,6 +127,19 @@ try:
     wait_for("Connect with WireGuard")
     send("q")
     wait_for("1  Create or manage this service")
+    send("1")
+    frame = wait_for("Manage WireGuard")
+    if "┬".encode() not in frame:
+        raise AssertionError("Management did not use the normal Vany frame")
+    send("1")
+    wait_for("Vany is working on this server.")
+    output = wait_for("Complete.")
+    if b"INSTALL_LOG_SECRET" in output:
+        raise AssertionError("Command details leaked into the progress view")
+    send("d")
+    wait_for("INSTALL_LOG_SECRET")
+    send("q")
+    wait_for("Manage WireGuard")
     send("q")
     wait_for("TEST_DONE")
     if process.wait(timeout=5) != 0:

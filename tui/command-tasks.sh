@@ -75,9 +75,9 @@ case "${1:-}" in
             sleep 1
         done
         if (( !ready )); then printf 'Could not start the SSH proxy.\n'; cat "$log"; exit 1; fi
-        printf 'SSH proxy is running at 127.0.0.1:1080.\nConfigure your app to use this SOCKS proxy.\nPress Q to stop the proxy and return.\n'
+        printf 'SSH proxy is running at 127.0.0.1:1080.\nConfigure your app to use this SOCKS proxy.\nReturn to the status screen and stop this action to close it.\n'
         while kill -0 "$ssh_pid" 2>/dev/null; do
-            if IFS= read -rsn1 -t 2 key </dev/tty; then case "$key" in q|Q|$'\033') exit 0 ;; esac; fi
+            sleep 2
         done
         printf 'The SSH proxy stopped.\n'; cat "$log"; exit 1
         ;;

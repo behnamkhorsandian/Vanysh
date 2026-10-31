@@ -50,6 +50,8 @@ if [[ -n "$SCRIPT_DIR" ]]; then
     _source_if_exists "$SCRIPT_DIR/../lib/xray.sh"
 
     # Pages
+    source "$SCRIPT_DIR/pages/actions.sh"
+    source "$SCRIPT_DIR/pages/manage.sh"
     source "$SCRIPT_DIR/pages/journey.sh"
     source "$SCRIPT_DIR/pages/chooser.sh"
     source "$SCRIPT_DIR/pages/main.sh"
@@ -293,12 +295,7 @@ _run_navigation() {
                 case "$SELECTED_PROTOCOL" in
                     _manage)
                         current_proto="$PROTOCOL_TO_MANAGE"
-                        local manager="${TUI_DIR:-}/../scripts/direct-install.sh"
-                        if [[ ! -f "$manager" ]]; then
-                            manager=""
-                        fi
-                        VANY_PROTOCOL="$current_proto" GITHUB_RAW="$GITHUB_RAW" \
-                            tui_command_pane "Protocol manager" bash "$TUI_DIR/command-tasks.sh" manager "$manager"
+                        page_manage "$current_proto"
                         START_PROTOCOL="$current_proto"
                         current_page="main"
                         ;;

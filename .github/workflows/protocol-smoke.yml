@@ -10,7 +10,6 @@ on:
       - 'tui/**'
       - 'tests/tui-smoke.sh'
       - 'tests/tui-pty.py'
-      - 'tests/tui-command-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -22,7 +21,6 @@ on:
       - 'tui/**'
       - 'tests/tui-smoke.sh'
       - 'tests/tui-pty.py'
-      - 'tests/tui-command-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -51,5 +49,3 @@ jobs:
       - name: Check the real terminal refresh and chooser
         run: python3 tests/tui-pty.py
 
-      - name: Check interactive commands and terminal resizing
-        run: python3 tests/tui-command-pty.py
