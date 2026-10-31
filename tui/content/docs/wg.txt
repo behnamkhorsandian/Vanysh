@@ -1,33 +1,11 @@
-# WireGuard VPN
+# WireGuard
 
-Fast, modern VPN protocol with simple configuration
-and excellent performance.
+WireGuard creates an encrypted VPN connection for a device.
 
-## Why WireGuard
+## Before you start
+Use a server with a public IP. Open UDP port 51820.
 
-- Fastest VPN protocol available
-- Simple setup (vs OpenVPN)
-- Built into Linux kernel
-- Native apps on all platforms
-- Strong crypto (Curve25519, ChaCha20)
+## After installation
+Import the user configuration file from /opt/vany/wg/peers into the WireGuard app. The menu currently lists file names rather than showing their contents.
 
-## Limitations
-
-- UDP-based (may be blocked in some networks)
-- Distinctive handshake (detectable by DPI)
-- For heavy censorship, use REALITY instead
-
-## How It Works
-
-Full device tunnel through encrypted UDP.
-All traffic routes through your server.
-
-  Client (10.66.66.2) <===> Server (10.66.66.1)
-         Encrypted UDP tunnel (port 51820)
-
-## Setup Notes
-
-- UDP port 51820 must be open
-- No domain name required
-- QR code generated for mobile setup
-- Best for daily use when not censored
+Some networks block UDP or identify WireGuard traffic. Test from the network where the user needs it.

@@ -1,234 +1,30 @@
-# VLESS + WebSocket + CDN
+# WebSocket with Cloudflare
 
-Route traffic through Cloudflare CDN. Hides server IP completely.
+This service sends VLESS connections through Cloudflare using WebSocket.
 
-## Why WebSocket + CDN
+## Before you start
 
-- Server IP hidden behind Cloudflare
-- Survives IP-based blocking
-- Uses Cloudflare's global network
-- Fallback when direct connections blocked
+Use a domain on Cloudflare. Point its DNS record to your server and enable the Cloudflare proxy. Open TCP port 80.
 
-## When to Use
+The current setup uses Cloudflare Flexible mode. Traffic between Cloudflare and the server is not encrypted by TLS. Do not rely on it to protect that hop.
 
-- Direct connections to server are blocked
-- Need to hide server IP
-- Have domain on Cloudflare
-- As backup when Reality stops working
+## Set up the service
 
-## How It Works
+1. Connect to your Linux server with SSH.
+2. Run the command below.
 
-```text
-+--------+           +-----------+           +--------+           +----------+
-| Client |   HTTPS   | Cloudflare|  HTTPS    | Server |  Direct   | Internet |
-| (App)  |---------->| CDN       |---------->| (Xray) |---------->|          |
-+--------+  WS       +-----------+   WS      +--------+           +----------+
-     |                     |                     |
-     | WebSocket over      | CF terminates TLS   |
-     | Cloudflare CDN      | Re-encrypts to      |
-     |                     | origin              |
-```
+   ```bash
+   curl -fsSL https://vany.sh/ws | sudo bash
+   ```
 
-## State Machine
+3. Choose Install. Read each prompt before you continue.
+4. Enter the Cloudflare domain when the menu asks for it.
+5. Check the service logs in the management menu. Test the connection from another network.
 
-```text
-                +-------------+
-                |    INIT     |
-                +------+------+
-                       |
-                       | HTTPS to Cloudflare
-                       v
-                +------+------+
-                | CF EDGE     |
-                | (TLS term)  |
-                +------+------+
-                       |
-                       | WebSocket Upgrade
-                       v
-                +------+------+
-                | WS TUNNEL   |
-                | TO ORIGIN   |
-                +------+------+
-                       |
-                       | VLESS Auth (UUID)
-                       v
-                +------+------+
-                | PROXY       |
-                | ESTABLISHED |
-                +------+------+
-                       |
-                       v
-                +------+------+
-                | DATA FLOW   |
-                | (via CDN)   |
-                +-------------+
-```
+## Connect and manage
 
-## Prerequisites
+Add a user and import its VLESS link into a compatible app.
 
-- Domain on Cloudflare (free plan works)
-- DNS A record with orange cloud (Proxied)
-- WebSockets enabled in Cloudflare
+Run the same command again to open the management menu. The menu shows which actions are available. Keep connection credentials private.
 
-## Installation
-
-```bash
-curl vany.sh/ws | sudo bash
-```
-
-During setup:
-1. Enter your Cloudflare domain
-2. (Optional) Provide CF API token for auto-config
-3. Create first user
-
-## Cloudflare Configuration
-
-### DNS Record
-
-```text
-Type: A
-Name: ws (or subdomain of choice)
-IPv4: <your-server-ip>
-Proxy: Proxied (orange cloud)  <-- REQUIRED
-```
-
-### SSL/TLS Settings
-
-1. Go to SSL/TLS > Overview
-2. Set mode to "Full" or "Full (Strict)"
-
-### Network Settings
-
-1. Go to Network
-2. Enable WebSockets: ON
-
-### (Optional) Page Rules
-
-For better caching:
-```text
-URL: ws.yourdomain.com/*
-Settings:
-  - Cache Level: Bypass
-  - Browser Cache TTL: Bypass
-```
-
-## User Management
-
-Add user:
-```bash
-vany add ws alice
-```
-
-Generates:
-- UUID for user
-- vless:// link (CDN-compatible)
-- QR code
-
-## Share Link Format
-
-```text
-vless://UUID@ws.DOMAIN:443?
-  type=ws&
-  security=tls&
-  path=/RANDOM_PATH&
-  host=ws.DOMAIN&
-  sni=ws.DOMAIN
-  #USERNAME
-```
-
-| Parameter | Description |
-|-----------|-------------|
-| UUID | User's unique identifier |
-| DOMAIN | Your Cloudflare domain |
-| type | ws (WebSocket) |
-| path | WebSocket path (randomized) |
-| host | Host header |
-| sni | Server Name Indication |
-
-## Client Setup
-
-Same as other VLESS services - use Hiddify, v2rayNG, or Shadowrocket.
-
-## Server Configuration
-
-Location: `/opt/vany/xray/config.json`
-
-```json
-{
-  "inbounds": [{
-    "tag": "ws-in",
-    "port": 443,
-    "protocol": "vless",
-    "settings": {
-      "clients": [
-        {"id": "uuid-here", "email": "alice@vany"}
-      ],
-      "decryption": "none"
-    },
-    "streamSettings": {
-      "network": "ws",
-      "wsSettings": {
-        "path": "/your-random-path",
-        "headers": {"Host": "ws.yourdomain.com"}
-      },
-      "security": "tls",
-      "tlsSettings": {
-        "serverName": "ws.yourdomain.com",
-        "certificates": [{
-          "certificateFile": "/opt/vany/certs/ws.yourdomain.com/fullchain.pem",
-          "keyFile": "/opt/vany/certs/ws.yourdomain.com/privkey.pem"
-        }]
-      }
-    }
-  }]
-}
-```
-
-## Port Sharing
-
-WS service shares port 443 via path-based routing:
-
-```text
-Port 443
-    |
-    +-- SNI: google.com      --> Reality (tcp)
-    +-- SNI: yourdomain.com  --> V2Ray (tcp)
-    +-- Path: /ws-path       --> WS (websocket)
-```
-
-## Cloudflare Limits (Free Plan)
-
-| Limit | Value |
-|-------|-------|
-| WebSocket connections | Unlimited |
-| WebSocket message size | 100 MB |
-| Request timeout | 100 seconds |
-
-For high traffic, consider Cloudflare Pro.
-
-## Troubleshooting
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| 502 Bad Gateway | Origin server down | Check Xray is running |
-| 521 Web server down | Origin refused connection | Verify port 443 open |
-| 525 SSL handshake failed | Certificate issue | Check TLS cert on origin |
-| WebSocket error | WS not enabled in CF | Enable in Network settings |
-| Slow speeds | Free plan limits | Use closer CF datacenter |
-
-## Comparison
-
-| Aspect | WS+CDN | Reality | V2Ray |
-|--------|--------|---------|-------|
-| Server IP visible | No (hidden) | Yes | Yes |
-| Extra latency | Yes (+20-50ms) | No | No |
-| Domain required | Yes | No | Yes |
-| Survives IP block | Yes | No | No |
-| Cloudflare account | Required | Not needed | Not needed |
-
-## Security Notes
-
-- Server IP never exposed to client
-- Cloudflare sees metadata (not content due to TLS)
-- Use unique path per deployment
-- Enable Cloudflare firewall rules for extra protection
+If a connection fails, check your provider firewall, the server firewall, and the service logs. A running container does not guarantee a working connection.

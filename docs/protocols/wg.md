@@ -1,204 +1,36 @@
-# WireGuard VPN
+# WireGuard
 
-WireGuard is a fast, modern VPN protocol. Simple configuration, excellent performance.
+WireGuard creates an encrypted VPN connection for a device.
 
-## Why WireGuard
+## Before you start
 
-- Fastest VPN protocol available
-- Simple configuration (vs OpenVPN)
-- Built into Linux kernel
-- Native apps on all platforms
-- Strong cryptography (Curve25519, ChaCha20)
+Use a server with a public IP. Open UDP port 51820.
 
-## Limitations
+Some networks block UDP or identify WireGuard traffic. Test from the network where the user needs it.
 
-- UDP-based (may be blocked in some networks)
-- Distinctive handshake pattern (detectable by DPI)
-- For heavy censorship, use Reality instead
+## Set up the service
 
-## How It Works
+1. Connect to your Linux server with SSH.
+2. Run the command below.
 
-```text
-+--------+                    +--------+
-| Client |   UDP Encrypted    | Server |
-| Phone  |<==================>| VPS    |
-+--------+    WireGuard       +--------+
-     |         Tunnel              |
-     |   10.66.66.2          10.66.66.1
-     |                             |
-     +-------- Internet -----------+
-```
+   ```bash
+   curl -fsSL https://vany.sh/wg | sudo bash
+   ```
 
-## State Machine
+3. Choose Install. Read each prompt before you continue.
+4. Choose Add user to create a device configuration.
+5. Check the service logs in the management menu. Test the connection from another network.
 
-```text
-                +-------------+
-                |    IDLE     |
-                +------+------+
-                       |
-                       | Handshake Init
-                       v
-                +------+------+
-                | HANDSHAKE   |
-                | (DH Key     |
-                |  Exchange)  |
-                +------+------+
-                       |
-          +------------+------------+
-          |                         |
-          v                         v
-   +------+------+          +-------+-------+
-   | ESTABLISHED |          | FAILED        |
-   | (Tunnel Up) |          | (Timeout/     |
-   +------+------+          |  Auth Error)  |
-          |                 +---------------+
-          |
-          v
-   +------+------+
-   | DATA FLOW   |
-   | (Encrypted) |
-   +------+------+
-          |
-          | Keepalive every 25s
-          v
-   +------+------+
-   | ACTIVE      |<----+
-   +------+------+     | Persistent
-          |            | Keepalive
-          +------------+
-```
+## Connect and manage
 
-## Installation
+The menu lists configuration file names. To show a file, replace `NAME` with the user name you created and run this command on the server:
 
 ```bash
-curl vany.sh/wg | sudo bash
+sudo cat /opt/vany/wg/peers/NAME.conf
 ```
 
-## Network Layout
+Save the output as a `.conf` file. Transfer it through a private channel. Import the file into the WireGuard app and connect. The file contains private keys, so do not post it publicly.
 
-```text
-Server: 10.66.66.1/24 (gateway)
-User 1: 10.66.66.2/32
-User 2: 10.66.66.3/32
-User 3: 10.66.66.4/32
-...
-```
+Run the same command again to open the management menu. The menu shows which actions are available. Keep connection credentials private.
 
-## User Management
-
-Add user:
-```bash
-vany add wg alice
-```
-
-Generates:
-- Client keypair
-- Preshared key (extra security)
-- Assigns IP (10.66.66.x)
-- Adds peer to server config
-- Outputs client config + QR
-
-## Client Configuration
-
-Generated config for user:
-
-```ini
-[Interface]
-PrivateKey = <client-private-key>
-Address = 10.66.66.2/32
-DNS = 1.1.1.1, 8.8.8.8
-
-[Peer]
-PublicKey = <server-public-key>
-PresharedKey = <preshared-key>
-Endpoint = <server-ip>:51820
-AllowedIPs = 0.0.0.0/0, ::/0
-PersistentKeepalive = 25
-```
-
-## Client Setup
-
-### iOS
-
-1. Install WireGuard from App Store
-2. Add Tunnel > Create from QR code
-3. Scan QR shown by `vany links username`
-4. Enable tunnel
-
-### Android
-
-1. Install WireGuard from Play Store
-2. Add Tunnel > Scan QR
-3. Scan QR code
-4. Enable tunnel
-
-### Windows/macOS/Linux
-
-1. Download WireGuard from wireguard.com
-2. Import tunnel > paste config or import file
-3. Activate
-
-## Server Configuration
-
-Location: `/opt/vany/wg/wg0.conf`
-
-```ini
-[Interface]
-Address = 10.66.66.1/24
-ListenPort = 51820
-PrivateKey = <server-private-key>
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-
-[Peer]
-# alice
-PublicKey = <alice-public-key>
-PresharedKey = <preshared-key>
-AllowedIPs = 10.66.66.2/32
-
-[Peer]
-# bob
-PublicKey = <bob-public-key>
-PresharedKey = <preshared-key>
-AllowedIPs = 10.66.66.3/32
-```
-
-## Commands
-
-```bash
-# Check interface status
-sudo wg show
-
-# Restart WireGuard
-sudo systemctl restart wg-quick@wg0
-
-# View connected peers
-sudo wg show wg0 latest-handshakes
-```
-
-## Port Configuration
-
-Default: UDP 51820
-
-To use different port:
-```bash
-# During installation, specify port
-# Or edit /opt/vany/wg/wg0.conf
-ListenPort = 12345
-```
-
-## Troubleshooting
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Handshake timeout | UDP blocked | Try different port or use Reality |
-| No internet after connect | NAT not configured | Check PostUp iptables rules |
-| Slow speeds | MTU issues | Lower MTU to 1280 in client config |
-| Keeps disconnecting | No keepalive | Ensure PersistentKeepalive = 25 |
-
-## Security Notes
-
-- Private keys never leave device where generated
-- Preshared keys add post-quantum resistance
-- Server only stores public keys
-- Each peer has unique keypair
+If a connection fails, check your provider firewall, the server firewall, and the service logs. A running container does not guarantee a working connection.

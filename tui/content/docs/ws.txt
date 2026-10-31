@@ -1,35 +1,11 @@
-# VLESS + WebSocket + CDN
+# WebSocket with Cloudflare
 
-Route traffic through Cloudflare CDN.
-Hides your server IP completely.
+This service sends VLESS connections through Cloudflare using WebSocket.
 
-## Why WebSocket + CDN
+## Before you start
+Use a domain on Cloudflare. Point its DNS record to your server and enable the Cloudflare proxy. Open TCP port 80.
 
-- Server IP hidden behind Cloudflare
-- Survives IP-based blocking
-- Uses Cloudflare's global network
-- Fallback when direct connections blocked
+## After installation
+Add a user and import its VLESS link into a compatible app.
 
-## When to Use
-
-- Direct connections to server are blocked
-- Need to hide server IP
-- Have a domain on Cloudflare
-- As backup when REALITY stops working
-
-## How It Works
-
-Traffic goes through Cloudflare's CDN via WebSocket.
-Censors only see connections to Cloudflare IPs.
-
-  Client --> Cloudflare CDN --> Your Server --> Internet
-    |             |                 |
-    |  HTTPS/WS   |  Re-encrypted   |
-    |             |  to origin      |
-
-## Setup Notes
-
-- Requires a domain name on Cloudflare
-- Cloudflare SSL mode must be "Flexible"
-- Port 80 must be open on server
-- Cloudflare proxy must be enabled (orange cloud)
+The current setup uses Cloudflare Flexible mode. Traffic between Cloudflare and the server is not encrypted by TLS. Do not rely on it to protect that hop.

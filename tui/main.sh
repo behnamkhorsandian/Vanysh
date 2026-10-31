@@ -157,26 +157,9 @@ _preflight() {
         fi
     fi
 
-    # Initialize users.json if missing
-    if [[ ! -f "$VANY_USERS" ]]; then
-        mkdir -p "$VANY_DIR"
-        local server_ip
-        server_ip=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "unknown")
-        cat > "$VANY_USERS" <<EOJSON
-{
-  "users": {},
-  "server": {
-    "ip": "${server_ip}",
-    "domain": "",
-    "provider": "unknown"
-  }
-}
-EOJSON
-    fi
-
-    # Detect cloud provider if available
-    if type cloud_detect &>/dev/null; then
-        cloud_detect 2>/dev/null || true
+    # jq may have been installed after the engine was sourced.
+    if [[ ${_JSON_LOADED:-0} -eq 0 ]] && command -v jq &>/dev/null; then
+        _load_json_data
     fi
 }
 
@@ -301,6 +284,27 @@ _run_navigation() {
                 fi
 
                 case "$SELECTED_PROTOCOL" in
+                    _manage)
+                        current_proto="$PROTOCOL_TO_MANAGE"
+                        tui_cleanup
+                        local manager="${TUI_DIR:-}/../scripts/direct-install.sh"
+                        if [[ ! -f "$manager" ]]; then
+                            manager="$(mktemp "${TMPDIR:-/tmp}/vany-manager.XXXXXX")"
+                            if ! curl -fsSL --connect-timeout 10 --max-time 60 "$GITHUB_RAW/scripts/direct-install.sh" -o "$manager"; then
+                                printf '\nCould not load the protocol manager. Check your connection.\n'
+                                rm -f "$manager"
+                                read -r -p 'Press Enter to return. ' </dev/tty
+                                tui_init
+                                continue
+                            fi
+                        fi
+                        VANY_PROTOCOL="$current_proto" bash "$manager"
+                        [[ "$manager" == "${TMPDIR:-/tmp}/vany-manager."* ]] && rm -f "$manager"
+                        printf '\nPress Enter to return to Vany. '
+                        read -r </dev/tty
+                        tui_init
+                        current_page="main"
+                        ;;
                     _status)
                         current_page="status"
                         ;;
@@ -505,7 +509,7 @@ vany_tui_main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --page|-p)
-                START_PAGE="protocol"
+                START_PAGE="main"
                 START_PROTOCOL="$2"
                 shift 2
                 ;;
@@ -520,7 +524,7 @@ vany_tui_main() {
             *)
                 # Treat bare argument as protocol name
                 if [[ " ${PROTOCOL_IDS[*]:-} " == *" $1 "* ]]; then
-                    START_PAGE="protocol"
+                    START_PAGE="main"
                     START_PROTOCOL="$1"
                 fi
                 shift

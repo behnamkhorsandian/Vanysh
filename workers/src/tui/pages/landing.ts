@@ -126,7 +126,7 @@ export function pageLanding(): string {
   lines.push(`  ${BOLD}${ORANGE}USAGE${RST}`);
   lines.push("");
   lines.push(`    ${LGREEN}curl vany.sh | sudo bash${RST}   ${TEXT}Server mode - install protocols on your VPS${RST}`);
-  lines.push(`    ${LGREEN}curl vany.sh | bash${RST}        ${TEXT}Client mode - connect to VPN from terminal${RST}`);
+  lines.push(`    ${LGREEN}curl vany.sh | bash${RST}        ${TEXT}Client help and network tools${RST}`);
   lines.push("");
   lines.push("");
 
@@ -233,7 +233,7 @@ export function pageLanding(): string {
 /** Root polyglot: valid bash + clean ANSI catalog.
  *  curl vany.sh           → ANSI hides 2-line preamble, renders catalog
  *  curl vany.sh | sudo bash → exec replaces shell with full TUI (start.sh)
- *  curl vany.sh | bash      → exits cleanly (not root)
+ *  curl vany.sh | bash      → client help and network tools
  */
 export function pageLandingBash(): string {
   const catalog = pageLanding();
@@ -241,6 +241,6 @@ export function pageLandingBash(): string {
   // This overwrites the 2 bash lines so they're invisible in terminal output
   const cleanup = "\x1b[2A\x1b[J";
   return `#!/bin/bash
-[[ \$(id -u) -eq 0 ]] && exec bash <(curl -sSf https://start.vany.sh/ 2>/dev/null); exit 0
+if [[ \$(id -u) -eq 0 ]]; then url=https://start.vany.sh/; mode=server; else url=https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/scripts/client.sh; mode=client; fi; printf '\\n  ░█░█░█▀█░█▀█░█░█░█▀▀░█░█\\n  ░▀▄▀░█▀█░█░█░░█░░▀▀█░█▀█\\n  ░░▀░░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀\\n\\n  Starting %s mode...\\n\\n' "$mode"; tmp=\$(mktemp "\${TMPDIR:-/tmp}/vany-start.XXXXXX") || exit 1; if curl -fsSL --connect-timeout 10 --max-time 60 "$url" -o "$tmp"; then VANY_SPLASH_SHOWN=1 bash "$tmp"; result=$?; else printf 'Could not load Vany. Check your internet connection.\\n' >&2; result=1; fi; rm -f "$tmp"; exit "$result"
 ${cleanup}${catalog}`;
 }

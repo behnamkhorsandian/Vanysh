@@ -1,5 +1,11 @@
 #!/bin/bash
 #===============================================================================
+
+# Pages source this file independently. Initialize it only once per session.
+if [[ ${VANY_TUI_ENGINE_LOADED:-0} == 1 ]]; then
+    return 0
+fi
+VANY_TUI_ENGINE_LOADED=1
 # Vany TUI - Rendering Engine
 # Unified frame model: status bar + sidebar + content + footer
 # Inspired by 432.sh layout patterns, ported to bash
@@ -100,40 +106,30 @@ _load_protocols_json() {
     declare -gA PROTOCOL_DESC_MD=()
     declare -gA PROTOCOL_PORT=()
 
-    for pid in "${PROTOCOL_IDS[@]}"; do
-        PROTOCOL_NAMES[$pid]=$(jq -r ".protocols.${pid}.name // \"\"" "$json_file")
-        PROTOCOL_SHORT[$pid]=$(jq -r ".protocols.${pid}.short // \"\"" "$json_file")
-        PROTOCOL_DESC[$pid]=$(jq -r ".protocols.${pid}.description // \"\"" "$json_file")
-        PROTOCOL_TAGS[$pid]=$(jq -r ".protocols.${pid}.tag // \"\"" "$json_file")
-        PROTOCOL_BANNER_FILE[$pid]=$(jq -r ".protocols.${pid}.banner_file // \"${pid}\"" "$json_file")
-        PROTOCOL_BANNER_COLOR[$pid]=$(jq -r ".protocols.${pid}.banner_color // \"green\"" "$json_file")
-        PROTOCOL_DESC_MD[$pid]=$(jq -r ".protocols.${pid}.description_md // \"\"" "$json_file")
-        PROTOCOL_PORT[$pid]=$(jq -r ".protocols.${pid}.port // \"\"" "$json_file")
-
-        # Requirements as newline-separated "- item" lines
-        PROTOCOL_REQS[$pid]=$(jq -r ".protocols.${pid}.requirements // [] | map(\"- \" + .) | join(\"\n\")" "$json_file")
-
-        # Clients as formatted text
-        local has_note
-        has_note=$(jq -r ".protocols.${pid}.clients.note // empty" "$json_file" 2>/dev/null)
-        if [[ -n "$has_note" ]]; then
-            PROTOCOL_CLIENTS[$pid]="$has_note"
-        else
-            local client_lines=""
-            local ios android windows macos terminal browser
-            ios=$(jq -r ".protocols.${pid}.clients.ios // empty" "$json_file" 2>/dev/null)
-            android=$(jq -r ".protocols.${pid}.clients.android // empty" "$json_file" 2>/dev/null)
-            windows=$(jq -r ".protocols.${pid}.clients.windows // empty" "$json_file" 2>/dev/null)
-            macos=$(jq -r ".protocols.${pid}.clients.macos // empty" "$json_file" 2>/dev/null)
-            terminal=$(jq -r ".protocols.${pid}.clients.terminal // empty" "$json_file" 2>/dev/null)
-            browser=$(jq -r ".protocols.${pid}.clients.browser // empty" "$json_file" 2>/dev/null)
-            [[ -n "$ios" && -n "$android" ]] && client_lines+="iOS: ${ios}  Android: ${android}\n"
-            [[ -n "$windows" && -n "$macos" ]] && client_lines+="Windows: ${windows}  macOS: ${macos}\n"
-            [[ -n "$terminal" ]] && client_lines+="Terminal: ${terminal}\n"
-            [[ -n "$browser" ]] && client_lines+="Browser: ${browser}\n"
-            PROTOCOL_CLIENTS[$pid]="${client_lines%\\n}"
-        fi
-    done
+    # One jq process produces shell-quoted assignments for all protocols.
+    # This avoids starting more than a hundred processes on each launch.
+    local assignment
+    while IFS= read -r assignment; do
+        eval "$assignment"
+    done < <(jq -r '
+        .order[] as $id | .protocols[$id] as $p |
+        def assign($name; $value): "\($name)[\($id|@sh)]=\($value|gsub("\n"; "\\\\n")|@sh)";
+        assign("PROTOCOL_NAMES"; $p.name // ""),
+        assign("PROTOCOL_SHORT"; $p.short // ""),
+        assign("PROTOCOL_DESC"; $p.description // ""),
+        assign("PROTOCOL_TAGS"; $p.tag // ""),
+        assign("PROTOCOL_BANNER_FILE"; $p.banner_file // $id),
+        assign("PROTOCOL_BANNER_COLOR"; $p.banner_color // "green"),
+        assign("PROTOCOL_DESC_MD"; $p.description_md // ""),
+        assign("PROTOCOL_PORT"; $p.port // ""),
+        assign("PROTOCOL_REQS"; ($p.requirements // [] | map("- " + .) | join("\n"))),
+        assign("PROTOCOL_CLIENTS"; ($p.clients as $c |
+            if $c.note then $c.note else
+              [if $c.ios and $c.android then "iOS: \($c.ios)  Android: \($c.android)" else empty end,
+               if $c.windows and $c.macos then "Windows: \($c.windows)  macOS: \($c.macos)" else empty end,
+               if $c.terminal then "Terminal: \($c.terminal)" else empty end,
+               if $c.browser then "Browser: \($c.browser)" else empty end] | join("\n") end))
+    ' "$json_file")
 }
 
 #-------------------------------------------------------------------------------
@@ -188,7 +184,6 @@ _load_json_data() {
     fi
 
     if type jq &>/dev/null; then
-        _load_icons_json
         _load_protocols_json
         _JSON_LOADED=1
     fi
@@ -299,7 +294,7 @@ _load_frame_banner() {
 tui_compute_layout() {
     _FRAME_W=$_TERM_COLS
 
-    if (( _TERM_COLS < 80 )); then
+    if (( _TERM_COLS < 100 )); then
         _COMPACT=1
         _SIDEBAR_INNER_W=0
         _CONTENT_INNER_W=$(( _FRAME_W - 2 ))
@@ -346,6 +341,18 @@ visible_len() {
     printf '%d' "${#stripped}"
 }
 
+# Length without spawning sed for each row in the frame.
+_visible_len_fast() {
+    local value prefix
+    printf -v value '%b' "$1"
+    while [[ "$value" == *$'\033['*m* ]]; do
+        prefix=${value%%$'\033['*}
+        value=${value#*$'\033['}
+        value="${prefix}${value#*m}"
+    done
+    REPLY=${#value}
+}
+
 repeat_char() {
     local ch="$1"
     local n="$2"
@@ -366,7 +373,8 @@ pad_right() {
     local text="$1"
     local target_width="$2"
     local vlen
-    vlen=$(visible_len "$text")
+    _visible_len_fast "$text"
+    vlen=$REPLY
     local pad=$(( target_width - vlen ))
     printf '%b' "$text"
     (( pad > 0 )) && printf '%*s' "$pad" ""
@@ -547,21 +555,13 @@ _build_sidebar() {
     fi
     _SIDEBAR_LINES+=("${s_prefix}${C_LGREEN}s${C_RST} ${s_color}Status${C_RST}")
 
-    local u_prefix="  "
-    local u_color="${dim_prefix}${C_TEXT}"
-    if [[ $_SIDEBAR_PAGE == "users" ]]; then
-        u_prefix="${C_GREEN}>${C_RST} "
-        u_color="${C_GREEN}${C_BOLD}"
-    fi
-    _SIDEBAR_LINES+=("${u_prefix}${C_LGREEN}u${C_RST} ${u_color}Users${C_RST}")
-
     local h_prefix="  "
     local h_color="${dim_prefix}${C_TEXT}"
-    if [[ $_SIDEBAR_PAGE == "help" ]]; then
+    if [[ $_SIDEBAR_PAGE == "home" ]]; then
         h_prefix="${C_GREEN}>${C_RST} "
         h_color="${C_GREEN}${C_BOLD}"
     fi
-    _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}h${C_RST} ${h_color}Help${C_RST}")
+    _SIDEBAR_LINES+=("${h_prefix}${C_LGREEN}h${C_RST} ${h_color}Home${C_RST}")
 
     local c_prefix="  "
     local c_color="${dim_prefix}${C_TEXT}"
@@ -577,49 +577,7 @@ _build_sidebar() {
 #-------------------------------------------------------------------------------
 
 _build_status_text() {
-    local ip="?"
-    local svc_count=0
-    local user_count=0
-    local clock=""
-
-    # Read from users.json if available
-    if [[ -f "${VANY_USERS:-/opt/vany/users.json}" ]] && type jq &>/dev/null; then
-        ip=$(jq -r '.server.ip // "?"' "${VANY_USERS:-/opt/vany/users.json}" 2>/dev/null)
-        user_count=$(jq -r '.users // {} | keys | length' "${VANY_USERS:-/opt/vany/users.json}" 2>/dev/null)
-    fi
-
-    # Count running services
-    if type service_installed &>/dev/null && type service_running &>/dev/null; then
-        for proto in "${PROTOCOL_IDS[@]}"; do
-            service_running "$proto" 2>/dev/null && (( svc_count++ ))
-        done
-    fi
-
-    # Clock
-    clock=$(date +%H:%M 2>/dev/null || echo "--:--")
-
-    # Overall health dot
-    local health_dot="$DOT_NONE"
-    if (( svc_count > 0 )); then
-        health_dot="$DOT_ON"
-    fi
-
-    # Human-readable labels with singular/plural
-    local svc_label="services running"
-    (( svc_count == 1 )) && svc_label="service running"
-    local usr_label="users"
-    (( user_count == 1 )) && usr_label="user"
-
-    printf ' %bVANY%b  %b  %b%s%b  %b│%b  %b%d %s%b  %b│%b  %b%d %s%b  %b│%b  %b%s%b' \
-        "$C_GREEN" "$C_RST" \
-        "$health_dot" \
-        "$C_TEXT" "$ip" "$C_RST" \
-        "$C_DGRAY" "$C_RST" \
-        "$C_TEXT" "$svc_count" "$svc_label" "$C_RST" \
-        "$C_DGRAY" "$C_RST" \
-        "$C_TEXT" "$user_count" "$usr_label" "$C_RST" \
-        "$C_DGRAY" "$C_RST" \
-        "$C_LGRAY" "$clock" "$C_RST"
+    printf ' %bVANY%b  Server menu' "$C_GREEN" "$C_RST"
 }
 
 #-------------------------------------------------------------------------------
@@ -631,7 +589,8 @@ _print_full_row() {
     local text="$1"
     local inner=$(( _FRAME_W - 2 ))
     local vlen
-    vlen=$(visible_len "$text")
+    _visible_len_fast "$text"
+    vlen=$REPLY
     local pad=$(( inner - vlen ))
     (( pad < 0 )) && pad=0
     printf '%b%s%b%b%*s%b%s%b\n' \
@@ -647,8 +606,8 @@ _print_split_row() {
     local bc="$C_DGRAY"
 
     local sv cl sp cp
-    sv=$(visible_len "$sidebar_text")
-    cl=$(visible_len "$content_text")
+    _visible_len_fast "$sidebar_text"; sv=$REPLY
+    _visible_len_fast "$content_text"; cl=$REPLY
     sp=$(( _SIDEBAR_INNER_W - sv ))
     cp=$(( _CONTENT_INNER_W - cl ))
     (( sp < 0 )) && sp=0
@@ -684,12 +643,20 @@ tui_render_frame() {
     local status_text
     status_text=$(_build_status_text)
 
-    # Compute how many rows to render (all content, no clipping)
+    # Keep the frame within the terminal and scroll its content when needed.
     local total_sidebar=${#_SIDEBAR_LINES[@]}
     local total_content=${#FRAME_CONTENT[@]}
     local render_rows=$total_sidebar
     (( total_content > render_rows )) && render_rows=$total_content
     (( render_rows < 1 )) && render_rows=1
+    (( render_rows > _CONTENT_H )) && render_rows=$_CONTENT_H
+    _SCROLL_MAX=$(( total_content - render_rows ))
+    (( _SCROLL_MAX < 0 )) && _SCROLL_MAX=0
+    (( _SCROLL_OFFSET > _SCROLL_MAX )) && _SCROLL_OFFSET=$_SCROLL_MAX
+    local sidebar_offset=0
+    if [[ $_SIDEBAR_PAGE == protocols ]] && (( _SIDEBAR_SEL + 2 >= render_rows )); then
+        sidebar_offset=$(( _SIDEBAR_SEL + 3 - render_rows ))
+    fi
 
     # --- Render all at once: clear screen then draw full frame ---
     {
@@ -733,7 +700,7 @@ tui_render_frame() {
             # Content rows (full-width, no sidebar, all lines)
             local r=0
             while (( r < render_rows )); do
-                _print_full_row " ${FRAME_CONTENT[$r]:-}"
+                _print_full_row " ${FRAME_CONTENT[$((r + _SCROLL_OFFSET))]:-}"
                 (( r++ ))
             done
 
@@ -746,7 +713,7 @@ tui_render_frame() {
             # Content rows (sidebar | content, all lines)
             local r=0
             while (( r < render_rows )); do
-                _print_split_row " ${_SIDEBAR_LINES[$r]:-}" " ${FRAME_CONTENT[$r]:-}"
+                _print_split_row " ${_SIDEBAR_LINES[$((r + sidebar_offset))]:-}" " ${FRAME_CONTENT[$((r + _SCROLL_OFFSET))]:-}"
                 (( r++ ))
             done
 

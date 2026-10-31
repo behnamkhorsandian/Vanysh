@@ -2140,13 +2140,22 @@
               <li class="nav-item"><a class="nav-link" data-doc="protocols/dnstt" onclick="loadDoc('protocols/dnstt')"><span class="material-symbols-outlined">emergency</span> DNS Tunnel</a></li>
               <li class="nav-item"><a class="nav-link" href="https://vany.sh/box" target="_blank"><span class="material-symbols-outlined">lock</span> SafeBox</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="protocols/vray" onclick="loadDoc('protocols/vray')"><span class="material-symbols-outlined">lock</span> VLESS + TLS</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/hysteria" onclick="loadDoc('protocols/hysteria')">Hysteria v2</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/http-obfs" onclick="loadDoc('protocols/http-obfs')">HTTP obfuscation</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/ssh-tunnel" onclick="loadDoc('protocols/ssh-tunnel')">SSH tunnel</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/slipstream" onclick="loadDoc('protocols/slipstream')">Slipstream</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/noizdns" onclick="loadDoc('protocols/noizdns')">NoizDNS</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/tor-bridge" onclick="loadDoc('protocols/tor-bridge')">Tor bridge</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/snowflake" onclick="loadDoc('protocols/snowflake')">Snowflake</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="protocols/sos" onclick="loadDoc('protocols/sos')">SOS chat</a></li>
             </ul>
           </div>
 
           <div class="nav-section">
             <div class="nav-section-title"><span class="material-symbols-outlined">menu_book</span> Getting Started</div>
             <ul class="nav-list">
-              <li class="nav-item"><a class="nav-link" data-doc="self-hosting" onclick="loadDoc('self-hosting')"><span class="material-symbols-outlined">home_storage</span> Self-Hosting Guide</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="getting-started" onclick="loadDoc('getting-started')"><span class="material-symbols-outlined">home_storage</span> Set up your server</a></li>
+              <li class="nav-item"><a class="nav-link" data-doc="self-hosting" onclick="loadDoc('self-hosting')"><span class="material-symbols-outlined">settings</span> Host the Vany platform</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="firewall" onclick="loadDoc('firewall')"><span class="material-symbols-outlined">shield</span> Firewall Setup</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="dns" onclick="loadDoc('dns')"><span class="material-symbols-outlined">dns</span> DNS Configuration</a></li>
               <li class="nav-item"><a class="nav-link" data-doc="workers" onclick="loadDoc('workers')"><span class="material-symbols-outlined">cloud_circle</span> Cloudflare Workers</a></li>
@@ -2180,7 +2189,7 @@
   
   <script>
     const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/docs/';
-    const DEFAULT_DOC = 'self-hosting';
+    const DEFAULT_DOC = 'getting-started';
     let currentDoc = DEFAULT_DOC;
     
     function copyCommand(cmd) {
@@ -2264,6 +2273,19 @@
         });
         
         content.innerHTML = marked.parse(markdown);
+
+        // Keep links between guides inside the documentation reader.
+        content.querySelectorAll('a[href]').forEach(link => {
+          const base = new URL(GITHUB_RAW_BASE);
+          const target = new URL(link.getAttribute('href'), `${GITHUB_RAW_BASE}${docPath}.md`);
+          if (target.origin === base.origin && target.pathname.startsWith(base.pathname) && target.pathname.endsWith('.md')) {
+            const nextDoc = target.pathname.slice(base.pathname.length, -3);
+            link.addEventListener('click', event => {
+              event.preventDefault();
+              loadDoc(nextDoc);
+            });
+          }
+        });
 
         // Wrap tables in scrollable container for mobile
         content.querySelectorAll('table').forEach(table => {

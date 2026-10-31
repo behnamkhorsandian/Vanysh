@@ -1,197 +1,30 @@
-# VLESS + REALITY Protocol
+# REALITY
 
-REALITY is the most advanced censorship bypass protocol. It "borrows" TLS certificates from legitimate websites, making detection nearly impossible.
+REALITY provides a VLESS connection without a domain. It can help when direct VPN traffic is blocked.
 
-## Why REALITY
+## Before you start
 
-- No domain or certificate needed
-- Immune to active probing attacks
-- Traffic indistinguishable from visiting real websites
-- Works in Iran, Russia, and China
+Use a server with a public IP. Open TCP port 443.
 
-## How It Works
+No protocol can guarantee access on every network.
 
-```text
-+--------+          +--------+          +---------------+
-| Client |  TLS 1.3 | Server |  TLS 1.3 | Camouflage    |
-| (User) |--------->| (Xray) |--------->| (google.com)  |
-+--------+          +--------+          +---------------+
-     |                   |                     |
-     |  1. ClientHello   |                     |
-     |  SNI: google.com  |                     |
-     |------------------>|                     |
-     |                   |  2. Fetch real cert |
-     |                   |-------------------->|
-     |                   |<--------------------|
-     |  3. ServerHello   |                     |
-     |  Real google cert |                     |
-     |<------------------|                     |
-     |                   |                     |
-     |  4. VLESS data    |                     |
-     |  (encrypted)      |                     |
-     |<----------------->|                     |
-```
+## Set up the service
 
-## State Machine
+1. Connect to your Linux server with SSH.
+2. Run the command below.
 
-```text
-                    +-------------+
-                    |    INIT     |
-                    +------+------+
-                           |
-                           v
-                    +------+------+
-                    | TLS HELLO   |
-                    | SNI=target  |
-                    +------+------+
-                           |
-              +------------+------------+
-              |                         |
-              v                         v
-       +------+------+          +-------+-------+
-       | VALID CLIENT|          | INVALID/PROBE |
-       | (has UUID)  |          | (no UUID)     |
-       +------+------+          +-------+-------+
-              |                         |
-              v                         v
-       +------+------+          +-------+-------+
-       | VLESS PROXY |          | FORWARD TO    |
-       | ESTABLISHED |          | REAL SITE     |
-       +------+------+          +-------+-------+
-              |                         |
-              v                         v
-       +------+------+          +-------+-------+
-       | DATA FLOW   |          | LOOKS NORMAL  |
-       +-------------+          +---------------+
-```
+   ```bash
+   curl -fsSL https://vany.sh/reality | sudo bash
+   ```
 
-## Installation
+3. Choose Install. Read each prompt before you continue.
+4. Choose Add user after installation, then show the connection config.
+5. Check the service logs in the management menu. Test the connection from another network.
 
-```bash
-curl vany.sh/reality | sudo bash
-```
+## Connect and manage
 
-## Configuration
+Import the VLESS link into a compatible app, such as Hiddify.
 
-Server generates:
-- x25519 keypair (public key shared with clients)
-- Short IDs for additional authentication
-- Camouflage target selection
+Run the same command again to open the management menu. The menu shows which actions are available. Keep connection credentials private.
 
-### Camouflage Targets
-
-Good targets (fast, reliable TLS 1.3):
-- www.google.com
-- www.microsoft.com
-- www.apple.com
-- www.cloudflare.com
-- www.mozilla.org
-
-Requirements for target:
-- TLS 1.3 support
-- HTTP/2 support
-- No redirects on port 443
-- Low latency from server location
-
-## User Management
-
-Add user:
-```bash
-vany add reality username
-```
-
-This generates:
-- UUID for the user
-- vless:// share link
-- QR code for mobile apps
-
-## Share Link Format
-
-```text
-vless://UUID@SERVER:443?
-  type=tcp&
-  security=reality&
-  pbk=PUBLIC_KEY&
-  fp=chrome&
-  sni=www.google.com&
-  sid=SHORT_ID&
-  flow=xtls-rprx-vision
-  #USERNAME
-```
-
-| Parameter | Description |
-|-----------|-------------|
-| UUID | User's unique identifier |
-| SERVER | Server IP address |
-| pbk | Server's public key (base64) |
-| fp | Browser fingerprint (chrome/firefox/safari) |
-| sni | Camouflage target domain |
-| sid | Short ID (hex string) |
-| flow | Flow control (xtls-rprx-vision) |
-
-## Client Setup
-
-### Hiddify (iOS/Android/Desktop)
-
-1. Copy vless:// link
-2. Open Hiddify > Add profile from clipboard
-3. Connect
-
-### v2rayNG (Android)
-
-1. Copy vless:// link
-2. Menu > Import config from clipboard
-3. Select config and connect
-
-### Shadowrocket (iOS)
-
-1. Copy vless:// link
-2. Open Shadowrocket (auto-imports)
-3. Enable connection
-
-## Server Configuration
-
-Location: `/opt/vany/xray/config.json`
-
-```json
-{
-  "inbounds": [{
-    "tag": "reality-in",
-    "port": 443,
-    "protocol": "vless",
-    "settings": {
-      "clients": [
-        {"id": "uuid-here", "email": "user@vany", "flow": "xtls-rprx-vision"}
-      ],
-      "decryption": "none"
-    },
-    "streamSettings": {
-      "network": "tcp",
-      "security": "reality",
-      "realitySettings": {
-        "dest": "www.google.com:443",
-        "serverNames": ["www.google.com"],
-        "privateKey": "server-private-key",
-        "shortIds": ["", "abcd1234"]
-      }
-    }
-  }],
-  "outbounds": [{"protocol": "freedom"}]
-}
-```
-
-## Troubleshooting
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Connection timeout | Firewall blocking 443 | Check `vany firewall` |
-| TLS handshake failed | Bad camouflage target | Try different target site |
-| Invalid user | Wrong UUID | Regenerate link with `vany links user` |
-| Slow connection | Target site slow from server | Pick closer target |
-
-## Security Notes
-
-- Keep private key secure (never share)
-- Public key is safe to distribute
-- Each user gets unique UUID
-- Short IDs add extra authentication layer
+If a connection fails, check your provider firewall, the server firewall, and the service logs. A running container does not guarantee a working connection.

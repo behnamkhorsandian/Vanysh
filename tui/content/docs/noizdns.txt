@@ -1,36 +1,11 @@
 # NoizDNS
 
-DPI-resistant fork of DNSTT. Adds noise and padding to
-DNS queries to evade deep packet inspection.
+NoizDNS is a DNS tunnel based on DNSTT with added padding.
 
-## Why NoizDNS
+## Before you start
+Use a domain you control. Delegate the tunnel DNS name to your server and open UDP port 53.
 
-- Resists DPI fingerprinting of DNS tunnel patterns
-- Adds random padding to defeat traffic analysis
-- Same unblockable DNS transport as DNSTT
-- Better stealth than vanilla DNSTT
+## After installation
+Use a compatible NoizDNS client and its required connection settings.
 
-## When to Use
-
-- DNSTT is being detected by DPI
-- Censors actively fingerprint DNS tunnels
-- Need maximum stealth over DNS
-- Total internet blackout scenario
-
-## How It Works
-
-Builds on DNSTT but adds random noise and padding to DNS
-queries, making traffic analysis much harder.
-
-  Client --> DNS Resolver --> Your NS Server
-    |            |               |
-    |  DNS (53)  |  Noisy/padded |
-    |  +padding  |  DNS queries  |
-
-## Setup Notes
-
-- Requires domain with NS record pointing to your server
-- Uses port 53 (DNS) -- conflicts with DNSTT and Slipstream
-- Only one DNS tunnel protocol can be active at a time
-- Throughput similar to DNSTT (~42 KB/s)
-- Better DPI resistance at cost of slightly more overhead
+Do not run DNSTT or Slipstream on the same port. The manager does not yet show a complete client configuration.

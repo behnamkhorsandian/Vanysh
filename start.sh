@@ -73,7 +73,7 @@ download_tui() {
     mkdir -p "$TUI_DL_DIR/content/docs"
     mkdir -p "$TUI_DL_DIR/banners"
 
-    local pids=()
+    local pids=() critical_pids=()
 
     # Core TUI files
     local tui_files=(
@@ -93,30 +93,33 @@ download_tui() {
     for f in "${tui_files[@]}"; do
         local basename="${f#tui/}"
         local dest="$TUI_DL_DIR/$basename"
-        curl -sfL "$GITHUB_RAW/$f" -o "$dest" 2>/dev/null &
-        pids+=($!)
+        curl -sfL --connect-timeout 10 --max-time 60 "$GITHUB_RAW/$f" -o "$dest" 2>/dev/null &
+        critical_pids+=($!)
     done
 
     # Banners (parallel)
     for banner in logo menu setup reality ws wireguard dnstt mtp conduit sos lionsun; do
-        curl -sfL "$GITHUB_RAW/banners/${banner}.txt" -o "$TUI_DL_DIR/banners/${banner}.txt" 2>/dev/null &
+        curl -sfL --connect-timeout 8 --max-time 15 "$GITHUB_RAW/banners/${banner}.txt" -o "$TUI_DL_DIR/banners/${banner}.txt" 2>/dev/null &
         pids+=($!)
     done
 
     # Protocol docs (parallel)
-    for doc in reality wg ws mtp dnstt conduit vray sos; do
-        curl -sfL "$GITHUB_RAW/tui/content/docs/${doc}.txt" -o "$TUI_DL_DIR/content/docs/${doc}.txt" 2>/dev/null &
+    for doc in reality wg ws mtp dnstt conduit vray sos hysteria http-obfs ssh-tunnel slipstream noizdns tor-bridge snowflake; do
+        curl -sfL --connect-timeout 8 --max-time 15 "$GITHUB_RAW/tui/content/docs/${doc}.txt" -o "$TUI_DL_DIR/content/docs/${doc}.txt" 2>/dev/null &
         pids+=($!)
     done
 
     # Wait for all downloads
     local failed=0
-    for pid in "${pids[@]}"; do
+    for pid in "${critical_pids[@]}"; do
         wait "$pid" || ((failed++))
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid" || true
     done
 
     # Verify critical files exist
-    if [[ ! -f "$TUI_DL_DIR/main.sh" || ! -f "$TUI_DL_DIR/engine.sh" || ! -f "$TUI_DL_DIR/theme.sh" ]]; then
+    if (( failed > 0 )); then
         echo "ERROR: Failed to download critical TUI files"
         return 1
     fi
@@ -184,11 +187,9 @@ main() {
         exit 1
     fi
 
-    # Download libraries
-    download_libs
-
-    # lib/bootstrap.sh enables set -e which kills TUI's (( )) && patterns
-    set +e
+    if [[ ${VANY_SPLASH_SHOWN:-0} != 1 ]]; then
+        printf '\n  ░█░█░█▀█░█▀█░█░█░█▀▀░█░█\n  ░▀▄▀░█▀█░█░█░░█░░▀▀█░█▀█\n  ░░▀░░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀\n\n  Loading the server menu...\n'
+    fi
 
     # Handle --update flag
     if [[ $DO_UPDATE -eq 1 ]]; then
@@ -197,8 +198,6 @@ main() {
     fi
 
     # Download TUI
-    echo "  Loading Vany..."
-
     if download_tui; then
         # Set TUI_DIR so modules find each other
         export TUI_DIR="$TUI_DL_DIR"

@@ -1,30 +1,11 @@
-# VLESS + REALITY
+# REALITY
 
-REALITY is the most advanced censorship bypass protocol.
-It borrows TLS certificates from real websites, making
-detection nearly impossible.
+REALITY provides a VLESS connection without a domain. It can help when direct VPN traffic is blocked.
 
-## Why REALITY
+## Before you start
+Use a server with a public IP. Open TCP port 443.
 
-- No domain or certificate needed
-- Immune to active probing attacks
-- Traffic looks like visiting real websites
-- Works in Iran, Russia, and China
+## After installation
+Import the VLESS link into a compatible app, such as Hiddify.
 
-## How It Works
-
-Your server impersonates a real website (like google.com).
-Censors see normal HTTPS traffic. Valid clients get proxied,
-invalid probes get forwarded to the real site.
-
-  Client --> Your Server --> Internet
-    |            |
-    |  TLS 1.3   |  Looks like google.com
-    |  VLESS     |  to any observer
-
-## Setup Notes
-
-- Port 443 must be open
-- No domain name required
-- Choose a camouflage target during install
-- Recommended as first protocol to install
+No protocol can guarantee access on every network.

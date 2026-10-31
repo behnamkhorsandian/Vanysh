@@ -280,6 +280,14 @@ do_download_script() {
 do_install() {
     section "Installing ${name}"
 
+    case "$PROTOCOL" in
+        vray|mtp)
+            err "This protocol is not implemented in the current Docker installer."
+            err "Choose another protocol for now."
+            return 1
+            ;;
+    esac
+
     do_bootstrap
     do_download_script
 
@@ -291,14 +299,12 @@ do_install() {
             reload_xray
             ;;
         ws)
-            install_xray
-            # WS inbound needs domain
             read -rp "  Enter your domain (e.g. ws.example.com): " ws_domain <&3
-            if [[ -n "$ws_domain" ]]; then
-                add_ws_inbound "/ws"
-                set_ws_state "$ws_domain" "/ws"
-                reload_xray
-            fi
+            [[ -n "$ws_domain" ]] || { err "A domain is required."; return 1; }
+            install_xray
+            add_ws_inbound "/ws"
+            set_ws_state "$ws_domain" "/ws"
+            reload_xray
             ;;
         hysteria)
             install_hysteria
@@ -307,7 +313,9 @@ do_install() {
             install_wireguard
             ;;
         dnstt)
-            install_dnstt
+            read -rp "  Enter your delegated DNS name (e.g. t.example.com): " dnstt_domain <&3
+            [[ -n "$dnstt_domain" ]] || { err "A delegated DNS name is required."; return 1; }
+            install_dnstt "$dnstt_domain"
             ;;
         conduit)
             install_conduit
@@ -322,19 +330,22 @@ do_install() {
             install_snowflake
             ;;
         slipstream)
-            install_slipstream
+            read -rp "  Enter your domain: " dns_domain <&3
+            [[ -n "$dns_domain" ]] || { err "A domain is required."; return 1; }
+            SLIPSTREAM_DOMAIN="$dns_domain" install_slipstream
             ;;
         noizdns)
-            install_noizdns
+            read -rp "  Enter your domain: " dns_domain <&3
+            [[ -n "$dns_domain" ]] || { err "A domain is required."; return 1; }
+            NOIZDNS_DOMAIN="$dns_domain" install_noizdns
             ;;
         ssh-tunnel)
             install_ssh_tunnel
             ;;
         http-obfs)
             read -rp "  Enter CDN domain: " cdn_domain <&3
-            if [[ -n "$cdn_domain" ]]; then
-                HTTP_OBFS_DOMAIN="$cdn_domain" install_http_obfs
-            fi
+            [[ -n "$cdn_domain" ]] || { err "A domain is required."; return 1; }
+            HTTP_OBFS_DOMAIN="$cdn_domain" install_http_obfs
             ;;
         vray)
             install_xray
@@ -557,7 +568,7 @@ while true; do
                 do_install
             fi
             ;;
-        2) $is_installed && do_add_user || do_install ;;
+        2) if $is_installed; then do_add_user; else err "Invalid option"; fi ;;
         3) $is_installed && do_remove_user ;;
         4) $is_installed && do_show_config ;;
         5) $is_installed && do_logs ;;
