@@ -51,6 +51,7 @@ if [[ -n "$SCRIPT_DIR" ]]; then
 
     # Pages
     source "$SCRIPT_DIR/pages/journey.sh"
+    source "$SCRIPT_DIR/pages/chooser.sh"
     source "$SCRIPT_DIR/pages/main.sh"
     source "$SCRIPT_DIR/pages/protocol.sh"
     source "$SCRIPT_DIR/pages/install_wizard.sh"
@@ -456,33 +457,10 @@ _run_navigation() {
                 ;;
 
             choose)
-                tui_cleanup
-                local choose_script=""
-                local candidates=("${CLOAK_HOME:-}/scripts/tools/choose.sh" "${SCRIPT_DIR:-}/../scripts/tools/choose.sh")
-                for c in "${candidates[@]}"; do
-                    [[ -f "$c" ]] && { choose_script="$c"; break; }
-                done
-                local choose_temporary=0 choice_file
-                choice_file=$(mktemp "${TMPDIR:-/tmp}/vany-choice.XXXXXX")
-                if [[ -z "$choose_script" ]]; then
-                    choose_script=$(mktemp "${TMPDIR:-/tmp}/vany-chooser.XXXXXX")
-                    choose_temporary=1
-                    if ! curl -fsSL --connect-timeout 8 --max-time 20 "$GITHUB_RAW/scripts/tools/choose.sh" -o "$choose_script"; then
-                        rm -f "$choose_script"
-                    fi
+                if ! page_chooser; then
+                    START_PROTOCOL="${CHOOSER_RETURN_PROTOCOL:-}"
                 fi
-                if [[ -f "$choose_script" ]]; then
-                    VANY_CHOICE_FILE="$choice_file" VANY_STATUS_HEADER="$(printf '%s\n' "${_STATUS_ROWS[@]}")" bash "$choose_script" </dev/tty
-                else
-                    printf '\nCould not load the chooser. Press any key to return. '
-                    read -rsn1 </dev/tty
-                fi
-                if [[ -s "$choice_file" ]]; then
-                    IFS= read -r START_PROTOCOL < "$choice_file"
-                fi
-                [[ -n "$choice_file" ]] && rm -f "$choice_file"
-                (( choose_temporary )) && rm -f "$choose_script"
-                tui_init
+                CHOOSER_RETURN_PROTOCOL=""
                 current_page="main"
                 current_proto=""
                 ;;

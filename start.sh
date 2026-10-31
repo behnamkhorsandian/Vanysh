@@ -82,6 +82,7 @@ download_tui() {
         "tui/metrics.sh"
         "tui/main.sh"
         "tui/pages/main.sh"
+        "tui/pages/chooser.sh"
         "tui/pages/journey.sh"
         "tui/pages/protocol.sh"
         "tui/pages/install_wizard.sh"

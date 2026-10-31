@@ -9,6 +9,7 @@ on:
       - 'scripts/**'
       - 'tui/**'
       - 'tests/tui-smoke.sh'
+      - 'tests/tui-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -19,6 +20,7 @@ on:
       - 'scripts/**'
       - 'tui/**'
       - 'tests/tui-smoke.sh'
+      - 'tests/tui-pty.py'
       - 'docker/**'
       - 'workers/src/index.ts'
       - '.github/workflows/protocol-smoke.yml'
@@ -43,3 +45,6 @@ jobs:
 
       - name: Check terminal navigation and setup choices
         run: bash tests/tui-smoke.sh
+
+      - name: Check the real terminal refresh and chooser
+        run: python3 tests/tui-pty.py

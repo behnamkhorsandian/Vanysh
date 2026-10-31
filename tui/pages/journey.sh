@@ -62,7 +62,8 @@ page_setup_checks() {
         [[ -n "$message" ]] && FRAME_CONTENT+=("" "$message")
         FRAME_FOOTER="1: local firewall  2: continue  Q: back"
         tui_render_frame
-        key=$(tui_read_key 5)
+        tui_wait_key
+        key="$TUI_KEY"
         case "$key" in
             1)
                 if [[ -z "$CHECK_PORT" ]]; then
@@ -120,10 +121,8 @@ journey_wireguard_action() {
         "Press Y to continue. Press Q to cancel.")
     FRAME_FOOTER="Y: continue  Q: cancel"
     tui_render_frame
-    while true; do
-        key=$(tui_read_key 5)
-        [[ "$key" == TICK ]] || break
-    done
+    tui_wait_key
+    key="$TUI_KEY"
     if [[ "$key" != y && "$key" != Y ]]; then
         rm -f "$copy_path"; rmdir "$copy_dir" 2>/dev/null
         return
@@ -250,7 +249,8 @@ page_connect() {
         [[ -n "$JOURNEY_MESSAGE" ]] && FRAME_CONTENT+=("" "$JOURNEY_MESSAGE")
         FRAME_FOOTER="C: chooser  PgDn: more  Q: back"
         tui_render_frame
-        key=$(tui_read_key 5)
+        tui_wait_key
+        key="$TUI_KEY"
         case "$key" in
             1) if [[ "$proto" == wg ]]; then journey_wireguard_action up; elif [[ "$proto" == ssh-tunnel ]]; then journey_ssh_tunnel; fi ;;
             2) [[ "$proto" == wg ]] && journey_wireguard_action down ;;

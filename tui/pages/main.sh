@@ -192,7 +192,8 @@ page_main_menu() {
             FRAME_FOOTER="Enter: browse  C: choose  PgDn: more"
         fi
         tui_render_frame
-        key=$(tui_read_key 5)
+        tui_wait_key
+        key="$TUI_KEY"
         case "$key" in
             UP) view=protocols; (( _SIDEBAR_SEL-- )); (( _SIDEBAR_SEL < 0 )) && _SIDEBAR_SEL=$(( ${#PROTOCOL_IDS[@]} - 1 )) ;;
             DOWN) view=protocols; (( _SIDEBAR_SEL++ )); (( _SIDEBAR_SEL >= ${#PROTOCOL_IDS[@]} )) && _SIDEBAR_SEL=0 ;;
@@ -214,7 +215,10 @@ page_main_menu() {
             2)
                 if [[ "$view" == protocols ]]; then
                     page_connect "$proto"
-                    if [[ $? -eq 2 ]]; then SELECTED_PROTOCOL="_choose"; return 0; fi
+                    if [[ $? -eq 2 ]]; then
+                        CHOOSER_RETURN_PROTOCOL="$proto"
+                        SELECTED_PROTOCOL="_choose"; return 0
+                    fi
                     last_view=""
                 fi ;;
             h|H|ESC|BACKSPACE) view=home ;;
@@ -226,7 +230,10 @@ page_main_menu() {
             m|M) if [[ "$view" == status ]]; then journey_container_stats; last_view=""; fi ;;
             PGUP) tui_scroll_page_up ;;
             PGDN) tui_scroll_page_down ;;
-            c|C) SELECTED_PROTOCOL="_choose"; return 0 ;;
+            c|C)
+                CHOOSER_RETURN_PROTOCOL=""
+                [[ "$view" == protocols ]] && CHOOSER_RETURN_PROTOCOL="$proto"
+                SELECTED_PROTOCOL="_choose"; return 0 ;;
             q|Q) return 1 ;;
         esac
     done

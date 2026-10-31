@@ -497,6 +497,8 @@ FRAME_FOOTER=""            # Footer hint text
 
 # Cached sidebar lines (built internally by _build_sidebar)
 _SIDEBAR_LINES=()
+_DRAWN_TERM_COLS=0
+_DRAWN_TERM_ROWS=0
 
 #-------------------------------------------------------------------------------
 # Build sidebar lines
@@ -679,9 +681,9 @@ tui_render_frame() {
         sidebar_offset=$(( _SIDEBAR_SEL + 3 - render_rows ))
     fi
 
-    # --- Render all at once: clear screen then draw full frame ---
+    # Overwrite the frame in place. Clearing the entire screen causes flicker.
     {
-        printf '\033[2J\033[H'  # clear screen + cursor home
+        printf '\033[H'
 
         # Row 1: Top border
         printf '%b%s%s%s%b\n' "$bc" "$BOX_TL" "$h_full" "$BOX_TR" "$C_RST"
@@ -749,8 +751,56 @@ tui_render_frame() {
         _print_full_row " $FRAME_FOOTER"
 
         # Bottom border
-        printf '%b%s%s%s%b\n' "$bc" "$BOX_BL" "$h_full" "$BOX_BR" "$C_RST"
+        printf '%b%s%s%s%b' "$bc" "$BOX_BL" "$h_full" "$BOX_BR" "$C_RST"
+        local next_row=$(( _CHROME_ROWS + render_rows + 1 ))
+        if (( next_row <= _TERM_ROWS )); then
+            printf '\033[%d;1H\033[J' "$next_row"
+        fi
     }
+    _DRAWN_TERM_COLS=$_TERM_COLS
+    _DRAWN_TERM_ROWS=$_TERM_ROWS
+}
+
+# Refresh only the status rows during idle input. Keep the content and cursor.
+tui_refresh_status() {
+    if (( _DRAWN_TERM_COLS != _TERM_COLS || _DRAWN_TERM_ROWS != _TERM_ROWS )); then
+        tui_compute_layout
+        tui_render_frame
+        return
+    fi
+
+    local old_count=${#_STATUS_ROWS[@]} row=2 status_line
+    _refresh_machine_metrics
+    _build_status_rows
+    if (( ${#_STATUS_ROWS[@]} != old_count )); then
+        tui_compute_layout
+        tui_render_frame
+        return
+    fi
+
+    printf '\033%s' 7
+    for status_line in "${_STATUS_ROWS[@]}"; do
+        printf '\033[%d;1H' "$row"
+        _print_full_row " $status_line"
+        (( row++ ))
+    done
+    printf '\033%s' 8
+}
+
+# Keep timed status refreshes out of command substitution so terminal output
+# cannot be mistaken for a key press.
+tui_wait_key() {
+    local key
+    while true; do
+        key=$(tui_read_key 5)
+        if [[ "$key" == TICK ]]; then
+            tui_refresh_status
+        else
+            [[ "$key" == EOF ]] && key=Q
+            TUI_KEY="$key"
+            return 0
+        fi
+    done
 }
 
 #===============================================================================
@@ -1212,9 +1262,12 @@ tui_read_key() {
 
     stty -echo -icanon min 1 time 0 <&3 2>/dev/null
     if [[ -n "${1:-}" ]]; then
-        if ! IFS= read -rsn1 -t "$1" c1 <&3; then
+        if IFS= read -rsn1 -t "$1" c1 <&3; then
+            :
+        else
+            local read_status=$?
             stty echo icanon <&3 2>/dev/null
-            echo "TICK"
+            if (( read_status > 128 )); then echo "TICK"; else echo "EOF"; fi
             return
         fi
     else
