@@ -14,7 +14,7 @@ This is not a private Vany VPN. Check the Tor project guidance before sharing br
 2. Run the command below.
 
    ```bash
-   curl vany.sh | sudo bash
+   curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
    ```
 
 3. Select this protocol. Press 1 to run the setup checks. Choose Install in the management menu.

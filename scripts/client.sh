@@ -127,7 +127,7 @@ protocol_page() {
             2)
                 header
                 printf '  Vany creates services on an Ubuntu or Debian server.\n'
-                printf '  Connect to that server with SSH. Then run:\n\n  curl vany.sh | sudo bash\n'
+                printf '  Connect to that server with SSH. Then run:\n\n  curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash\n'
                 printf '\n  Select %s, then choose Create.\n' "$proto"
                 pause_key ;;
             c|C) choose_protocol; return ;;

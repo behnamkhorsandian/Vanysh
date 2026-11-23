@@ -137,7 +137,7 @@ export function pageHelp(): string {
   lines.push("");
   lines.push(`    ${TEXT}If you can't reach vany.sh, try these methods in order:${RST}`);
   lines.push("");
-  lines.push(`    ${LGREEN}1.${RST} ${TEXT}Direct${RST}           ${DIM}curl vany.sh | sudo bash${RST}`);
+  lines.push(`    ${LGREEN}1.${RST} ${TEXT}Direct${RST}           ${DIM}curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash${RST}`);
   lines.push(`    ${LGREEN}2.${RST} ${TEXT}DoH bypass${RST}       ${DIM}curl --doh-url https://1.1.1.1/dns-query vany.sh | sudo bash${RST}`);
   lines.push(`    ${LGREEN}3.${RST} ${TEXT}CF Pages${RST}         ${DIM}curl vany-agg.pages.dev | sudo bash${RST}`);
   lines.push(`    ${LGREEN}4.${RST} ${TEXT}GitHub${RST}           ${DIM}curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash${RST}`);

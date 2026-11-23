@@ -4,7 +4,7 @@
 # https://github.com/behnamkhorsandian/Vanysh
 #
 # Usage:
-#   curl vany.sh | sudo bash              # Interactive menu
+#   curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash              # Interactive menu
 #   curl vany.sh/reality | sudo bash      # Jump to specific protocol
 #
 # All-in-one: install, manage, and remove VPN protocols on your VM.
@@ -189,7 +189,7 @@ main() {
     # Check root
     if [[ $EUID -ne 0 ]]; then
         echo "ERROR: This script must be run as root or with sudo"
-        echo "Usage: curl vany.sh | sudo bash"
+        echo "Usage: curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash"
         exit 1
     fi
 

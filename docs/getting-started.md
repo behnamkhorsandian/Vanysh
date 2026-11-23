@@ -3,7 +3,7 @@
 Vany helps you create a service on a Linux server or connect from your device. Use the same command for both journeys:
 
 ```bash
-curl vany.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
 ```
 
 On Windows, run it in an Ubuntu terminal in Windows Subsystem for Linux. On macOS, run it in Terminal. On Linux, run it in a terminal. To create a service on a remote server, connect to that server with SSH first and run the command there.
@@ -27,7 +27,7 @@ You need an Ubuntu 20.04 or later server, or a Debian 11 or later server. You al
    ssh root@SERVER_IP
    ```
 
-2. Run `curl vany.sh | sudo bash` on the server.
+2. Run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` on the server.
 3. Select a protocol and press 1 for Create.
 4. Read the local checks. If UFW is active, you can choose to add the required port rule.
 5. Check the separate provider firewall and any domain records. See [network and provider setup](network-setup.md).
@@ -40,7 +40,7 @@ Not every service creates personal connections. Conduit, Tor bridge, and Snowfla
 ## Connect from a device
 
 1. Ask the server owner for the protocol and its connection link or file.
-2. Run `curl vany.sh | sudo bash` on your device. On Windows, run it in WSL.
+2. Run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` on your device. On Windows, run it in WSL.
 3. Select the protocol and press 2 for Connect.
 4. Follow the instructions for the compatible app. Import the link or file and connect in that app.
 5. Keep the link or file private. It can contain credentials.
