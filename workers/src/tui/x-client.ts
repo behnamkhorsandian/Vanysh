@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Vany TUI — Thin Bash Client
 //
-// Served when user runs: curl vany.sh | sudo bash
+// Served when user runs: curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
 // Pattern from 432.sh x-client: stdin is the pipe, /dev/tty (fd 3)
 // handles keyboard I/O. Worker-rendered pages stream via background curl.
 // Local pages (status, users) render directly from Docker/state files.
@@ -10,7 +10,7 @@
 export const VANY_CLIENT_SCRIPT = `#!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
 # Vany — Interactive Terminal Client
-# Usage: curl vany.sh | sudo bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 

@@ -14,7 +14,7 @@ Your server provider may charge for relay traffic.
 2. Run the command below.
 
    ```bash
-   curl vany.sh | sudo bash
+   curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
    ```
 
 3. Select this protocol. Press 1 to run the setup checks. Choose Install in the management menu.

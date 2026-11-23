@@ -11,7 +11,7 @@ Vany helps you create a connection on your own Linux server or connect to a serv
 Run this command in a terminal:
 
 ```bash
-curl vany.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
 ```
 
 To create a service on a remote server, connect to the server with SSH first and run the command there. To connect from Windows, open an Ubuntu terminal in Windows Subsystem for Linux. On macOS, use Terminal.

@@ -138,7 +138,7 @@ _preflight() {
     # Check root
     if [[ $EUID -ne 0 ]]; then
         printf '\033[31mError:\033[0m This installer must be run as root.\n'
-        printf 'Try: curl vany.sh | sudo bash\n'
+        printf 'Try: curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash\n'
         exit 1
     fi
 

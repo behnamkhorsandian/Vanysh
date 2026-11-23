@@ -1,17 +1,16 @@
 # Cloudflare Workers And Pages Deployment
 
-Vany uses one unified Cloudflare Worker for installer, tool, TUI, SafeBox, and stats routes. The public website is deployed separately to Cloudflare Pages from `www/`.
+Vany uses one unified Cloudflare Worker for dynamic installer, tool, TUI, SafeBox, and stats routes. The public website is deployed separately from the static files in `www/`.
+
+The recommended terminal-menu command downloads `start.sh` directly from GitHub. The script then downloads its TUI and libraries from the repository. The Worker remains responsible for its dynamic routes and services.
 
 ## Request Flow
 
 ```text
-curl vany.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash
         |
         v
-Cloudflare Worker: workers/src/index.ts
-        |
-        v
-Load start.sh and the terminal menu
+GitHub Raw: start.sh and terminal menu files
         |
         v
 Open the selected connection or server manager

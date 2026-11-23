@@ -38,7 +38,7 @@ show_methods() {
     echo -e "  ${D}Ways to reach vany.sh when the primary domain is blocked${R}"
     echo ""
     echo -e "  ${B}1. Direct${R}"
-    echo -e "     ${LG}curl vany.sh | sudo bash${R}"
+    echo -e "     ${LG}curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash${R}"
     echo -e "     ${D}Works unless domain is blocked${R}"
     echo ""
     echo -e "  ${B}2. DoH Bypass${R} ${D}(DNS-over-HTTPS)${R}"
@@ -175,7 +175,7 @@ rescue() {
     echo ""
     echo -e "  ${RED}All methods failed.${R}"
     echo -e "  ${D}Install Cloudflare WARP (1.1.1.1 app), then run:${R}"
-    echo -e "  ${LG}curl vany.sh | sudo bash${R}"
+    echo -e "  ${LG}curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash${R}"
     echo ""
     exit 1
 }

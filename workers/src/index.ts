@@ -3,7 +3,7 @@
  *
  * Path-based routing (primary):
  *   curl vany.sh            -> Static landing page (logo + endpoints)
- *   curl vany.sh | sudo bash -> Thin TUI client (via /tui/client)
+ *   curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash -> Thin TUI client (via /tui/client)
  *   curl vany.sh/reality    -> start.sh with VANY_PROTOCOL="reality"
  *   curl vany.sh/tui/*      -> Server-rendered ANSI TUI pages
  *   curl vany.sh/dnstt/setup/linux -> DNSTT client setup script
@@ -421,7 +421,7 @@ export default {
 
     // Root domain: path-based protocol routing
     // curl vany.sh/reality | sudo bash  →  start.sh with VANY_PROTOCOL="reality"
-    // curl vany.sh | sudo bash          →  start.sh (interactive menu)
+    // curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash          →  start.sh (interactive menu)
     if (hostname === 'vany.sh') {
       const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -461,10 +461,10 @@ export default {
           ],
           rescue: 'curl -m5 vany.sh||curl -m5 --doh-url https://1.1.1.1/dns-query vany.sh||curl vany-agg.pages.dev',
           access_methods: [
-            { name: 'Direct', cmd: 'curl vany.sh | sudo bash', note: 'Works unless domain is blocked' },
+            { name: 'Direct', cmd: 'curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash', note: 'Requires access to GitHub Raw' },
             { name: 'DoH bypass', cmd: 'curl --doh-url https://1.1.1.1/dns-query vany.sh | sudo bash', note: 'Bypasses DNS poisoning (curl 7.62+)' },
             { name: 'CF Pages', cmd: 'curl vany-agg.pages.dev | sudo bash', note: 'Shared *.pages.dev domain, hard to block' },
-            { name: 'WARP (1.1.1.1)', cmd: 'Install 1.1.1.1 app, enable, then curl vany.sh | sudo bash', note: 'Free Cloudflare VPN, bypasses all blocks' },
+            { name: 'WARP (1.1.1.1)', cmd: 'Install 1.1.1.1 app, enable, then curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash', note: 'Free Cloudflare VPN, bypasses all blocks' },
             { name: 'GitHub fallback', cmd: 'curl -sL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash', note: 'Different CDN, different IPs' },
           ],
           warp: {
@@ -537,7 +537,7 @@ echo "All methods failed. Your network blocks everything."
 echo ""
 echo "Last resort: Install Cloudflare WARP (1.1.1.1 app):"
 echo "  https://1.1.1.1/"
-echo "Then run: curl vany.sh | sudo bash"
+echo "Then run: curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash"
 exit 1
 `;
         return new Response(script, {
@@ -1182,7 +1182,7 @@ function getInfoPage(service: string, config: ServiceConfig): string {
     <div class="install-box">
       <h2>Open Vany</h2>
       <p style="color:#8b949e;margin-bottom:10px;">Run this command, then select ${config.name} and choose Create or Connect.</p>
-      <code>curl vany.sh | sudo bash</code>
+      <code>curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash</code>
     </div>
     
     <div class="apps">

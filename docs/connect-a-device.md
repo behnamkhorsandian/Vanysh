@@ -2,7 +2,7 @@
 
 Ask the server owner which protocol to use and send you its connection link or file through a private channel. The server and device must use compatible settings. A protocol name alone is not enough to connect.
 
-Run `curl vany.sh | sudo bash` in your terminal. Select the protocol and press 2 for Connect. Vany explains the next steps. On Windows, use an Ubuntu terminal in WSL for the Vany menu.
+Run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` in your terminal. Select the protocol and press 2 for Connect. Vany explains the next steps. On Windows, use an Ubuntu terminal in WSL for the Vany menu.
 
 | Connection | What the device needs | What Vany can start |
 | --- | --- | --- |

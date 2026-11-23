@@ -115,5 +115,5 @@ ask 1
 if [[ -n "${VANY_CHOICE_FILE:-}" ]]; then
     printf '%s\n' "$PROTO" > "$VANY_CHOICE_FILE"
 else
-    printf '\n  Open Vany and select %s.\n  curl vany.sh | sudo bash\n' "$PROTO"
+    printf '\n  Open Vany and select %s.\n  curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash\n' "$PROTO"
 fi

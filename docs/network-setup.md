@@ -24,7 +24,7 @@ Only one DNS tunnel can use port 53 on the same server. VLESS with TLS and MTPro
 
 ## Use the Vany checks
 
-1. Run `curl vany.sh | sudo bash` in the terminal.
+1. Run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` in the terminal.
 2. Press C for the chooser or select a protocol with the arrow keys.
 3. Press 1 to create a service. The wizard checks the local port and UFW status.
 4. Press 1 to add the displayed rule to an active UFW firewall. Vany does not enable UFW.
@@ -78,7 +78,7 @@ For speed, Vany uses its Cloudflare speed test. The test downloads data and repo
 
 ## Windows
 
-Install Windows Subsystem for Linux and an Ubuntu distribution from Microsoft's [WSL installation guide](https://learn.microsoft.com/windows/wsl/install). Open Ubuntu from the Start menu and run `curl vany.sh | sudo bash` there. For a service on a remote server, use SSH to connect to that server first, then run the same command.
+Install Windows Subsystem for Linux and an Ubuntu distribution from Microsoft's [WSL installation guide](https://learn.microsoft.com/windows/wsl/install). Open Ubuntu from the Start menu and run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` there. For a service on a remote server, use SSH to connect to that server first, then run the same command.
 
 For a personal connection on Windows, import the link or file into the appropriate Windows app. WSL has its own network environment. A connection inside WSL does not necessarily route Windows applications through the VPN.
 
@@ -93,7 +93,7 @@ tracert 1.1.1.1
 
 ## macOS
 
-Open Terminal. Run `curl vany.sh | sudo bash` for the client menu. To create a service, connect to your Linux server with SSH and run the same command there. Import a connection link or file into the app recommended by the server owner.
+Open Terminal. Run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash` for the client menu. To create a service, connect to your Linux server with SSH and run the same command there. Import a connection link or file into the app recommended by the server owner.
 
 ```bash
 curl --max-time 3 https://ipinfo.io/json
@@ -106,7 +106,7 @@ The macOS menu shows interface counters, not a per-user traffic total. Use its S
 
 ## Linux
 
-Open a terminal and run `curl vany.sh | sudo bash`. Select Connect for client instructions. The WireGuard page can use `wg-quick` with a trusted `.conf` file if the tool is installed. It can change routes and DNS. Vany rejects files with shell hooks or `SaveConfig` for this action.
+Open a terminal and run `curl -fsSL https://raw.githubusercontent.com/behnamkhorsandian/Vanysh/main/start.sh | sudo bash`. Select Connect for client instructions. The WireGuard page can use `wg-quick` with a trusted `.conf` file if the tool is installed. It can change routes and DNS. Vany rejects files with shell hooks or `SaveConfig` for this action.
 
 The SSH tunnel page can start a local SOCKS proxy with a trusted host key and key-based login. The proxy uses `127.0.0.1:1080`. Configure each application to use that proxy. Press Q in the tunnel screen to stop it.
 
